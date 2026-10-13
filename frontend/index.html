@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StreamingCommunity Downloader</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Plyr & HLS.js for Web Player -->
+    <link rel="stylesheet" href="https://cdn.plyr.io/3.7.8/plyr.css" />
+    <script src="https://cdn.plyr.io/3.7.8/plyr.polyfilled.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+</head>
+<body class="bg-gray-900 text-white font-sans antialiased min-h-screen">
+
+    <!-- Navbar -->
+    <nav class="bg-gray-800 p-4 shadow-md flex justify-between items-center">
+        <h1 class="text-xl font-bold text-red-500">SC Downloader</h1>
+        <div id="domain-status" class="text-sm text-gray-400">Checking domain...</div>
+    </nav>
+
+    <!-- Main Container -->
+    <main class="container mx-auto p-4 max-w-4xl">
+
+        <!-- Onboarding Wizard -->
+        <section id="onboarding-wizard" class="bg-gray-800 p-6 rounded-lg shadow-lg mb-8 hidden">
+            <h2 class="text-2xl font-bold mb-4">Initial Setup</h2>
+            <form id="setup-form" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium mb-1">Download Path</label>
+                    <input type="text" id="download-path" value="/app/downloads" class="w-full bg-gray-700 p-2 rounded border border-gray-600 focus:outline-none focus:border-red-500" required>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Default Format</label>
+                    <select id="default-format" class="w-full bg-gray-700 p-2 rounded border border-gray-600 focus:outline-none focus:border-red-500">
+                        <option value="mp4">MP4</option>
+                        <option value="mkv">MKV</option>
+                        <option value="avi">AVI</option>
+                    </select>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium mb-1">Default Quality</label>
+                    <select id="default-quality" class="w-full bg-gray-700 p-2 rounded border border-gray-600 focus:outline-none focus:border-red-500">
+                        <option value="best">Best Available</option>
+                        <option value="1080p">1080p</option>
+                        <option value="720p">720p</option>
+                        <option value="480p">480p</option>
+                    </select>
+                </div>
+                <button type="submit" class="w-full bg-red-600 hover:bg-red-700 p-2 rounded font-bold transition-colors">Save Setup</button>
+            </form>
+        </section>
+
+        <!-- Main App Content -->
+        <section id="app-content" class="hidden">
+            <!-- Search -->
+            <div class="mb-8">
+                <form id="search-form" class="flex gap-2">
+                    <input type="text" id="search-input" placeholder="Search for movies or TV shows..." class="flex-1 bg-gray-800 p-3 rounded border border-gray-700 focus:outline-none focus:border-red-500 text-lg">
+                    <button type="submit" class="bg-red-600 hover:bg-red-700 px-6 rounded font-bold transition-colors">Search</button>
+                </form>
+            </div>
+
+            <!-- Results -->
+            <div id="search-results" class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+                <!-- Dynamic Content -->
+            </div>
+
+            <!-- Player Modal (Hidden) -->
+            <div id="player-modal" class="fixed inset-0 bg-black bg-opacity-90 hidden flex-col justify-center items-center z-50 p-4">
+                <div class="w-full max-w-4xl relative">
+                    <button id="close-player" class="absolute -top-10 right-0 text-white hover:text-red-500 text-xl font-bold">&times; Close</button>
+                    <video id="player" controls playsinline></video>
+                </div>
+            </div>
+
+            <!-- Download Modal (Hidden) -->
+            <div id="download-modal" class="fixed inset-0 bg-black bg-opacity-80 hidden flex justify-center items-center z-50">
+                <div class="bg-gray-800 p-6 rounded-lg shadow-lg w-full max-w-md">
+                    <h3 class="text-xl font-bold mb-4">Download Options</h3>
+                    <form id="download-form" class="space-y-4">
+                        <input type="hidden" id="dl-title">
+                        <input type="hidden" id="dl-m3u8">
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Quality</label>
+                            <select id="dl-quality" class="w-full bg-gray-700 p-2 rounded border border-gray-600 focus:outline-none focus:border-red-500">
+                                <!-- Populated dynamically -->
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-medium mb-1">Format</label>
+                            <select id="dl-format" class="w-full bg-gray-700 p-2 rounded border border-gray-600 focus:outline-none focus:border-red-500">
+                                <option value="mp4">MP4</option>
+                                <option value="mkv">MKV</option>
+                                <option value="avi">AVI</option>
+                            </select>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button" id="cancel-dl-modal" class="flex-1 bg-gray-600 hover:bg-gray-500 p-2 rounded font-bold transition-colors">Cancel</button>
+                            <button type="submit" class="flex-1 bg-red-600 hover:bg-red-700 p-2 rounded font-bold transition-colors">Start Download</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+            <!-- Queue Manager -->
+            <div class="bg-gray-800 p-6 rounded-lg shadow-lg">
+                <h2 class="text-xl font-bold mb-4">Download Queue</h2>
+                <div id="queue-list" class="space-y-4">
+                    <!-- Dynamic Content -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <script src="/app.js"></script>
+</body>
+</html>

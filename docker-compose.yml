@@ -1,0 +1,19 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    ports:
+      - "9876:9876"
+    volumes:
+      - downloads:/app/downloads
+      - config:/app/config
+    environment:
+      - PORT=9876
+    restart: unless-stopped
+
+volumes:
+  downloads:
+    driver: local
+  config:
+    driver: local

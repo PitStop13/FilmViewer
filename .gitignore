@@ -1,0 +1,25 @@
+
+# Folder
+bin
+lib64
+*__pycache__
+pyvenv.cfg
+
+# Project specific
+videos/
+tmp/
+debug.log
+*.pyc
+*.pyo
+.venv/
+venv/
+# Panel database (users, sessions, requests)
+panel.db
+panel.db-wal
+panel.db-shm
+.pytest_cache/
+
+# Runtime config, written by the panel (source domain, libraries, settings).
+# Not committed: the source domain rotates, so a baked-in value ships stale.
+data.json
+schedule.json
