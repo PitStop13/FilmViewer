@@ -849,20 +849,25 @@ async function openStreamPlayer(opts) {
   if (!modalEl) return;
   const titleEl = document.getElementById('stream-player-modal-title');
   const subEl = document.getElementById('stream-player-modal-sub');
-  const extLinkEl = document.getElementById('stream-player-external-link');
-  const extLabelEl = document.getElementById('stream-player-external-label');
+  const cardBtnEl = document.getElementById('stream-player-card-btn');
+  const cardTitleEl = document.getElementById('stream-player-card-title');
   const iframeEl = document.getElementById('stream-player-iframe');
   const loadingEl = document.getElementById('stream-player-loading');
+  const cardEl = document.getElementById('stream-player-card');
 
-  titleEl.textContent = opts.title || 'Streaming';
-  subEl.textContent = 'Caricamento sorgente...';
-  loadingEl.style.display = 'block';
-  loadingEl.innerHTML = `
-    <div class="spinner-border text-primary mb-2" role="status"></div>
-    <div class="text-muted small">Caricamento player in corso...</div>`;
-  iframeEl.style.display = 'none';
-  iframeEl.src = 'about:blank';
-  extLinkEl.href = '#';
+  if (titleEl) titleEl.textContent = opts.title || 'Streaming';
+  if (subEl) subEl.textContent = 'Caricamento sorgente...';
+  if (loadingEl) {
+    loadingEl.style.display = 'block';
+    loadingEl.innerHTML = `
+      <div class="spinner-border text-primary mb-2" role="status"></div>
+      <div class="text-muted small">Caricamento link in corso...</div>`;
+  }
+  if (iframeEl) {
+    iframeEl.style.display = 'none';
+    iframeEl.src = 'about:blank';
+  }
+  if (cardEl) cardEl.style.display = 'flex';
 
   showModal('stream-player-modal');
 
@@ -876,29 +881,34 @@ async function openStreamPlayer(opts) {
     if (opts.episodeNumber) q.episode_number = String(opts.episodeNumber);
 
     const info = await api.get('/api/stream/watch-info', q);
-    subEl.textContent = `Sorgente: ${info.source_name}`;
-    extLinkEl.href = info.watch_url;
-    extLabelEl.textContent = `Apri su ${info.source_name}`;
+    if (subEl) subEl.textContent = `Sorgente: ${info.source_name}`;
 
-    if (info.embed_url) {
-      iframeEl.src = info.embed_url;
-      iframeEl.onload = () => {
-        loadingEl.style.display = 'none';
+    if (cardBtnEl) {
+      cardBtnEl.href = info.watch_url;
+      const btnSpan = cardBtnEl.querySelector('span');
+      if (btnSpan) btnSpan.textContent = `Guarda ora su ${info.source_name}`;
+    }
+    if (cardTitleEl) {
+      cardTitleEl.textContent = opts.title || 'Pronto per lo streaming';
+    }
+
+    if (loadingEl) loadingEl.style.display = 'none';
+
+    // If source is animeunity with direct unblocked embed, allow embedding in iframe
+    if (info.content_type === 'anime' && info.embed_url && info.embed_url !== info.watch_url) {
+      if (iframeEl) {
+        iframeEl.src = info.embed_url;
         iframeEl.style.display = 'block';
-      };
-      setTimeout(() => {
-        loadingEl.style.display = 'none';
-        iframeEl.style.display = 'block';
-      }, 1500);
+        if (cardEl) cardEl.style.display = 'none';
+      }
     } else {
-      loadingEl.innerHTML = `
-        <p class="text-warning mb-2">Embed non disponibile direttamente.</p>
-        <a href="${info.watch_url}" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-primary">
-          <i class="ti ti-external-link me-1"></i>Guarda sul sito sorgente
-        </a>`;
+      if (iframeEl) iframeEl.style.display = 'none';
+      if (cardEl) cardEl.style.display = 'flex';
     }
   } catch (err) {
-    loadingEl.innerHTML = `<p class="text-danger mb-2">Errore caricamento: ${escapeHtml(errText(err))}</p>`;
+    if (loadingEl) {
+      loadingEl.innerHTML = `<p class="text-danger mb-2">Errore caricamento: ${escapeHtml(errText(err))}</p>`;
+    }
   }
 }
 

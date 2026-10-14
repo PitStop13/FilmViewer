@@ -61,8 +61,8 @@ async def get_watch_info(
 
     if c_type in ("movie", "film"):
         domain = _sc_domain()
-        watch_url = f"https://{domain}/watch/{id}"
-        embed_url = f"https://{domain}/iframe/{id}"
+        watch_url = f"https://{domain}/it/watch/{id}"
+        embed_url = f"https://{domain}/it/iframe/{id}"
         return {
             "content_type": "movie",
             "id": id,
@@ -74,11 +74,11 @@ async def get_watch_info(
     if c_type in ("tv", "series"):
         domain = _sc_domain()
         if episode_id:
-            watch_url = f"https://{domain}/watch/{id}?e={episode_id}"
-            embed_url = f"https://{domain}/iframe/{id}?episode_id={episode_id}"
+            watch_url = f"https://{domain}/it/watch/{id}?e={episode_id}"
+            embed_url = f"https://{domain}/it/iframe/{id}?episode_id={episode_id}"
         else:
-            watch_url = f"https://{domain}/titles/{id}-{slug}" if slug else f"https://{domain}/watch/{id}"
-            embed_url = f"https://{domain}/iframe/{id}"
+            watch_url = f"https://{domain}/it/titles/{id}-{slug}" if slug else f"https://{domain}/it/watch/{id}"
+            embed_url = f"https://{domain}/it/iframe/{id}"
         return {
             "content_type": "tv",
             "id": id,

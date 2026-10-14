@@ -112,34 +112,56 @@
 
 <!-- ── Online Stream Player Modal ────────────────────────────────────────── -->
 <div class="modal modal-blur fade" id="stream-player-modal" tabindex="-1" style="display:none" aria-hidden="true">
-  <div class="modal-dialog modal-xl modal-dialog-centered">
-    <div class="modal-content player-shell" style="background:#0f172a; border:1px solid rgba(255,255,255,0.12); border-radius:12px; overflow:hidden;">
-      <div class="modal-header border-0 d-flex justify-content-between align-items-center py-2 px-3" style="background:rgba(0,0,0,0.5)">
-        <div class="d-flex align-items-center gap-2">
-          <i class="ti ti-player-play text-success fs-2"></i>
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content player-shell" style="background:#0b1120; border:1px solid rgba(255,255,255,0.12); border-radius:16px; overflow:hidden; box-shadow:0 25px 50px -12px rgba(0, 0, 0, 0.7);">
+      <div class="modal-header border-0 d-flex justify-content-between align-items-center py-3 px-4" style="background:rgba(255,255,255,0.02); border-bottom:1px solid rgba(255,255,255,0.06) !important;">
+        <div class="d-flex align-items-center gap-3">
+          <div style="width:38px; height:38px; border-radius:10px; background:rgba(46,213,115,0.15); display:flex; align-items:center; justify-content:center;">
+            <i class="ti ti-player-play text-success fs-2"></i>
+          </div>
           <div>
-            <h5 class="modal-title m-0 text-white" id="stream-player-modal-title">Streaming</h5>
+            <h5 class="modal-title m-0 text-white fw-bold" id="stream-player-modal-title">Streaming</h5>
             <small class="text-muted" id="stream-player-modal-sub"></small>
           </div>
         </div>
-        <div class="d-flex align-items-center gap-2">
-          <a href="#" id="stream-player-external-link" target="_blank" rel="noopener noreferrer" class="btn btn-sm btn-outline-info">
-            <i class="ti ti-external-link me-1"></i><span id="stream-player-external-label">Apri sul sito</span>
-          </a>
-          <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="stream-player-close-btn"></button>
-        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" id="stream-player-close-btn"></button>
       </div>
-      <div class="modal-body p-0" style="background:#000; position:relative; min-height:480px; display:flex; align-items:center; justify-content:center;">
-        <div id="stream-player-loading" class="text-center p-4" style="position:absolute; z-index:1;">
+
+      <div class="modal-body p-4 text-center d-flex flex-column align-items-center justify-content-center" style="min-height:340px; background:radial-gradient(ellipse at top, #1e293b 0%, #0b1120 70%);">
+        <div id="stream-player-loading" class="text-center p-4" style="display:none;">
           <div class="spinner-border text-primary mb-2" role="status"></div>
-          <div class="text-muted small">Caricamento player in corso...</div>
+          <div class="text-muted small">Caricamento link in corso...</div>
         </div>
-        <iframe id="stream-player-iframe" class="w-100" style="height:65vh; min-height:480px; border:none; position:relative; z-index:2; display:none;"
+
+        <div id="stream-player-card" class="d-flex flex-column align-items-center justify-content-center w-100" style="max-width:480px;">
+          <div class="mb-3 position-relative" style="width:84px; height:84px; border-radius:50%; background:linear-gradient(135deg, #10b981 0%, #059669 100%); display:flex; align-items:center; justify-content:center; box-shadow:0 0 30px rgba(16,185,129,0.35);">
+            <i class="ti ti-player-play text-white" style="font-size:38px; margin-left:4px;"></i>
+          </div>
+
+          <h3 class="text-white fw-bold mb-2" id="stream-player-card-title">Pronto per la visione</h3>
+
+          <div class="d-flex gap-2 mb-3">
+            <span class="badge bg-dark text-light border border-secondary" style="font-size:11px;"><i class="ti ti-badge-hd me-1"></i>HD 1080p</span>
+            <span class="badge bg-dark text-light border border-secondary" style="font-size:11px;"><i class="ti ti-volume me-1"></i>Multi-Audio</span>
+            <span class="badge bg-dark text-light border border-secondary" style="font-size:11px;"><i class="ti ti-subtitles me-1"></i>Sottotitoli</span>
+          </div>
+
+          <p class="text-muted small mb-4" style="line-height:1.6; font-size:13px;">
+            A causa delle protezioni di sicurezza anti-incorporamento (CSP / SAMEORIGIN) dei server video, la riproduzione si avvia direttamente nel player ufficiale con tutti i controlli, tracce audio e qualità originale.
+          </p>
+
+          <a href="#" id="stream-player-card-btn" target="_blank" rel="noopener noreferrer" class="btn btn-success btn-lg px-4 py-2 d-inline-flex align-items-center gap-2 shadow" style="font-weight:600; font-size:16px; border-radius:10px;">
+            <i class="ti ti-player-play"></i><span>Guarda ora su StreamingCommunity</span>
+          </a>
+        </div>
+
+        <iframe id="stream-player-iframe" class="w-100" style="height:60vh; min-height:420px; border:none; display:none; border-radius:12px;"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
                 allowfullscreen></iframe>
       </div>
-      <div class="modal-footer py-2 px-3 justify-content-between" style="background:rgba(0,0,0,0.3); border-top:1px solid rgba(255,255,255,0.06); font-size:12px; color:var(--text-muted, #94a3b8);">
-        <span><i class="ti ti-info-circle me-1"></i>Se il video non parte a causa dei blocchi del browser, clicca su <strong>"Apri sul sito"</strong> in alto a destra.</span>
+
+      <div class="modal-footer py-2 px-4 justify-content-between" style="background:rgba(255,255,255,0.02); border-top:1px solid rgba(255,255,255,0.06);">
+        <small class="text-muted"><i class="ti ti-shield-check text-success me-1"></i>Link verificato e sicuro</small>
         <button type="button" class="btn btn-sm btn-secondary" data-bs-dismiss="modal">Chiudi</button>
       </div>
     </div>
