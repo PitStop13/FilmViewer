@@ -4,10 +4,12 @@ What the panel shows before anything is typed: trending, top 10,
 film del momento, nuove uscite, serie TV più viste, serie TV più votate, etc.
 """
 
-import concurrent.futures
+import json
 import logging
 import threading
 import time
+
+from bs4 import BeautifulSoup
 
 from app.core import page
 
@@ -101,58 +103,71 @@ def clear_cache(source: str | None = None) -> None:
 # ── StreamingCommunity ────────────────────────────────────────────────────────
 
 def _sc_shelves(domain: str) -> list[dict]:
-    """The home page's own sliders plus subdivided Film and Serie TV archive shelves."""
-    def fetch_home_sliders():
-        try:
-            props = page.fetch_page_props(f"https://{domain}/it")
-            res = []
-            for slider in props.get("sliders") or []:
-                key = slider.get("name") or slider.get("label")
-                if not key:
-                    continue
-                items = [t for t in (page.normalize_title(raw)
-                                     for raw in (slider.get("titles") or [])[:_SHELF_CAP]) if t]
-                if items:
-                    res.append((key, items, slider.get("label")))
-            return res
-        except Exception as e:
-            logger.warning("Failed to fetch home sliders: %s", e)
-            return []
+    """The home page's own sliders: trending, recently added, today's top ten."""
+    props = page.fetch_page_props(f"https://{domain}/it")
+    shelves = []
+    for slider in props.get("sliders") or []:
+        key = slider.get("name") or slider.get("label")
+        if not key:
+            continue
+        items = [t for t in (page.normalize_title(raw)
+                             for raw in (slider.get("titles") or [])[:_SHELF_CAP]) if t]
+        if items:
+            shelves.append(_shelf("streamingcommunity", key, items,
+                                  fallback=slider.get("label")))
+    return shelves
 
-    def fetch_archive(key: str, media_type: str, sort: str):
-        try:
-            items = page.browse_archive(domain, media_type=media_type, sort=sort)[:_SHELF_CAP]
-            return (key, items)
-        except Exception as e:
-            logger.warning("Failed to fetch archive shelf %s: %s", key, e)
-            return (key, [])
 
-    with concurrent.futures.ThreadPoolExecutor(max_workers=7) as executor:
-        f_home = executor.submit(fetch_home_sliders)
-        f_mv = executor.submit(fetch_archive, "movie_views", "movie", "views")
-        f_ml = executor.submit(fetch_archive, "movie_latest", "movie", "created_at")
-        f_mt = executor.submit(fetch_archive, "movie_top", "movie", "score")
-        f_tv = executor.submit(fetch_archive, "tv_views", "tv", "views")
-        f_tl = executor.submit(fetch_archive, "tv_latest", "tv", "created_at")
-        f_tt = executor.submit(fetch_archive, "tv_top", "tv", "score")
+# ── AnimeUnity ────────────────────────────────────────────────────────────────
 
-        home_sliders = f_home.result()
-        archive_results = [
-            f_mv.result(), f_ml.result(), f_mt.result(),
-            f_tv.result(), f_tl.result(), f_tt.result(),
-        ]
+def _attr_json(soup, attribute: str, element: str | None = None):
+    """One element attribute carrying escaped JSON, decoded.
+
+    BeautifulSoup unescapes the attribute itself, so there is no
+    ``html.unescape()`` here — the payload is escaped exactly once, and a second
+    pass would corrupt any ``&amp;amp;`` inside it.
+    """
+    node = soup.find(element, attrs={attribute: True}) if element else None
+    if node is None:
+        node = soup.find(attrs={attribute: True})
+    if node is None:
+        return None
+    try:
+        return json.loads(node[attribute])
+    except Exception as exc:
+        logger.warning("AnimeUnity %s attribute could not be read: %s", attribute, exc)
+        return None
+
+
+def _au_shelves(domain: str | None = None) -> list[dict]:
+    """The home page's own lists: the latest episodes, and the featured carousel.
+
+    Both ride in element attributes as escaped JSON rather than in an API.
+    """
+    from app.core import animeunity
+
+    try:
+        soup = BeautifulSoup(animeunity.fetch_home_html(domain), "html.parser")
+    except Exception as exc:
+        logger.warning("AnimeUnity fetch home error: %s", exc)
+        return []
+
+    latest_raw = (_attr_json(soup, "items-json") or {}).get("data") or []
+    # Two new episodes of the same series are two rows and one card.
+    latest, seen = [], set()
+    for row in latest_raw:
+        item = animeunity.normalize_title(row.get("anime") or {})
+        if item and item["id"] not in seen:
+            seen.add(item["id"])
+            latest.append(item)
+
+    featured_raw = _attr_json(soup, "animes", element="the-carousel") or []
+    featured = [t for t in (animeunity.normalize_title(r) for r in featured_raw) if t]
 
     shelves = []
-    # 1. Sliders from home page (trending, top10, etc.)
-    for key, items, fallback in home_sliders:
+    for key, items in (("latest_episodes", latest), ("featured", featured)):
         if items:
-            shelves.append(_shelf("streamingcommunity", key, items, fallback=fallback))
-
-    # 2. Archive shelves subdivided by Film and Serie TV
-    for key, items in archive_results:
-        if items:
-            shelves.append(_shelf("streamingcommunity", key, items))
-
+            shelves.append(_shelf("animeunity", key, items[:_SHELF_CAP]))
     return shelves
 
 
@@ -171,16 +186,18 @@ def _shelf(source: str, key: str, items: list, fallback: str | None = None) -> d
 
 def shelves(source: str, domain: str) -> list[dict]:
     """The front-page shelves for *source*, cached for a quarter of an hour."""
-    if source == "animeunity":
-        return []
-
     key = _cache_key(source, domain)
     hit = _cached(key)
     if hit is not None:
         return hit
 
     try:
-        result = _sc_shelves(domain)
+        if source == "animeunity":
+            result = _au_shelves(domain)
+        elif source == "streamingcommunity":
+            result = _sc_shelves(domain)
+        else:
+            result = []
     except Exception:
         logger.exception("Cannot read the front page of %s", source)
         return []

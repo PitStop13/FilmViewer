@@ -55,16 +55,17 @@ def _get_scraper():
     return _scraper
 
 
-def fetch_home_html() -> str:
+def fetch_home_html(host: str | None = None) -> str:
     """The AnimeUnity home page, refreshing the cached CSRF token on the way.
 
     Shared with the start page, which reads its shelves out of this same HTML.
     """
     global _csrf
-    r = _get_scraper().get(f"https://{ANIMEUNITY_HOST}/", timeout=15)
+    target_host = host or ANIMEUNITY_HOST
+    r = _get_scraper().get(f"https://{target_host}/", timeout=15)
     r.raise_for_status()
     try:
-        meta = BeautifulSoup(r.text, "lxml").find("meta", {"name": "csrf-token"})
+        meta = BeautifulSoup(r.text, "html.parser").find("meta", {"name": "csrf-token"})
         if meta and meta.get("content"):
             _csrf = (_now() + _CSRF_TTL, meta["content"])
     except Exception as e:
