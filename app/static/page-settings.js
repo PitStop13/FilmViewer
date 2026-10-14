@@ -787,9 +787,15 @@ async function savePerfSettings() {
 }
 
 async function saveDomain() {
-  const domain = document.getElementById('domain-input').value.trim();
+  let domain = document.getElementById('domain-input').value.trim();
   const btn = document.getElementById('save-domain-btn');
-  if (!domain) { _feedback('domain-feedback', 'Inserisci un domain.', 'danger'); return; }
+  // Strip protocol and path if entered by user (e.g. https://domain.com/ -> domain.com)
+  domain = domain.replace(/^https?:\/\//i, '').split('/')[0].split('?')[0].split('#')[0].trim();
+  if (!domain) {
+    _feedback('domain-feedback', 'Inserisci un dominio valido (es. streamingcommunityz.shiksha).', 'danger');
+    return;
+  }
+  document.getElementById('domain-input').value = domain;
   btn.disabled = true;
   _feedback('domain-feedback', 'Verifica in corso...');
   try {
@@ -799,9 +805,9 @@ async function saveDomain() {
     const badge = document.getElementById('domain-badge');
     badge.className = 'badge bg-success';
     badge.textContent = data.domain;
-    showToast('Domain salvato', 'success');
+    showToast('Dominio salvato', 'success');
   } catch(e) {
-    _feedback('domain-feedback', 'Errore di rete', 'danger');
+    _feedback('domain-feedback', errText(e, 'Errore di rete o dominio non raggiungibile'), 'danger');
   } finally { btn.disabled = false; }
 }
 

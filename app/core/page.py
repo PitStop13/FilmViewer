@@ -1,5 +1,6 @@
 import json
 import logging
+import re
 
 import requests
 from bs4 import BeautifulSoup
@@ -7,6 +8,11 @@ from bs4 import BeautifulSoup
 from app.core.headers import get_headers
 
 logger = logging.getLogger(__name__)
+
+def clean_domain(domain: str) -> str:
+    """Normalize input domain, stripping protocol, paths, queries, and trailing slashes."""
+    s = re.sub(r"^https?://", "", (domain or "").strip(), flags=re.IGNORECASE)
+    return s.split("/")[0].split("?")[0].split("#")[0].strip().lower()
 
 # The source answers sixty titles to a search page. This used to keep 21 of
 # them for no reason anyone recorded, which is most of a search thrown away.
@@ -59,6 +65,7 @@ def get_domain_version(domain: str) -> str | None:
     them, because an administrator typing a host in is making a decision and a
     page we do not control is not.
     """
+    domain = clean_domain(domain)
     site_url = f"https://{domain}"
     try:
         response = requests.get(site_url, headers={"user-agent": get_headers()}, timeout=10)
@@ -136,6 +143,7 @@ def search(title_search: str, domain: str, *, page: int = 1,
     if page > 1:
         params["page"] = page
 
+    domain = clean_domain(domain)
     props = fetch_page_props(f"https://{domain}/it/search", params=params)
     titles = props.get("titles") or []
 

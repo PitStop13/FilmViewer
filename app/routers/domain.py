@@ -12,7 +12,7 @@ from app.auth.permissions import Permission
 from app.config import get_settings, save_settings
 from app.core import domain_recovery, home, metadata, naming
 from app.core.paths import validate_library_path
-from app.core.page import get_domain_version
+from app.core.page import get_domain_version, clean_domain
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/api/domain", tags=["domain"])
@@ -271,7 +271,7 @@ def set_app_settings(body: SettingsUpdate):
 
 @router.put("", dependencies=CAN_MANAGE)
 async def set_domain(body: DomainUpdate):
-    domain = body.domain.strip()
+    domain = clean_domain(body.domain)
     if not domain:
         raise HTTPException(status_code=400, detail="Domain cannot be empty")
     try:

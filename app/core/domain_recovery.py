@@ -42,7 +42,7 @@ logger = logging.getLogger(__name__)
 # and may be deleted, renamed, or replaced by a better source.
 CANDIDATES_URL = os.getenv(
     "DOMAIN_SOURCE_URL",
-    "https://telegra.ph/Link-Aggiornato-StreamingCommunity-09-29",
+    "https://t.me/s/Streaming_community_sito",
 )
 
 # Which registrable names may ever be adopted automatically.
@@ -91,6 +91,12 @@ def fetch_candidates(url: str | None = None) -> list[str]:
 
     soup = BeautifulSoup(response.text, "lxml")
     hosts: list[str] = []
+
+    def _add_host(h: str):
+        h = h.lower().strip(".").strip("/")
+        if h and h not in hosts:
+            hosts.append(h)
+
     for anchor in soup.find_all("a"):
         href = (anchor.get("href") or "").strip()
         if not href:
@@ -101,8 +107,22 @@ def fetch_candidates(url: str | None = None) -> list[str]:
         host = (parsed.hostname or "").lower().strip(".")
         if not host or parsed.scheme != "https":
             continue
-        if host not in hosts:
-            hosts.append(host)
+        _add_host(host)
+
+    # In Telegram web channels (/s/), domains are published in <code> tags or plain text messages
+    for tag in soup.find_all(["code", "strong", "b"]):
+        text = tag.get_text().strip()
+        for m in re.finditer(r"\b([a-zA-Z0-9-]+\.[a-zA-Z]{2,})\b", text):
+            candidate = m.group(1).lower().strip(".")
+            if candidate.startswith("streaming"):
+                _add_host(candidate)
+
+    if target.startswith("https://t.me/s/") and any(h in ("t.me", "telegram.org") for h in hosts):
+        telegram_domains = {"t.me", "telegram.org", "core.telegram.org"}
+        non_tg = [h for h in hosts if h not in telegram_domains]
+        non_tg.reverse()
+        return non_tg[:_MAX_CANDIDATES]
+
     return hosts[:_MAX_CANDIDATES]
 
 
@@ -110,6 +130,7 @@ def fetch_candidates(url: str | None = None) -> list[str]:
 
 def _check_shape(host: str) -> str | None:
     """Syntactic rejection reason, or None if the host looks like a candidate."""
+    host = re.sub(r"^https?://", "", (host or "").strip(), flags=re.I).split("/")[0].strip().lower()
     if not host or not _HOST_RE.match(host):
         return "forma non valida"
     if host.endswith(_LOCAL_SUFFIXES) or host == "localhost":
