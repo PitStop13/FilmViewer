@@ -45,7 +45,8 @@ function setHomeCategory(cat) {
   document.getElementById('cat-all')?.classList.toggle('active', _homeCategory === 'all');
   document.getElementById('cat-movie')?.classList.toggle('active', _homeCategory === 'movie');
   document.getElementById('cat-tv')?.classList.toggle('active', _homeCategory === 'tv');
-  applyCategoryFilter();
+  syncHash();
+  showStartPage();
 }
 
 // ── Search ─────────────────────────────────────────────────────────────────────
@@ -332,9 +333,58 @@ function searchPageEnter() {
 }
 
 
+let _currentSpotlightItem = null;
+let _spotlightCandidates = [];
+let _spotlightIdx = 0;
+
+function _updateSpotlight(item) {
+  _currentSpotlightItem = item;
+  const spotlightEl = document.getElementById('sh-spotlight');
+  const defaultEl = document.getElementById('sh-default-hero');
+  if (!item || !spotlightEl) {
+    if (spotlightEl) spotlightEl.style.display = 'none';
+    if (defaultEl) defaultEl.style.display = '';
+    return;
+  }
+
+  const titleEl = document.getElementById('sh-spotlight-title');
+  const scoreEl = document.getElementById('sh-spotlight-score');
+  const yearEl = document.getElementById('sh-spotlight-year');
+  const typeEl = document.getElementById('sh-spotlight-type');
+  const plotEl = document.getElementById('sh-spotlight-plot');
+
+  if (titleEl) titleEl.textContent = item.name || 'Titolo consigliato';
+  if (scoreEl) {
+    if (item.score) {
+      scoreEl.style.display = 'inline-flex';
+      scoreEl.innerHTML = `<i class="ti ti-star-filled me-1 text-warning"></i>${escapeHtml(item.score)}`;
+    } else {
+      scoreEl.style.display = 'none';
+    }
+  }
+  const year = item.release_date?.substring(0, 4) || item.last_air_date?.substring(0, 4) || '';
+  if (yearEl) yearEl.textContent = year;
+  if (typeEl) {
+    typeEl.textContent = item.type === 'movie' ? 'Film' : 'Serie TV';
+    typeEl.className = item.type === 'movie' ? 'badge bg-blue-lt' : 'badge bg-green-lt';
+  }
+  if (plotEl) {
+    plotEl.textContent = item.plot || 'Guarda subito in streaming ad alta definizione sul nostro player in-app senza interruzioni o scarica con un click.';
+  }
+
+  const art = document.getElementById('search-hero-art');
+  if (art && item.poster) {
+    const poster = posterUrl(item);
+    art.innerHTML = `<span style="background-image:url('${encodeURI(poster)}'); opacity:0.38; filter:blur(1px); transform:scale(1.08);"></span>`;
+  }
+
+  if (defaultEl) defaultEl.style.display = 'none';
+  spotlightEl.style.display = 'block';
+}
+
 function _shelfSkeletons() {
   const card = '<div class="shelf-item"><div class="skeleton skeleton-card"></div></div>';
-  return ('<div class="shelf"><div class="shelf-rail">' + card.repeat(8) + '</div></div>').repeat(2);
+  return ('<div class="shelf"><div class="shelf-head"><div class="skeleton" style="width:200px; height:24px; border-radius:4px;"></div></div><div class="shelf-rail-wrap"><div class="shelf-rail">' + card.repeat(8) + '</div></div></div>').repeat(3);
 }
 
 async function showStartPage() {
@@ -344,18 +394,24 @@ async function showStartPage() {
   if (!currentDomain) { _setStartPageVisible(false); return; }
 
   _setStartPageVisible(true);
-  if (_homeCache['streamingcommunity']) { renderShelves(); return; }
+  const cat = _homeCategory || 'all';
+  const cacheKey = `sc_${cat}`;
+
+  if (_homeCache[cacheKey] && _homeCache[cacheKey].length) {
+    renderShelves();
+    return;
+  }
 
   if (_homeAbort) _homeAbort.abort();
   _homeAbort = new AbortController();
   host.innerHTML = _shelfSkeletons();
   try {
-    const body = await api.get('/api/home', {source: 'streamingcommunity'}, {signal: _homeAbort.signal});
-    _homeCache['streamingcommunity'] = body.shelves || [];
+    const body = await api.get('/api/home', {source: 'streamingcommunity', category: cat}, {signal: _homeAbort.signal});
+    _homeCache[cacheKey] = body.shelves || [];
     renderShelves();
   } catch (e) {
     if (e.name === 'AbortError') return;
-    host.innerHTML = '';
+    host.innerHTML = '<div class="p-4 text-center text-muted">Impossibile caricare i titoli della home. Riprova tra poco.</div>';
   }
 }
 
@@ -367,7 +423,6 @@ function _renderHeroArt(items) {
   if (!art) return;
   const withArt = items.filter(i => i.poster);
   if (!withArt.length) { art.innerHTML = ''; return; }
-  // Sampled without replacement, so the strip never repeats a title.
   const pool = [...withArt];
   const picked = [];
   while (picked.length < 7 && pool.length) {
@@ -380,13 +435,16 @@ function _renderHeroArt(items) {
 
 function renderShelves() {
   const host = document.getElementById('home-shelves');
-  const shelves = _homeCache['streamingcommunity'] || [];
+  const cat = _homeCategory || 'all';
+  const cacheKey = `sc_${cat}`;
+  const shelves = _homeCache[cacheKey] || [];
   host.innerHTML = '';
   // One flat array across every rail, reset once here and appended to in order,
   // so openTitle(idx) needs no special case for the start page.
   _searchResults = [];
   _requestStatus = {};
   const ribbonIds = [];
+  const spotlightPool = [];
 
   _shelfSyncs = [];
   shelves.forEach(shelf => {
@@ -413,13 +471,23 @@ function renderShelves() {
     renderResultCards(shelf.items, section.querySelector('.shelf-rail'),
                       _searchResults.length, 'shelf-item');
     _searchResults = _searchResults.concat(shelf.items);
-    shelf.items.forEach(i => { if (i.type !== 'movie') ribbonIds.push(String(i.id)); });
+    shelf.items.forEach(i => {
+      if (i.type !== 'movie') ribbonIds.push(String(i.id));
+      if (i.poster) spotlightPool.push(i);
+    });
     host.appendChild(section);
     _shelfSyncs.push(_wireShelfArrows(section));
   });
-  _renderHeroArt(_searchResults);
 
-  applyCategoryFilter();
+  // Setup Netflix Spotlight candidates
+  if (spotlightPool.length) {
+    _spotlightCandidates = spotlightPool.slice(0, 15);
+    _spotlightIdx = 0;
+    _updateSpotlight(_spotlightCandidates[0]);
+  } else {
+    _updateSpotlight(null);
+  }
+
   loadRequestStatuses(ribbonIds);
 }
 
@@ -613,12 +681,32 @@ function renderRequestRibbons() {
 // ── Delegated handlers ───────────────────────────────────────────────────────
 
 registerActions({
-  'home:category': d => setHomeCategory(d.cat),
-  'search:source': d => setSource(d.source),
-  'search:run':    () => doSearch(),
-  'search:more':   () => loadMoreResults(),
-  'search:kind':   d => setKindFilter(d.kind),
-  'search:open':   d => openTitle(Number(d.idx)),
+  'home:category':         d => setHomeCategory(d.cat),
+  'home:spotlight-watch':   () => {
+    if (!_currentSpotlightItem) return;
+    if (typeof openStreamPlayer === 'function') {
+      openStreamPlayer({
+        type: _currentSpotlightItem.type,
+        id: _currentSpotlightItem.id,
+        slug: _currentSpotlightItem.slug,
+        title: _currentSpotlightItem.name,
+      });
+    }
+  },
+  'home:spotlight-details': () => {
+    if (!_currentSpotlightItem) return;
+    location.hash = titleHash(_currentSpotlightItem);
+  },
+  'home:spotlight-next':    () => {
+    if (!_spotlightCandidates.length) return;
+    _spotlightIdx = (_spotlightIdx + 1) % _spotlightCandidates.length;
+    _updateSpotlight(_spotlightCandidates[_spotlightIdx]);
+  },
+  'search:source':          d => setSource(d.source),
+  'search:run':             () => doSearch(),
+  'search:more':            () => loadMoreResults(),
+  'search:kind':            d => setKindFilter(d.kind),
+  'search:open':            d => openTitle(Number(d.idx)),
 });
 
 

@@ -11,6 +11,8 @@ services:
       - ./videos:/app/videos
       # Persistent configuration (database, state, schedules)
       - panel_config:/app/config
+      # Mount application code for live updates
+      - ./app:/app/app
     environment:
       - HOST=0.0.0.0
       - PORT=9876

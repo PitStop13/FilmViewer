@@ -732,67 +732,187 @@ async function downloadWholeSeries() {
 
 // ── Stream player ────────────────────────────────────────────────────────────
 
+let _streamHls = null;
+
+function _cleanupStreamPlayer() {
+  if (_streamHls) {
+    try { _streamHls.destroy(); } catch (_) {}
+    _streamHls = null;
+  }
+  const video = document.getElementById('stream-video-player');
+  if (video) {
+    try {
+      video.pause();
+      video.removeAttribute('src');
+      video.load();
+    } catch (_) {}
+  }
+}
+
 async function openStreamPlayer(opts) {
   const modalEl = document.getElementById('stream-player-modal');
   if (!modalEl) return;
+
+  _cleanupStreamPlayer();
+
   const titleEl = document.getElementById('stream-player-modal-title');
   const subEl = document.getElementById('stream-player-modal-sub');
-  const cardBtnEl = document.getElementById('stream-player-card-btn');
-  const cardTitleEl = document.getElementById('stream-player-card-title');
-  const iframeEl = document.getElementById('stream-player-iframe');
   const loadingEl = document.getElementById('stream-player-loading');
-  const cardEl = document.getElementById('stream-player-card');
+  const errorEl = document.getElementById('stream-player-error');
+  const errorTextEl = document.getElementById('stream-player-error-text');
+  const extBtnEl = document.getElementById('stream-player-external-btn');
+  const videoEl = document.getElementById('stream-video-player');
+  const audioContainer = document.getElementById('stream-player-audio-container');
+  const audioMenu = document.getElementById('stream-player-audio-menu');
+  const audioLabel = document.getElementById('stream-player-audio-label');
+  const qualityContainer = document.getElementById('stream-player-quality-container');
+  const qualityMenu = document.getElementById('stream-player-quality-menu');
+  const qualityLabel = document.getElementById('stream-player-quality-label');
 
   if (titleEl) titleEl.textContent = opts.title || 'Streaming';
-  if (subEl) subEl.textContent = 'Caricamento sorgente...';
-  if (loadingEl) {
-    loadingEl.style.display = 'block';
-    loadingEl.innerHTML = `
-      <div class="spinner-border text-primary mb-2" role="status"></div>
-      <div class="text-muted small">Caricamento link in corso...</div>`;
-  }
-  if (iframeEl) {
-    iframeEl.style.display = 'none';
-    iframeEl.src = 'about:blank';
-  }
-  if (cardEl) cardEl.style.display = 'flex';
+  if (subEl) subEl.textContent = opts.type === 'movie' ? 'Film' : 'Episodio';
+  if (loadingEl) loadingEl.style.display = 'block';
+  if (errorEl) errorEl.style.display = 'none';
+  if (videoEl) videoEl.style.display = 'none';
+  if (audioContainer) audioContainer.style.display = 'none';
+  if (qualityContainer) qualityContainer.style.display = 'none';
+  if (extBtnEl) extBtnEl.style.display = 'none';
 
   showModal('stream-player-modal');
 
   try {
-    const q = {
+    const payload = {
       content_type: opts.type,
       id: String(opts.id),
       slug: opts.slug || '',
     };
-    if (opts.episodeId) q.episode_id = String(opts.episodeId);
-    if (opts.episodeNumber) q.episode_number = String(opts.episodeNumber);
+    if (opts.episodeId) payload.episode_id = String(opts.episodeId);
+    if (opts.episodeNumber) payload.episode_number = String(opts.episodeNumber);
 
-    const info = await api.get('/api/stream/watch-info', q);
-    if (subEl) subEl.textContent = `Sorgente: ${info.source_name}`;
-
-    if (cardBtnEl) {
-      cardBtnEl.href = info.watch_url;
-      const btnSpan = cardBtnEl.querySelector('span');
-      if (btnSpan) btnSpan.textContent = `Guarda ora su ${info.source_name}`;
-    }
-    if (cardTitleEl) {
-      cardTitleEl.textContent = opts.title || 'Pronto per lo streaming';
-    }
-
-    const qBadge = document.getElementById('stream-player-quality-badge');
-    if (qBadge) {
-      const q = _tp?.meta?.quality || 'HD';
-      qBadge.innerHTML = `<i class="ti ti-badge-hd me-1"></i>${escapeHtml(q)}`;
-    }
+    const res = await api.post('/api/stream/prepare', payload);
+    const masterUrl = res.master_url;
 
     if (loadingEl) loadingEl.style.display = 'none';
-    if (iframeEl) iframeEl.style.display = 'none';
-    if (cardEl) cardEl.style.display = 'flex';
-  } catch (err) {
-    if (loadingEl) {
-      loadingEl.innerHTML = `<p class="text-danger mb-2">Errore caricamento: ${escapeHtml(errText(err))}</p>`;
+    if (videoEl) videoEl.style.display = 'block';
+
+    if (window.Hls && Hls.isSupported()) {
+      const hls = new Hls({
+        xhrSetup: (xhr) => {
+          xhr.withCredentials = true;
+        },
+        maxBufferLength: 30,
+        maxMaxBufferLength: 60,
+        enableWorker: true,
+      });
+
+      _streamHls = hls;
+      hls.loadSource(masterUrl);
+      hls.attachMedia(videoEl);
+
+      hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+        // Quality selector
+        if (qualityContainer && qualityMenu && hls.levels && hls.levels.length > 1) {
+          qualityContainer.style.display = 'block';
+          qualityMenu.innerHTML = '';
+
+          const autoLi = document.createElement('li');
+          autoLi.innerHTML = `<button class="dropdown-item active" type="button"><i class="ti ti-sparkles me-1 text-primary"></i>Auto</button>`;
+          autoLi.querySelector('button').addEventListener('click', () => {
+            hls.currentLevel = -1;
+            if (qualityLabel) qualityLabel.textContent = 'Auto';
+            qualityMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
+            autoLi.querySelector('button').classList.add('active');
+          });
+          qualityMenu.appendChild(autoLi);
+
+          const sortedLevels = hls.levels.map((lvl, idx) => ({ lvl, idx }))
+            .sort((a, b) => (b.lvl.height || b.lvl.bitrate || 0) - (a.lvl.height || a.lvl.bitrate || 0));
+
+          sortedLevels.forEach(({ lvl, idx }) => {
+            const h = lvl.height ? `${lvl.height}p` : `${Math.round((lvl.bitrate || 0) / 1000)}k`;
+            const li = document.createElement('li');
+            li.innerHTML = `<button class="dropdown-item" type="button"><i class="ti ti-badge-hd me-1 text-muted"></i>${escapeHtml(h)}</button>`;
+            li.querySelector('button').addEventListener('click', () => {
+              hls.currentLevel = idx;
+              if (qualityLabel) qualityLabel.textContent = h;
+              qualityMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
+              li.querySelector('button').classList.add('active');
+            });
+            qualityMenu.appendChild(li);
+          });
+        }
+
+        // Audio selector
+        if (audioContainer && audioMenu && hls.audioTracks && hls.audioTracks.length > 1) {
+          audioContainer.style.display = 'block';
+          audioMenu.innerHTML = '';
+          hls.audioTracks.forEach((track, idx) => {
+            const trackName = track.name || track.lang || `Traccia ${idx + 1}`;
+            const isDefault = track.default || idx === hls.audioTrack;
+            if (isDefault && audioLabel) audioLabel.textContent = trackName;
+
+            const li = document.createElement('li');
+            li.innerHTML = `<button class="dropdown-item ${isDefault ? 'active' : ''}" type="button"><i class="ti ti-volume me-1 text-muted"></i>${escapeHtml(trackName)}</button>`;
+            li.querySelector('button').addEventListener('click', () => {
+              hls.audioTrack = idx;
+              if (audioLabel) audioLabel.textContent = trackName;
+              audioMenu.querySelectorAll('.dropdown-item').forEach(el => el.classList.remove('active'));
+              li.querySelector('button').classList.add('active');
+            });
+            audioMenu.appendChild(li);
+          });
+        }
+
+        videoEl.play().catch(() => {});
+      });
+
+      hls.on(Hls.Events.ERROR, (event, data) => {
+        if (data.fatal) {
+          switch (data.type) {
+            case Hls.ErrorTypes.NETWORK_ERROR:
+              hls.startLoad();
+              break;
+            case Hls.ErrorTypes.MEDIA_ERROR:
+              hls.recoverMediaError();
+              break;
+            default:
+              _cleanupStreamPlayer();
+              if (loadingEl) loadingEl.style.display = 'none';
+              if (videoEl) videoEl.style.display = 'none';
+              if (errorEl) {
+                errorEl.style.display = 'block';
+                if (errorTextEl) errorTextEl.textContent = `Errore riproduzione video (${data.details || 'flusso non valido'})`;
+              }
+              break;
+          }
+        }
+      });
+    } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
+      videoEl.src = masterUrl;
+      videoEl.addEventListener('loadedmetadata', () => {
+        videoEl.play().catch(() => {});
+      }, { once: true });
+    } else {
+      throw new Error("Il tuo browser non supporta la riproduzione HLS.");
     }
+  } catch (err) {
+    if (loadingEl) loadingEl.style.display = 'none';
+    if (videoEl) videoEl.style.display = 'none';
+    if (errorEl) {
+      errorEl.style.display = 'block';
+      if (errorTextEl) errorTextEl.textContent = errText(err, 'Errore durante la preparazione dello streaming.');
+    }
+    api.get('/api/stream/watch-info', {
+      content_type: opts.type,
+      id: String(opts.id),
+      slug: opts.slug || '',
+      episode_id: opts.episodeId ? String(opts.episodeId) : undefined,
+    }).then(info => {
+      if (extBtnEl && info?.watch_url) {
+        extBtnEl.href = info.watch_url;
+        extBtnEl.style.display = 'inline-flex';
+      }
+    }).catch(() => {});
   }
 }
 
@@ -825,9 +945,34 @@ document.addEventListener('DOMContentLoaded', () => {
   const m = document.getElementById('stream-player-modal');
   if (m) {
     m.addEventListener('hidden.bs.modal', () => {
-      const ifr = document.getElementById('stream-player-iframe');
-      if (ifr) ifr.src = 'about:blank';
+      _cleanupStreamPlayer();
     });
+  }
+});
+
+document.addEventListener('keydown', (e) => {
+  const modal = document.getElementById('stream-player-modal');
+  if (!modal || !modal.classList.contains('show')) return;
+  const video = document.getElementById('stream-video-player');
+  if (!video || video.style.display === 'none') return;
+
+  if (e.key === ' ' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
+    e.preventDefault();
+    if (video.paused) video.play(); else video.pause();
+  } else if (e.key === 'ArrowRight' && e.target.tagName !== 'INPUT') {
+    e.preventDefault();
+    video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 10);
+  } else if (e.key === 'ArrowLeft' && e.target.tagName !== 'INPUT') {
+    e.preventDefault();
+    video.currentTime = Math.max(0, video.currentTime - 10);
+  } else if ((e.key === 'f' || e.key === 'F') && e.target.tagName !== 'INPUT') {
+    e.preventDefault();
+    if (!document.fullscreenElement) {
+      if (video.requestFullscreen) video.requestFullscreen();
+      else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
+    } else {
+      if (document.exitFullscreen) document.exitFullscreen();
+    }
   }
 });
 

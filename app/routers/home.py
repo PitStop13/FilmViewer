@@ -23,14 +23,18 @@ Source = Literal["streamingcommunity"]
 @router.get("")
 async def home(
     source: Source = Query(default="streamingcommunity"),
+    category: str = Query(default=None),
 ):
-    """The shelves the source itself publishes on its front page."""
+    """The shelves the source itself publishes on its front page and deep catalogs."""
     host = configured_domain()
     if not host:
         raise HTTPException(status_code=409, detail="Nessun dominio configurato")
 
     try:
-        result = await asyncio.to_thread(core_home.shelves, source, host)
+        if category:
+            result = await asyncio.to_thread(core_home.shelves, source, host, category)
+        else:
+            result = await asyncio.to_thread(core_home.shelves, source, host)
     except HTTPException:
         raise
     except Exception as e:

@@ -43,13 +43,40 @@
         <div id="page-search" style="display:none">
           <!-- Shown only with the box empty, alongside the source's own
                shelves. Once a query exists the results are the page. -->
-          <div id="search-hero" class="sh-hero">
-            <!-- Artwork from whatever the source is showing today. Decoration
-                 only: it is filled after the shelves load and stays empty if
-                 they fail. -->
+          <div id="search-hero" class="sh-hero mb-3">
+            <!-- Artwork from whatever the source is showing today. -->
             <div class="sh-art" id="search-hero-art" aria-hidden="true"></div>
-            <h1 class="sh-title">I tuoi prossimi<br><span class="sh-accent">film e serie TV.</span></h1>
-            <p class="sh-sub">Esplora il catalogo completo di StreamingCommunity, guarda subito o scarica in alta qualità.</p>
+            <div id="sh-spotlight" class="sh-spotlight" style="display:none;">
+              <div class="sh-spotlight-badge mb-2">
+                <span class="badge bg-danger-lt px-2 py-1" style="font-weight:700; letter-spacing:0.5px; font-size:11px;">
+                  <i class="ti ti-flame me-1 text-danger"></i>IN PRIMO PIANO
+                </span>
+              </div>
+              <h1 class="sh-title mb-2" id="sh-spotlight-title">I tuoi prossimi <span class="sh-accent">film e serie TV.</span></h1>
+              <div class="d-flex align-items-center gap-3 mb-2" id="sh-spotlight-meta" style="font-size:13px; color:var(--text-sub);">
+                <span class="text-warning fw-bold" id="sh-spotlight-score"><i class="ti ti-star-filled me-1"></i>8.5</span>
+                <span id="sh-spotlight-year">2024</span>
+                <span class="badge bg-dark border border-secondary" id="sh-spotlight-type">Film</span>
+              </div>
+              <p class="sh-sub mb-3" id="sh-spotlight-plot" style="max-width:680px; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden;">
+                Esplora il catalogo completo di StreamingCommunity, guarda subito in streaming senza pubblicità o scarica in alta qualità.
+              </p>
+              <div class="d-flex align-items-center gap-2" id="sh-spotlight-actions">
+                <button class="btn btn-success px-4 py-2" id="sh-spotlight-watch" data-action="home:spotlight-watch" style="font-weight:600; border-radius:8px;">
+                  <i class="ti ti-player-play me-1"></i>Guarda Ora
+                </button>
+                <button class="btn btn-dark px-3 py-2 border border-secondary text-light" id="sh-spotlight-details" data-action="home:spotlight-details" style="border-radius:8px;">
+                  <i class="ti ti-info-circle me-1"></i>Dettagli
+                </button>
+                <button class="btn btn-outline-secondary px-2 py-2" id="sh-spotlight-next" data-action="home:spotlight-next" title="Altro titolo consigliato">
+                  <i class="ti ti-arrows-shuffle"></i>
+                </button>
+              </div>
+            </div>
+            <div id="sh-default-hero" class="sh-default-hero">
+              <h1 class="sh-title">I tuoi prossimi<br><span class="sh-accent">film e serie TV.</span></h1>
+              <p class="sh-sub">Esplora il catalogo completo di StreamingCommunity, guarda subito o scarica in alta qualità.</p>
+            </div>
           </div>
           <div class="mb-4">
             <div class="source-selector mb-3" id="home-categories">
