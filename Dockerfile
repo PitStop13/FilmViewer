@@ -18,6 +18,6 @@ COPY . .
 # keeps working.
 RUN mkdir -p /app/tmp /app/config && chmod 1777 /app/tmp /app/config
 
-EXPOSE 8000
+EXPOSE 9876
 
 CMD ["python", "main.py"]

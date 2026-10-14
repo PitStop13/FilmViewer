@@ -1,583 +1,290 @@
 <p align="center">
-  <img src="docs/banner.png" alt="StreamingCommunity Downloader" width="720"/>
+  <img src="docs/banner.png" alt="StreamingCommunity & AnimeUnity Downloader" width="720"/>
 </p>
 
 <p align="center">
-  A self-hosted web panel to download films, TV series and anime into a Jellyfin library.<br/>
-  Request queue, followed series, notifications to Discord and Telegram, and an integrated
-  file manager.
+  <b>Un pannello web self-hosted per cercare, visualizzare e scaricare film, serie TV e anime direttamente nella tua libreria Jellyfin.</b><br/>
+  Coda richieste, monitoraggio automatico nuove uscite, notifiche Discord/Telegram, server MCP per agenti AI e file manager integrato.
 </p>
 
 ---
 
-## Screenshots
+## 📸 Anteprime
 
 <p align="center">
-  <img src="docs/home.png" alt="Start page" width="90%"/>
+  <img src="docs/home.png" alt="Pagina iniziale" width="90%"/>
 </p>
 <p align="center">
-  <sub><b>The start page</b> — the source's own shelves, browsable before you have searched for
-  anything.</sub>
+  <sub><b>Home Page</b> — Catalogo aggiornato con le copertine e le novità direttamente dalle piattaforme supportate.</sub>
 </p>
 
-### Finding something
+### Ricerca & Dettagli
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <img src="docs/search.png" alt="Search results"/><br/>
-      <sub><b>Search</b> — films, series and anime across both sources, with the state of each
-      title readable on the card.</sub>
+      <img src="docs/search.png" alt="Risultati di ricerca"/><br/>
+      <sub><b>Ricerca unificata</b> — Film, serie TV e anime da StreamingCommunity e AnimeUnity con stato del contenuto visibile direttamente sulla scheda.</sub>
     </td>
     <td width="50%" valign="top">
-      <img src="docs/film-detail.png" alt="Film page"/><br/>
-      <sub><b>Film page</b> — plot, genres, rating, artwork and trailer, taken from the title page
-      itself. No API key involved.</sub>
+      <img src="docs/film-detail.png" alt="Scheda film"/><br/>
+      <sub><b>Scheda titolo</b> — Trama, generi, valutazione IMDb, artwork e trailer estratti direttamente dalla sorgente, senza bisogno di API key esterne (TMDB).</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
-      <img src="docs/serie-detail.png" alt="Series page"/><br/>
-      <sub><b>Series page</b> — seasons and episodes, with the audio and subtitle tracks each one
-      actually offers.</sub>
+      <img src="docs/serie-detail.png" alt="Scheda serie"/><br/>
+      <sub><b>Gestione stagioni</b> — Selezione episodi con verifica reale delle tracce audio e dei sottotitoli disponibili per ciascuna puntata.</sub>
     </td>
     <td width="50%" valign="top">
-      <img src="docs/downloads.png" alt="Downloads"/><br/>
-      <sub><b>Downloads</b> — live progress per phase (video → audio → merge), as one list rather
-      than a wall of cards.</sub>
+      <img src="docs/downloads.png" alt="Download in corso"/><br/>
+      <sub><b>Download live</b> — Avanzamento in tempo reale per fase (download video → tracce audio → unione FFmpeg) con velocità, ETA e opzioni di pausa/annulla.</sub>
     </td>
   </tr>
 </table>
 
-### Asking, approving, following
+### Coda Richieste & Monitoraggio
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <img src="docs/request.png" alt="My requests"/><br/>
-      <sub><b>My requests</b> — what you asked for and how far it got. A request can be withdrawn
-      until it is resolved.</sub>
+      <img src="docs/request.png" alt="Le mie richieste"/><br/>
+      <sub><b>Le mie richieste</b> — Portale richieste stile Overseerr/Jellyseerr: gli utenti chiedono contenuti che finiscono nella coda di approvazione.</sub>
     </td>
     <td width="50%" valign="top">
-      <img src="docs/request-approval.png" alt="Request queue"/><br/>
-      <sub><b>Request queue</b> — approving re-resolves the title and verifies the tracks first: a
-      request that cannot find the audio asked for is parked, never substituted.</sub>
+      <img src="docs/request-approval.png" alt="Approvazione richieste"/><br/>
+      <sub><b>Approvazione amministratore</b> — L'approvazione ricalcola i flussi e verifica la lingua audio richiesta prima di avviare il job.</sub>
     </td>
   </tr>
   <tr>
     <td colspan="2" align="center" valign="top">
-      <img src="docs/series-follow.png" alt="Followed series" width="60%"/><br/>
-      <sub><b>Followed series</b> — new episodes are looked for on their own. A followed series
-      never downloads by itself: it opens a request, which goes through the queue or is approved
-      on the spot, according to the permissions of whoever follows it.</sub>
+      <img src="docs/series-follow.png" alt="Serie seguite" width="60%"/><br/>
+      <sub><b>Serie e Anime Seguiti</b> — Il sistema cerca periodicamente nuove puntate. Quando esce un episodio, genera una richiesta o lo scarica automaticamente in base ai permessi dell'utente.</sub>
     </td>
   </tr>
 </table>
 
-### Running it
+### Gestione & Sistema
 
 <table>
   <tr>
     <td width="50%" valign="top">
-      <img src="docs/settings.png" alt="Settings"/><br/>
-      <sub><b>Settings</b> — libraries, performance, naming templates, notification channels and
-      download hooks.</sub>
+      <img src="docs/settings.png" alt="Impostazioni"/><br/>
+      <sub><b>Impostazioni complete</b> — Gestione cartelle libreria, formati di esportazione, template nomi file, notifiche Apprise e hook post-download.</sub>
     </td>
     <td width="50%" valign="top">
-      <img src="docs/jellyfin-users.png" alt="Users"/><br/>
-      <sub><b>Users</b> — imported from Jellyfin, with independent permissions. There is no ADMIN
-      super-permission: an administrator who never sees the request queue is a valid setup.</sub>
+      <img src="docs/jellyfin-users.png" alt="Utenti Jellyfin"/><br/>
+      <sub><b>Utenti & Permessi</b> — Sincronizzazione utenti con Jellyfin SSO: permessi indipendenti e granulari senza password locali aggiuntive.</sub>
     </td>
   </tr>
   <tr>
     <td width="50%" valign="top">
       <img src="docs/file-manager.png" alt="File manager"/><br/>
-      <sub><b>File manager</b> — drag-and-drop, video streaming in place, and the free space left
-      on the media volume.</sub>
+      <sub><b>File Manager integrato</b> — Navigazione tra le cartelle dei video, eliminazione, rinomina, streaming video in-browser e monitoraggio spazio disco.</sub>
     </td>
     <td width="50%" valign="top">
       <img src="docs/login.png" alt="Login"/><br/>
-      <sub><b>Login</b> — Jellyfin credentials, so no second account and no local password store.
-      Authentication is opt-in; the panel also runs open.</sub>
+      <sub><b>Login flessibile</b> — Accesso tramite Jellyfin oppure modalità aperta ("Continua senza Jellyfin") scelta al primo avvio.</sub>
     </td>
   </tr>
 </table>
 
 ---
 
-## Features
+## ⚡ Caratteristiche Principali
 
-- Search and download films, TV series, and anime
-- **Recovers the source domain on its own** when it rotates: finds the new one, verifies it,
-  and proposes it for one click
-- **Plot, genres, rating, artwork and trailers** on the title page — no API key required
-- Automatic quality selection (1080p → 720p → 480p → 360p)
-- Parallel HLS segment download with AES-CBC decryption
-- Multi-audio track merge via FFmpeg
-- Subtitle download (`.vtt`) for non-Italian audio tracks
-- Real-time download progress with per-phase steps (video → audio → merge)
-- Integrated file manager with drag-and-drop, video streaming and free space on the media volume
-- Jellyfin library path configuration, and an optional **library refresh when a download lands**
-- **Post-download webhooks** with a body template
-- **Configurable file and folder names**
-- Scheduled downloads
-- **Follow a series or anime** and get new episodes as the source publishes them
-- **Notifications to Discord, Telegram, ntfy and anything else Apprise speaks**, with per-channel
-  event selection
-- One notification per download — and a single summary for a whole season or series
-- Optional login with Jellyfin credentials — no second account, no local password store
-- Independent permissions: download directly, request, approve, manage users, manage settings
-- Request queue with approval, preserving the audio and subtitle tracks the requester chose
-- Request status on the search result cards, and an in-app notification bell
-- MCP server for AI agents (Claude Code, Cursor, …): search, download, follow series and work the request queue
-- Docker ready
+- **Streaming Diretto ("Guarda Subito"):** Riproduzione immediata di film, serie ed episodi tramite Web Player integrato in popup modal con pulsante di fallback per aprire direttamente la pagina di streaming ufficiale su StreamingCommunity o AnimeUnity.
+- **Doppia Sorgente Integrata:** Ricerca simultanea su **StreamingCommunity** e **AnimeUnity** con catalogazione automatica.
+- **Auto-Discovery e Domain Recovery:** Algoritmo avanzato con protezioni anti-SSRF che rileva se il dominio di streaming è bloccato e individua automaticamente l'indirizzo funzionante da una fonte sicura, proponendone l'adozione o applicandolo da solo.
+- **Motore di Download HLS / M3U8:**
+  - Parsing delle playlist master e delle rendition HLS.
+  - Download parallelo dei segmenti video `.ts` con riprova esponenziale.
+  - Decifratura al volo dei flussi protetti da **AES-128-CBC**.
+  - Unione ed esportazione tramite **FFmpeg** in container `.mkv` o `.mp4` senza ricodifica (stream copy rapido e perdita zero di qualità).
+  - Gestione multitraccia: download selettivo di tracce audio (italiano, originale, ecc.) e sottotitoli sincronizzati (`.vtt` o muxati).
+- **Integrazione Jellyfin Nativa & Configurazione Iniziale:**
+  - **Wizard di Setup:** Scelta guidata al primo avvio con selezione della **cartella di salvataggio dei download** e possibilità di collegare Jellyfin (SSO) o usare la modalità aperta ("Continua senza Jellyfin").
+  - **Aggiornamento automatico libreria:** Webhook incorporato che forza una scansione di Jellyfin al termine di ogni download.
+- **Coda Richieste e Watchlist:**
+  - Portale richieste per gli utenti di casa o amici.
+  - Serie seguite con polling automatico in background per il download delle nuove uscite.
+- **Server MCP (Model Context Protocol):**
+  - Espone un endpoint `/mcp` (Streamable HTTP) che consente ad assistenti AI (es. Claude Code, Cursor) di cercare titoli, consultare dettagli, avviare download e gestire la coda richieste con autenticazione basata su Bearer token crittograficamente sicuro.
+- **Privacy e Zero Telemetria:**
+  - Nessun tracker, nessun cookie di terze parti, nessun dato telemetrico inviato all'esterno.
+  - Tutte le librerie frontend (Tabler CSS, JS, icone) sono integrate in locale senza dipendenze da CDN esterne.
 
 ---
 
-## Quick Start
+## 🚀 Guida all'Installazione
 
-### Docker (recommended)
+### Opzione 1: Con Docker Compose (Consigliata)
 
-```bash
-curl -O https://raw.githubusercontent.com/EdoardoFiore/StreamingCommunity-downloader/main/docker-compose.template.yml
-# Edit the volume paths — create the config one — then:
-docker compose -f docker-compose.template.yml up -d
-```
+Assicurati di avere [Docker](https://www.docker.com/) e Docker Compose installati.
 
-The panel is available at `http://localhost:8000`. Set the source domain in **Impostazioni** on first
-use: it is not shipped in the image, because it rotates.
+1. **Clona la repository:**
+   ```bash
+   git clone https://github.com/tuo-utente/FilmViewer.git
+   cd FilmViewer
+   ```
 
-The image is published to GitHub Container Registry on every push to `main`:
+2. **Avvia il container:**
+   ```bash
+   docker compose up -d --build
+   ```
 
-```
-ghcr.io/edoardofiore/streamingcommunity-downloader:latest
-```
+3. **Apri il pannello nel browser:**
+   Collegati a: **`http://localhost:9876`**
 
-### Running as your own user
+Al primo avvio apparirà il **Wizard di Configurazione**:
+- Scegli la **cartella di salvataggio** (default `/app/videos`).
+- Clicca **"Collega a Jellyfin"** se hai un server Jellyfin: inserisci l'indirizzo del server e le credenziali di un utente amministratore.
+- Oppure clicca **"Continua senza Jellyfin"** se desideri usare il pannello in modalità aperta senza autenticazione.
 
-By default the container runs as root, so the files it downloads belong to root. To have them
-belong to you instead, uncomment `user:` in the compose file with your uid and gid (`id -u`,
-`id -g`):
+---
+
+### Opzione 2: Installazione su CasaOS
+
+CasaOS permette di installare e gestire il pannello in pochi istanti.
+
+#### Metodo da Interfaccia Web CasaOS:
+1. Nella schermata principale di CasaOS, fai clic sul pulsante **"+"** (Installa applicazione personalizzata).
+2. Fai clic su **"Importa"** in alto a destra (icona del documento Docker Compose).
+3. Incolla la seguente configurazione:
 
 ```yaml
-    user: "1000:1000"
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: filmviewer
+    ports:
+      - "9876:9876"
+    volumes:
+      - /DATA/Media/Videos:/app/videos
+      - /DATA/AppData/filmviewer/config:/app/config
+    environment:
+      - HOST=0.0.0.0
+      - PORT=9876
+      - VIDEOS_DIR=/app/videos
+      - DB_FILE=/app/config/panel.db
+      - DATA_FILE=/app/config/data.json
+      - SCHEDULE_FILE=/app/config/schedule.json
+      - COOKIE_SECURE=0
+      - COOKIE_SAMESITE=lax
+      - TRUST_PROXY_HEADERS=0
+    restart: unless-stopped
+    deploy:
+      replicas: 1
 ```
 
-That user has to be able to write the library and the config folder on the host. If the panel ran
-as root before, hand them over once:
+> [!IMPORTANT]
+> Assicurati che le cartelle sull'host (`/DATA/AppData/filmviewer/config` e `/DATA/Media/Videos`) esistano e abbiano i permessi di lettura/scrittura corretti.
+
+---
+
+### Opzione 3: Esecuzione Locale (Python)
+
+**Prerequisiti:**
+- **Python 3.11** o superiore
+- **FFmpeg** installato e presente nel `PATH` di sistema (su Windows è supportato anche il fallback automatico su `imageio-ffmpeg`).
 
 ```bash
-sudo chown -R 1000:1000 /srv/scpanel/config   # and the library, if root wrote files there
-```
-
-If it still cannot write its config or its temp folder, the panel does not start, and the log names
-the uid and every path it is missing. A library it cannot write is only a warning — it may be a
-network mount that comes up later — but downloads into it will fail.
-
-### Trying a branch before it is released
-
-Every push to a branch other than `main` publishes to a **separate** package, so a work-in-progress
-build can never be pulled by a deployment pointing at the release image:
-
-```
-ghcr.io/edoardofiore/streamingcommunity-downloader-dev:dev          # the latest branch build
-ghcr.io/edoardofiore/streamingcommunity-downloader-dev:my-branch    # that branch only
-ghcr.io/edoardofiore/streamingcommunity-downloader-dev:sha-abc1234  # one exact commit
-```
-
-Tests have to pass first: a red `pytest -q` publishes nothing.
-
-```bash
-curl -O https://raw.githubusercontent.com/EdoardoFiore/StreamingCommunity-downloader/main/docker-compose.dev.template.yml
-# Point panel_config_dev at a NEW directory, then:
-docker compose -f docker-compose.dev.template.yml up -d
-```
-
-It listens on `http://localhost:8001` so it can run alongside the release panel. Give it its own
-config directory: **database migrations only run forwards**, so pointing a dev image at the
-production config volume upgrades the real database with no way back.
-
-### From source
-
-```bash
-git clone https://github.com/EdoardoFiore/StreamingCommunity-downloader.git
-cd StreamingCommunity-downloader
+# 1. Installa le dipendenze
 pip install -r requirements.txt
-python main.py
 
-pip install -r requirements-dev.txt   # tests only
+# 2. Avvia l'applicazione
+python main.py
+```
+Il pannello sarà attivo su `http://127.0.0.1:9876`.
+
+Per eseguire la suite di test (richiede `requirements-dev.txt`):
+```bash
+pip install -r requirements-dev.txt
 pytest -q
 ```
 
-**Prerequisites:** Python ≥ 3.11, FFmpeg.
+---
 
-### Upgrading from v1
+## ⚙️ Variabili d'Ambiente
 
-v1 is the panel before the Jellyfin login existed. **Pulling the new image changes nothing by
-default**: a panel that was running without a login keeps running without one. You will see the
-redesigned interface, and you have to set the source domain once (see above).
+| Variabile | Default | Descrizione |
+|---|---|---|
+| `HOST` | `127.0.0.1` | Indirizzo IP di bind (in Docker impostare `0.0.0.0`). |
+| `PORT` | `9876` | Porta HTTP del server web (default `9876`). |
+| `VIDEOS_DIR` | `videos` | Percorso cartella in cui scaricare i filmati (montare su volume). |
+| `DB_FILE` | `panel.db` | Percorso database SQLite utenti/sessioni/richieste (`/app/config/panel.db`). |
+| `DATA_FILE` | `data.json` | Percorso file di configurazione percorsi e impostazioni runtime. |
+| `SCHEDULE_FILE` | `schedule.json`| Registro delle serie e dei download pianificati. |
+| `COOKIE_SECURE` | `0` | Impostare a `1` se il pannello è servito sotto HTTPS con certificato SSL valido. |
+| `COOKIE_SAMESITE`| `lax` | Policy SameSite dei cookie (`lax`, `strict`, `none`). |
+| `TRUST_PROXY_HEADERS` | `0` | Impostare a `1` **SOLO** se ci si trova dietro a un reverse proxy fidato (Nginx, Caddy, Traefik). |
+| `FFMPEG_PATH` | *(auto)* | Percorso personalizzato del binario di FFmpeg (se non nel PATH). |
 
-To turn the login on, copy the `/app/config` volume and the `DB_FILE` / `DATA_FILE` /
-`SCHEDULE_FILE` variables from `docker-compose.template.yml`, then connect Jellyfin from
-**Impostazioni → Accesso e utenti**. That volume is not optional: users, sessions and requests live
-in `panel.db`, which without it sits inside the container and is lost on every pull — including the
-answer to the setup question, which would then be asked again on every restart.
+---
 
-To stay on v1, pin the tag instead of following `latest`:
+## 📁 Struttura Cartelle di Output (Compatibile Jellyfin)
 
-```yaml
-image: ghcr.io/edoardofiore/streamingcommunity-downloader:1.0.0
+I download vengono organizzati secondo le linee guida ufficiali di denominazione per Jellyfin:
+
+```
+videos/
+├── Film (2024)/
+│   ├── Film (2024).mkv
+│   └── Film (2024).it.vtt          # Sottotitoli esterni (se abilitati)
+└── Serie TV (2023)/
+    └── Season 01/
+        ├── Serie TV S01E01.mkv
+        └── Serie TV S01E02.mkv
 ```
 
-If you were running the `-jellyfin` image from the development branch, change the `image:` line to
-the main one above — that package is frozen and no longer built. Nothing else changes: the variables
-and the `/app/config` volume are the same, so `panel.db` and your users carry over as they are.
+Il formato di esportazione predefinito è `.mkv` (supporta tutte le tracce audio/sottotitoli), configurabile anche in `.mp4` dalle impostazioni per dispositivi meno recenti.
 
 ---
 
-## Users, roles and requests
+## 🤖 Integrazione AI con Model Context Protocol (MCP)
 
-On first run the panel asks once, on its setup screen, whether to use Jellyfin. Choosing **Collega a
-Jellyfin** configures the panel and creates its administrator from that sign-in; only a Jellyfin
-administrator can do it. After that, Jellyfin accounts **do not** get access automatically —
-an administrator imports them from **Utenti** and assigns permissions. Opening the panel to every
-Jellyfin account is a switch on that page, off by default.
+Il pannello implementa un server **MCP nativo** su endpoint `/mcp` (trasporto Streamable HTTP).
 
-Permissions are independent flags, not a ladder:
-
-| Permission | Grants |
-|---|---|
-| `DOWNLOAD` | start and schedule downloads directly |
-| `REQUEST` | search and create requests |
-| `MANAGE_REQUESTS` | see the queue, approve, deny, fix |
-| `MANAGE_USERS` | import users, assign permissions, disable accounts |
-| `MANAGE_SETTINGS` | source domain, libraries, performance |
-| `MANAGE_FILES` | move, rename and delete in the file manager |
-| `VIEW_LIBRARY` | browse and stream the library |
-
-There is deliberately no "admin" flag that implies the rest, so you can have an administrator who
-manages settings and users but never sees the request queue.
-
-A user without `DOWNLOAD` sees the same form and the same audio and subtitle checkboxes; the button
-says **Richiedi** and creates a request. On approval the source is re-resolved against the current
-domain — a dead link or a missing audio track parks the request for a human instead of downloading
-the wrong thing.
-
-Two people asking for the same content with the same tracks share one download and are both
-notified. Asking for **different** tracks makes two distinct requests, because merging them would
-give one of them the wrong file — but they resolve to the same path in the library, so the download
-fetches the union of what everyone asked for. Two people wanting one film in Italian and English get
-one file carrying both, and the player picks. A request whose tracks are already in the file is
-satisfied without downloading anything: the check reads the file's audio and subtitle streams, not
-its name.
-
-### Running without Jellyfin
-
-Press **Continua senza Jellyfin** on the setup screen and the panel runs with no login at all: every
-visitor gets direct download, settings and the file manager. You can connect Jellyfin later from
-**Impostazioni → Accesso e utenti**, without a restart.
-
-There is no environment variable for this. It used to be `AUTH_ENABLED`, which is gone: set to `0`
-it did not just default to open mode, it hid the setup screen altogether, so the choice the panel
-offers could not be made. An existing deployment that was running without it keeps open mode across
-the upgrade — the panel writes that answer into `panel.db` the first time it starts.
-
-Going back — from a connected Jellyfin to no login — is deliberately not offered in the UI: the
-imported users and their permissions would be left in an ambiguous state.
-
----
-
-## Following a series
-
-Any series or anime can be **followed** from its page. From then on the panel checks the source
-periodically and picks up new episodes as they are published. Following means *from here on*:
-everything already released is recorded as seen, so you do not get eight seasons queued the next
-morning.
-
-What happens to a new episode depends on the permissions of whoever follows it:
-
-- someone who **can download** finds it in the library on its own;
-- someone who **can only request** produces an ordinary request for an approver to accept.
-
-In the second case the approver is told **when the series is followed**, not weeks later when an
-episode finally appears, and can **approve the series once**: from then on its new episodes go
-straight through, and only that series is affected. The choice is on the *Serie seguite* page, or on
-the "Auto i prossimi" checkbox of the request itself.
-
-A watch never downloads anything by itself — it creates a normal request and lets the queue, the
-library check and the notifications do their work, so nothing is duplicated and nothing is silently
-substituted. **Controlla ora** forces a check immediately instead of waiting for the next cycle; the
-interval is in **Impostazioni → Download**.
-
-The *Serie seguite* page lists what you follow, when it was last checked, and whether it downloads
-automatically or goes through the queue. An approver also sees everyone else's, with who follows
-each one.
-
----
-
-## Notifications
-
-The panel notifies in two directions.
-
-**In-app**, the bell holds request and download events for the signed-in user, and they can be
-marked read or deleted, one at a time or all at once. On a panel running without Jellyfin the bell
-belongs to the panel itself, so an open installation still sees its own downloads.
-
-**Outward**, any number of channels can be configured in **Impostazioni → Notifiche** by pasting an
-[Apprise](https://github.com/caronc/apprise/wiki) URL — Discord, Telegram, ntfy, Gotify, Slack,
-email, and everything else Apprise supports. No key in the compose file, no restart. Each channel
-chooses **which events it wants**; selecting none means all of them. Messages carry a title and are
-coloured by outcome where the service supports it, and errors have their query strings stripped
-before they leave the panel, since external channels are somebody else's servers.
-
-Channels are **global, not per user**: whoever configures one decides what reaches everybody reading
-it.
-
-Download notifications are grouped by the action that caused them — one for a film or a single
-episode, and a **single summary** for a whole season, series or anime, listing any episodes that
-failed and why.
-
----
-
-## Configuration
-
-| Variable | Default | Purpose |
-|---|---|---|
-| `HOST` / `PORT` | `127.0.0.1` / `8000` | bind address |
-| `VIDEOS_DIR` | `videos` | download destination |
-| `DB_FILE` | `panel.db` | users, sessions, requests — **put this on a persistent volume** |
-| `DATA_FILE` | `data.json` | source domain, libraries, performance settings |
-| `SCHEDULE_FILE` | `schedule.json` | scheduled downloads |
-| `TMP_DIR` | `tmp` | HLS segments while a job runs, cleaned up afterwards; writable by any uid in the image |
-| `FFMPEG_PATH` | — | full path to `ffmpeg`, when it is not on `PATH` |
-| `FFPROBE_PATH` | — | full path to `ffprobe`; see the note below |
-| `DOMAIN_SOURCE_URL` | a public page | where replacement domains are read from |
-| `DOMAIN_NAME_PATTERN` | `streaming(community\|unity)…` | which names may be adopted automatically |
-| `COOKIE_SECURE` | `0` | set to `1` when serving over HTTPS |
-| `COOKIE_SAMESITE` | `lax` | `none` (with `COOKIE_SECURE=1`) only to embed the panel cross-site |
-| `TRUST_PROXY_HEADERS` | `0` | set to `1` only behind a reverse proxy you control |
-
-The source domain and the Jellyfin library paths are configurable from **Impostazioni** in the UI.
-
-**FFmpeg and ffprobe.** `ffmpeg` is required; the Docker image installs it. Without one on `PATH`
-the panel falls back to the static binary bundled with `imageio-ffmpeg`, which is what makes it work
-on Windows. `ffprobe` is optional but recommended: it is what lets the panel read which audio and
-subtitle tracks a file in the library already carries, so a request for a track that is missing is
-not mistaken for one that is already satisfied. Debian's `ffmpeg` package ships both, so the image
-has it; where it is absent the panel treats an existing file as satisfying the request and says so
-in the log.
-
-`panel.db` holds the Jellyfin service API key: keep it out of any web-served directory and off
-world-readable storage.
-
-**Run one process.** Download state is held in memory by a single process, so do not add
-`--workers` or scale the service — a second replica would neither see nor report on the first's
-downloads.
-
-### Embedding as a Jellyfin custom tab
-
-Point an iframe at the panel; nothing else is required. Sign in once inside the tab and stay signed
-in — the session lasts **30 days** and renews on every visit, so in practice you log in once and
-forget about it.
-
-With Jellyfin and the panel on subdomains of the same domain over HTTPS — say `jf.example.com` and
-`request.example.com` — the frame is same-site and the session cookie is sent inside it with the
-default `COOKIE_SAMESITE=lax`. On different domains, or different schemes, the frame is cross-site
-and a `Lax` cookie is dropped silently: every request inside the frame looks logged out and login
-bounces back on itself, which reads as an infinite loop. Either set `COOKIE_SAMESITE=none` together
-with `COOKIE_SECURE=1` — browsers reject a `SameSite=None` cookie that is not also `Secure` — or
-reverse-proxy the panel under the same site as Jellyfin.
-
-Chromium browsers separately enforce Private Network Access: the Jellyfin page and the panel must
-both resolve to public addresses, or both to private ones, from the browser's point of view. Mixing
-tiers fails with "the connection was blocked".
-
-`POST /api/auth/jellyfin-token` trades an already-issued Jellyfin access token for a panel session,
-for skipping even that one login. It needs a script running on the Jellyfin page, which posts the
-token to the frame. Do not put that script in the custom tab HTML: tab content is injected as a
-string, so quoting breaks the page, and `<script>` tags inserted that way never execute.
-
----
-
-## When the source moves
-
-The source's domain changes every few weeks, and until now that simply stopped the panel: searches
-failed and nothing said why. It now notices, reads the current address from a public page, checks
-it actually serves the source, and shows a banner offering to switch.
-
-It **proposes**; you apply. That page is edited by people nobody here controls, and the domain
-decides where every search, image request and download referer goes — so adopting one because a web
-page said so, with nobody looking, is not something the panel does by default. Only second-level
-domains whose name matches the expected one are ever considered, and only if they answer like the
-source. Anything refused is reported rather than swallowed, because a genuine rebrand and an edited
-page look identical from the inside; you can always type a domain in by hand.
-
-**Impostazioni → Sorgente** has a switch for adopting the new domain without asking, off unless you
-turn it on, and a "Controlla ora" button.
-
----
-
-## Metadata
-
-Opening a title shows its plot, genres, rating, backdrop and trailer. All of it comes from the
-source's own title page — the same page the panel already reads — so there is **nothing to
-configure, no account anywhere, and no request beyond the one already being made**.
-
-TMDB was tried as a second provider and dropped. Measured on real titles it was not an upgrade: the
-site copies its synopses from TMDB, so the text was usually identical, while the round trip lost a
-trailer on one title, a logo on another and 1100 characters of plot on a third.
-
-Artwork is proxied through the panel, so the browser never talks to anybody else.
-Metadata is fetched when you open a title, never for a whole page of search results.
-
----
-
-## When the stream will not resolve
-
-The video is resolved through the source's embed page, which sits behind
-Cloudflare and occasionally refuses. When that happens the title's page now says
-so, instead of leaving you with a download button that looks fine and a job that
-fails minutes later.
-
-A second route through another provider was built and then removed: the service
-it relied on no longer publishes anything usable without reverse-engineering its
-internals, which would break silently every time they deploy. The seam it plugged
-into is still there, so adding one later is a small change rather than a new
-feature.
-
----
-
-## After a download
-
-**Impostazioni → Hook** can tell something else that a file has landed.
-
-- **Jellyfin**: one switch, using the server already configured for login. The library updates
-  immediately instead of on Jellyfin's own schedule.
-- **Webhook**: a URL, a method and an optional body, where `{title}`, `{path}`, `{status}`,
-  `{type}`, `{season}`, `{episode}`, `{year}` and `{error}` are substituted. With no body a JSON
-  object carrying all of them is sent.
-
-There is no "run a command" hook, deliberately: on a panel running without login, settings are open
-to every visitor, and a command would hand them a shell. A webhook can point at your own network —
-that is how it reaches Jellyfin — so the panel reports only whether the call succeeded, never what
-came back.
-
----
-
-## Naming
-
-**Impostazioni → Nomi** sets how files and folders are named, per type. Each field is left blank
-when it matches the default, and shows that default as its placeholder — so an untouched field
-reads as "nothing changed here" rather than as a value somebody chose. Saving a blank field keeps
-the default.
-
-The defaults follow the structure [Jellyfin's own documentation](https://jellyfin.org/docs/general/server/media/movies/)
-recommends, which is the layout below. Change them only if your library already follows a different
-convention: Jellyfin recognises this one with no configuration at all.
-
-Placeholders: `{title}`, `{year}`, `{season}`, `{season2}`, `{episode}`, `{episode2}` — the `2`
-variants are zero-padded. Anything in square brackets appears only if the placeholders inside it
-have a value, so `[ ({year})]` disappears entirely for a title with no year. Each field previews
-itself as you type.
-
-Changing a rule does not rename what is already there. Existing files keep being recognised, so
-nothing is downloaded twice; they simply keep their old names until you rename them in the file
-manager.
-
----
-
-## Model Context Protocol (MCP)
-
-The panel can act as an MCP server, so an AI agent (Claude Code, Cursor, or any
-client speaking Streamable HTTP) can search titles, start and watch downloads,
-follow series and file or approve requests. It is served by the panel itself at
-`/mcp` — no extra port, and the same reverse proxy and TLS as the web interface.
-
-Off by default. Enable it under **Impostazioni → MCP**, then generate a token.
-The token is shown once (only its hash is stored), and **the agent acts as the
-user who generated it, with that user's current permissions**: an agent cannot
-download if its owner cannot, and the token stops working if the owner is
-disabled or removed. Requests it files are that user's requests.
-
-Client configuration (the settings page shows it pre-filled):
+1. Abilita la funzionalità in **Impostazioni → MCP** e genera il token segreto.
+2. Configura il client MCP (ad esempio su Claude Desktop o Claude Code):
 
 ```json
 {
   "mcpServers": {
-    "streamingcommunity": {
+    "filmviewer": {
       "type": "http",
-      "url": "https://panel.example.com/mcp",
-      "headers": { "Authorization": "Bearer <TOKEN>" }
+      "url": "http://tuo-server:8000/mcp",
+      "headers": {
+        "Authorization": "Bearer <TUO_TOKEN>"
+      }
     }
   }
 }
 ```
 
-With Claude Code: `claude mcp add --transport http streamingcommunity https://panel.example.com/mcp --header "Authorization: Bearer <TOKEN>"`.
-
-Tools: `search_content`, `get_content_details`, `get_series_episodes`,
-`get_anime_episodes`, `get_home_shelves`, `download_film`, `download_episode`,
-`download_season`, `download_anime_episode`, `list_downloads`,
-`get_download_progress`, `cancel_download`, `retry_download`, `follow_series`,
-`list_followed_series`, `unfollow_series`, `check_series_now`, `submit_request`,
-`list_requests`, `approve_request`, `get_system_status`, `list_libraries`.
+Gli agenti AI possono eseguire ricerche, consultare dettagli, pianificare download, approvare richieste e verificare lo stato del sistema rispettando i permessi dell'utente che ha generato il token.
 
 ---
 
-## Output structure
+## 🔒 Sicurezza e Privacy
 
-```
-videos/
-├── Movie (2020)/
-│   ├── Movie (2020).mkv
-│   └── Movie (2020).en.vtt
-└── Series (2019)/
-    └── Season 01/
-        ├── Series S01E01.mkv
-        └── Series S01E02.mkv
-```
-
-The container is yours to pick, in **Settings -> Download -> Output format**: `.mkv` (the default,
-which holds any combination of tracks) or `.mp4`, for devices that cannot play Matroska — plenty of
-older smart TVs, Chromecast and consoles. Nothing is re-encoded either way, so the choice costs no
-download time: the source is already H.264 with AAC audio, which both containers take as they are.
-
-Subtitles follow a second setting: muxed into the file, or written beside it as
-`{name}.{lang}.vtt`, the layout Jellyfin expects. Inside an MP4 they have to be converted to
-`mov_text`, which drops colours, bold and positioning — keeping them as separate files avoids that
-entirely.
-
-Changing either setting leaves what is already downloaded alone. Both extensions keep counting as
-present, so nothing is re-downloaded because of it.
+- **Nessuna Raccolta Dati:** Il software non raccoglie dati personali, non traccia l'attività degli utenti e non invia statistiche di alcun tipo.
+- **Protezione Anti-SSRF:** La ricerca di nuovi domini verifica rigorosamente che gli indirizzi IP non appartengano a reti private, localhost o link-local.
+- **Consiglio di Deployment:** Se esponi il pannello su Internet:
+  1. Configura un reverse proxy con HTTPS (Caddy, Nginx, Nginx Proxy Manager).
+  2. Imposta `COOKIE_SECURE=1` e `TRUST_PROXY_HEADERS=1`.
+  3. Evita di lasciare il pannello in modalità "Continua senza Jellyfin" (Open Mode) se raggiungibile pubblicamente senza un sistema di autenticazione a monte (es. Cloudflare Zero Trust, Authelia, Authentik).
 
 ---
 
-## License
+## 📜 Licenza e Disclaimer
 
-MIT
+### Licenza
+Distribuito con licenza **MIT**. Consulta il file `LICENSE` per maggiori informazioni.
 
----
+### Disclaimer Legale ed Educativo
+Questo progetto è sviluppato ed erogato **esclusivamente a scopo illustrativo ed educativo**. Dimostra l'implementazione pratica di parser M3U8 HLS, algoritmi di decifratura simmetrica AES-CBC, pipeline di elaborazione flussi multimediali tramite FFmpeg e architetture asincrone in Python con FastAPI.
 
-## Disclaimer
-
-This project is published for **informational and educational purposes only**. It exists to
-demonstrate how HLS streams are parsed, how AES-CBC segment decryption works, how a download queue
-and a permission model are built, and how the result is organised into a Jellyfin library.
-
-It **hosts, stores and distributes nothing**. It contains no content, no catalogue and no index. It
-is a client: it talks to third-party websites that it neither operates nor controls, and it has no
-affiliation, sponsorship or endorsement from any of them — StreamingCommunity, AnimeUnity and
-Jellyfin included. Every trademark belongs to its owner. Whether those sites are lawful to use, and
-whether they remain reachable at all, is entirely outside this project's control.
-
-Using it is your decision and your responsibility. You are the one who has to comply with the
-copyright law of your country and with the terms of service of any site you point it at, and you
-should only download content you hold the rights to or are otherwise entitled to access. Neither
-the authors nor the contributors take any responsibility for how the software is used, nor for any
-damage or legal consequence that follows from using it.
-
-The software is provided "as is", without warranty of any kind, as set out in the
-[LICENSE](LICENSE).
-
-If you represent a rights holder and believe something here is a problem, please open an issue and
-it will be addressed.
+Il progetto **non ospita, non memorizza e non trasmette alcun file audiovisivo o materiale protetto da copyright**. È un mero client che interagisce con pagine e servizi di terze parti pubblicamente accessibili sul web. L'utente finale è l'unico ed esclusivo responsabile del rispetto delle normative sul diritto d'autore vigenti nel proprio Paese e dei termini d'uso delle piattaforme consultate.

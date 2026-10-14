@@ -3,17 +3,33 @@ version: '3.8'
 services:
   web:
     build: .
+    container_name: filmviewer-panel
     ports:
       - "9876:9876"
     volumes:
-      - downloads:/app/downloads
-      - config:/app/config
+      # Video library storage
+      - videos_storage:/app/videos
+      # Persistent configuration (database, state, schedules)
+      - panel_config:/app/config
     environment:
+      - HOST=0.0.0.0
       - PORT=9876
+      - VIDEOS_DIR=/app/videos
+      - DB_FILE=/app/config/panel.db
+      - DATA_FILE=/app/config/data.json
+      - SCHEDULE_FILE=/app/config/schedule.json
+      - COOKIE_SECURE=0
+      - COOKIE_SAMESITE=lax
+      - TRUST_PROXY_HEADERS=0
+    dns:
+      - 8.8.8.8
+      - 1.1.1.1
     restart: unless-stopped
+    deploy:
+      replicas: 1
 
 volumes:
-  downloads:
+  videos_storage:
     driver: local
-  config:
+  panel_config:
     driver: local
