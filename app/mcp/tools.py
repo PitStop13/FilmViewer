@@ -37,7 +37,7 @@ from app.jobs import job_manager
 from app.mcp import auth
 from app.requests import models as request_models, router as requests_router
 from app.routers import (
-    anime as anime_router, domain as domain_router, downloads as downloads_router,
+    domain as domain_router, downloads as downloads_router,
     home as home_router, metadata as metadata_router, search as search_router,
 )
 from app.watches import router as watches_router
@@ -46,9 +46,9 @@ mcp_server = MCPServer(
     name="StreamingCommunity Downloader",
     version=__version__,
     instructions=(
-        "Search StreamingCommunity (films, TV series) and AnimeUnity (anime), start "
-        "downloads into the Jellyfin library, follow series for new episodes, and work "
-        "the request queue. Search first: download and follow tools need the id, slug "
+        "Search StreamingCommunity (films, TV series), start downloads into "
+        "the Jellyfin library, follow series for new episodes, and work the "
+        "request queue. Search first: download and follow tools need the id, slug "
         "and title exactly as search returns them. Every action runs as the panel user "
         "who generated the MCP token, with that user's permissions."
     ),
@@ -111,34 +111,27 @@ def _domain() -> str:
 @mcp_server.tool(annotations=READ_ONLY)
 async def search_content(
     query: str,
-    source: Literal["streamingcommunity", "animeunity", "all"] = "all",
-    media_type: Literal["movie", "tv", "ova", "ona", "special"] | None = None,
+    source: Literal["streamingcommunity"] = "streamingcommunity",
+    media_type: Literal["movie", "tv"] | None = None,
     page_num: int = 1,
 ) -> dict:
-    """Search films and TV series (StreamingCommunity) and anime (AnimeUnity).
+    """Search films and TV series on StreamingCommunity.
 
     Args:
         query: Title to look for.
-        source: Which catalogue to search; 'all' searches both.
-        media_type: Optional kind filter. 'movie'/'tv' apply to both sources,
-            'ova'/'ona'/'special' only to AnimeUnity.
-        page_num: 1-based page. On StreamingCommunity the kind filter is applied
-            per page, so an empty filtered page does not mean the end.
+        source: Catalogue to search ('streamingcommunity').
+        media_type: Optional kind filter ('movie' or 'tv').
+        page_num: 1-based page.
     """
     _user(*CAN_BROWSE, mode="or")
-    sources = ["streamingcommunity", "animeunity"] if source == "all" else [source]
     results, errors = {}, {}
-    for name in sources:
-        kind = media_type
-        if name == "streamingcommunity" and kind not in (None, "movie", "tv"):
-            continue
-        try:
-            results[name] = await _call(
-                search_router.search, q=query, source=name, page=page_num,
-                media_type=kind, dubbed=False,
-            )
-        except ToolError as exc:
-            errors[name] = str(exc)
+    try:
+        results["streamingcommunity"] = await _call(
+            search_router.search, q=query, source="streamingcommunity", page=page_num,
+            media_type=media_type, dubbed=False,
+        )
+    except ToolError as exc:
+        errors["streamingcommunity"] = str(exc)
     if not results and errors:
         raise ToolError("; ".join(f"{k}: {v}" for k, v in errors.items()))
     return {"page": page_num, "results": results, "errors": errors or None}
@@ -195,26 +188,11 @@ async def get_series_episodes(tv_id: int, slug: str, season_number: int | None =
 
 
 @mcp_server.tool(annotations=READ_ONLY)
-async def get_anime_episodes(anime_id: str) -> dict:
-    """Episodes of an AnimeUnity anime.
+async def get_home_shelves(source: Literal["streamingcommunity"] = "streamingcommunity") -> dict:
+    """The shelves (trending, new releases, …) StreamingCommunity shows on its front page.
 
     Args:
-        anime_id: The anime id exactly as search returns it (e.g. '12-one-piece').
-    """
-    _user(*CAN_BROWSE, mode="or")
-    episodes = await _call(anime_router.get_episodes, anime_id)
-    # Only what download_anime_episode takes: the raw records carry a dozen more
-    # fields each, and a long series runs to a thousand episodes.
-    return {"anime_id": anime_id,
-            "episodes": [{"id": e["id"], "number": e.get("number")} for e in episodes]}
-
-
-@mcp_server.tool(annotations=READ_ONLY)
-async def get_home_shelves(source: Literal["streamingcommunity", "animeunity"] = "streamingcommunity") -> dict:
-    """The shelves (trending, new releases, …) a source shows on its front page.
-
-    Args:
-        source: Which source's front page.
+        source: Which source's front page ('streamingcommunity').
     """
     _user(*CAN_BROWSE, mode="or")
     return await _call(home_router.home, source=source)
@@ -314,34 +292,7 @@ async def download_season(
     return await _call(downloads_router.download_season, body, _request_as(user))
 
 
-@mcp_server.tool()
-async def download_anime_episode(
-    anime_id: str,
-    anime_name: str,
-    episode_id: int,
-    episode_number: str,
-    anime_type: str = "tv",
-    year: str | None = None,
-    audio_languages: list[str] = ["ita"],
-    subtitle_languages: list[str] = ["ita", "eng"],
-) -> dict:
-    """Download one AnimeUnity episode.
 
-    Args:
-        anime_id: The anime id, from search.
-        anime_name: The anime title, from search.
-        episode_id: The episode's 'id', from get_anime_episodes.
-        episode_number: The episode's 'number', from get_anime_episodes.
-        anime_type: 'tv' for a series, 'movie' for a film.
-        year: Year, used in the folder name.
-        audio_languages: Audio tracks to keep.
-        subtitle_languages: Subtitle tracks to keep.
-    """
-    user = _user(Permission.DOWNLOAD)
-    body = _model(downloads_router.AnimeDownloadRequest, anime_id=anime_id, anime_name=anime_name,
-                  episode={"id": episode_id, "number": episode_number}, anime_type=anime_type,
-                  year=year, audio_languages=audio_languages, subtitle_languages=subtitle_languages)
-    return await _call(downloads_router.download_anime, body, _request_as(user))
 
 
 # ── Jobs ───────────────────────────────────────────────────────────────────────
@@ -415,36 +366,34 @@ async def retry_download(job_id: str) -> dict:
 
 @mcp_server.tool()
 async def follow_series(
-    source: Literal["streamingcommunity", "animeunity"],
-    external_id: str,
-    title: str,
+    source: Literal["streamingcommunity"] = "streamingcommunity",
+    external_id: str = "",
+    title: str = "",
     slug: str | None = None,
     year: str | None = None,
-    anime_type: str | None = None,
     audio_languages: list[str] = ["ita"],
     subtitle_languages: list[str] = [],
 ) -> dict:
-    """Follow a series or anime so new episodes are fetched as they are published.
+    """Follow a TV series so new episodes are fetched as they are published.
 
     Everything already published is marked as seen: following means "from now
     on". Whether a new episode downloads by itself or waits in the request queue
     follows the token owner's permissions, as it would in the browser.
 
     Args:
-        source: 'streamingcommunity' for a TV series, 'animeunity' for an anime.
+        source: 'streamingcommunity' for a TV series.
         external_id: The id, from search.
         title: The title, from search.
         slug: The slug, from search.
         year: Year, used in the folder name.
-        anime_type: AnimeUnity only: 'tv' for a series.
         audio_languages: Audio tracks to keep on every new episode.
         subtitle_languages: Subtitle tracks to keep on every new episode.
     """
     user = _user(*CAN_BROWSE, mode="or")
     body = _model(watches_router.WatchCreate, source=source,
-                  media_type="anime" if source == "animeunity" else "tv",
+                  media_type="tv",
                   external_id=external_id, title=title, slug=slug, year=year,
-                  anime_type=anime_type, audio_languages=audio_languages,
+                  audio_languages=audio_languages,
                   subtitle_languages=subtitle_languages)
     return await _call(watches_router.follow_series, body, _request_as(user))
 
@@ -490,15 +439,14 @@ def _queue_user(*required: Permission, mode: str = "and"):
 
 @mcp_server.tool()
 async def submit_request(
-    source: Literal["streamingcommunity", "animeunity"],
-    media_type: Literal["film", "episode", "anime"],
-    external_id: str,
-    title: str,
+    source: Literal["streamingcommunity"] = "streamingcommunity",
+    media_type: Literal["film", "episode"] = "film",
+    external_id: str = "",
+    title: str = "",
     slug: str | None = None,
     year: str | None = None,
     season: int | None = None,
     episode_number: str | None = None,
-    anime_type: str | None = None,
     audio_languages: list[str] = ["ita"],
     subtitle_languages: list[str] = [],
 ) -> dict:
@@ -507,23 +455,21 @@ async def submit_request(
     The requested audio languages are checked against the source first.
 
     Args:
-        source: Where the title comes from.
-        media_type: 'film', 'episode' (needs season and episode_number) or
-            'anime' (needs episode_number).
+        source: Where the title comes from ('streamingcommunity').
+        media_type: 'film', 'episode' (needs season and episode_number).
         external_id: The id, from search.
         title: The title, from search.
         slug: The slug, from search.
         year: Year.
         season: Season, for an episode.
-        episode_number: Episode number, for an episode or anime.
-        anime_type: AnimeUnity only: 'tv' or 'movie'.
+        episode_number: Episode number, for an episode.
         audio_languages: Audio tracks wanted.
         subtitle_languages: Subtitle tracks wanted.
     """
     user = _queue_user(Permission.REQUEST)
     body = _model(requests_router.CreateRequest, source=source, media_type=media_type,
                   external_id=external_id, title=title, slug=slug, year=year, season=season,
-                  episode_number=episode_number, anime_type=anime_type,
+                  episode_number=episode_number,
                   audio_languages=audio_languages, subtitle_languages=subtitle_languages)
     return await _call(requests_router.create_request, body, _request_as(user))
 

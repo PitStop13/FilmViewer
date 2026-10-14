@@ -205,10 +205,8 @@ async function doSearch(options) {
   // The boot no longer blocks routing on the domain, so a search restored
   // from the address can start before it is known. Asking costs nothing once
   // it is: ensureDomain() shares the one request.
-  if (currentSource !== 'animeunity') {
-    await ensureDomain();
-    if (!currentDomain) { openSettings(); return; }
-  }
+  await ensureDomain();
+  if (!currentDomain) { openSettings(); return; }
   if (append && (_loadingMore || _searchExhausted)) return;
 
   if (!append) {
@@ -265,7 +263,7 @@ async function doSearch(options) {
     // measured, a query whose first page is sixty series has its films on a
     // later one. AnimeUnity filters at the source, where the offset walks the
     // filtered catalogue, so there an empty page really is the end.
-    const filterIsPerPage = currentSource !== 'animeunity' && !!_kindFilter;
+    const filterIsPerPage = !!_kindFilter;
     _searchExhausted = !results.length && !filterIsPerPage;
 
     if (!_searchResults.length) {

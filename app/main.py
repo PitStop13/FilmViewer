@@ -25,7 +25,7 @@ from app.schedule import ScheduleStore
 from app.config import SCHEDULE_FILE
 from app.mcp import server as mcp_http
 from app.routers import (
-    domain, search, home, tv, downloads, progress, files, images, anime, notification_channels,
+    domain, search, home, tv, downloads, progress, files, images, notification_channels,
     metadata as metadata_router, download_hooks, library as library_router, mcp as mcp_router, stream,
 )
 
@@ -91,7 +91,7 @@ def _library_dirs() -> list[Path]:
     VIDEOS_DIR while some kind has none (it is the fallback, see jobs.py)."""
     libraries = config.read_data().get("libraries", [])
     dirs = {Path(lib["path"]) for lib in libraries if lib.get("path")}
-    if not {"film", "tv", "anime"} <= {lib.get("type") for lib in libraries}:
+    if not {"film", "tv"} <= {lib.get("type") for lib in libraries}:
         dirs.add(config.VIDEOS_DIR)
     return sorted(dirs)
 
@@ -177,7 +177,6 @@ app.include_router(downloads.router)
 app.include_router(progress.router)
 app.include_router(files.router)
 app.include_router(images.router)
-app.include_router(anime.router)
 app.include_router(stream.router)
 
 

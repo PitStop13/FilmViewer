@@ -7,7 +7,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.auth.deps import require
 from app.auth.permissions import Permission
 from app.config import configured_domain
-from app.core import animeunity, home as core_home
+from app.core import home as core_home
 
 logger = logging.getLogger(__name__)
 
@@ -17,7 +17,7 @@ router = APIRouter(
     dependencies=[Depends(require(Permission.REQUEST, Permission.DOWNLOAD, mode="or"))],
 )
 
-Source = Literal["streamingcommunity", "animeunity"]
+Source = Literal["streamingcommunity"]
 
 
 @router.get("")
@@ -25,12 +25,9 @@ async def home(
     source: Source = Query(default="streamingcommunity"),
 ):
     """The shelves the source itself publishes on its front page."""
-    if source == "animeunity":
-        host = animeunity.ANIMEUNITY_HOST
-    else:
-        host = configured_domain()
-        if not host:
-            raise HTTPException(status_code=409, detail="Nessun dominio configurato")
+    host = configured_domain()
+    if not host:
+        raise HTTPException(status_code=409, detail="Nessun dominio configurato")
 
     try:
         result = await asyncio.to_thread(core_home.shelves, source, host)

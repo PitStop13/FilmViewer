@@ -13,7 +13,7 @@ let _tp = null;      // current title state
 let _tpToken = 0;    // guards against a slow response painting over a newer title
 
 function titleHash(item) {
-  const kind = item.type === 'anime' ? 'anime' : (item.type === 'movie' ? 'movie' : 'tv');
+  const kind = item.type === 'movie' ? 'movie' : 'tv';
   return hashFor('detail', [kind, item.id, item.slug || '']);
 }
 
@@ -49,24 +49,9 @@ async function loadTitlePage(route) {
     age: seed?.age || null,
     seasonsCount: seed?.seasons_count || 0,
     episodesCount: seed?.episodes_count || 0,
-    animeType: seed?.media_type || null,
     plot: seed?.plot || null,
     genres: seed?.genres || [],
-    // AnimeUnity has no metadata endpoint - it never needed one, because its
-    // search record already carries the plot, the genres, the banner and the
-    // studio. So the page builds its own "meta" from what the card was
-    // holding rather than asking for anything.
-    meta: seed && seed.type === 'anime' ? {
-      backdrop: seed.backdrop || null,
-      plot: seed.plot || null,
-      genres: seed.genres || [],
-      rating: seed.score ? parseFloat(seed.score).toFixed(1) : null,
-      status: seed.status || null,
-      original_name: seed.original_name || null,
-      studio: seed.studio || null,
-      season: seed.season || null,
-      cast: [], directors: [],
-    } : null,
+    meta: null,
     // From the address when a link named one, so a reload of S03 is S03.
     season: route.season || 1,
     episodes: [],
@@ -77,48 +62,38 @@ async function loadTitlePage(route) {
     tab: null,
   };
 
-  // Reached by pasted link: there is no card to borrow from, and AnimeUnity
-  // has nothing to ask. The slug carried in the id is the only name available.
-  if (!_tp.name && route.type === 'anime') {
-    const slug = String(route.id).split('-').slice(1).join('-') || route.slug;
-    _tp.name = slug ? slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase()) : 'Anime';
-  }
-
   showPage('detail');
   _tpRender();
   // Which library folder holds this title - for whoever manages the library.
   libRenderTitleCard(route, _tp.name);
 
-  let metaReady = Promise.resolve();
-  if (route.type !== 'anime') {
-    const q = { slug: route.slug, version: currentVersion || '' };
-    // Metadata and the track list are independent: one reads the title page,
-    // the other reaches the stream host. Neither waits on the other.
-    metaReady = api.get(`/api/metadata/${route.type}/${route.id}`, q)
-      .then(meta => { if (token === _tpToken) { _tpApplyMeta(meta); _tpRender(); } })
-      .catch(() => {});
+  const q = { slug: route.slug, version: currentVersion || '' };
+  // Metadata and the track list are independent: one reads the title page,
+  // the other reaches the stream host. Neither waits on the other.
+  const metaReady = api.get(`/api/metadata/${route.type}/${route.id}`, q)
+    .then(meta => { if (token === _tpToken) { _tpApplyMeta(meta); _tpRender(); } })
+    .catch(() => {});
 
-    api.get(`/api/search/languages/${route.id}`,
-            { type: route.type, slug: route.slug, version: currentVersion || '' })
-      .then(info => {
-        if (token !== _tpToken) return;
-        const audio = dedupeLangs(info.audio);
-        const subs = dedupeLangs(info.subtitles);
-        const preferred = preferredSubSelection(subs);
-        _tp.audio = audio.map(c => ({ code: c, on: c === 'ita' || audio.length === 1 }));
-        _tp.subs  = subs.map(c => ({ code: c, on: preferred.has(c) }));
-        _tp.tracksLoaded = true;
-        _tpRender();
-      })
-      .catch(e => {
-        if (token !== _tpToken) return;
-        // Swallowing this used to leave no chips, no reason, and a download
-        // button that looked perfectly fine.
-        _tp.tracksError = e.message || 'Sorgente non raggiungibile';
-        _tp.tracksLoaded = true;
-        _tpRender();
-      });
-  }
+  api.get(`/api/search/languages/${route.id}`,
+          { type: route.type, slug: route.slug, version: currentVersion || '' })
+    .then(info => {
+      if (token !== _tpToken) return;
+      const audio = dedupeLangs(info.audio);
+      const subs = dedupeLangs(info.subtitles);
+      const preferred = preferredSubSelection(subs);
+      _tp.audio = audio.map(c => ({ code: c, on: c === 'ita' || audio.length === 1 }));
+      _tp.subs  = subs.map(c => ({ code: c, on: preferred.has(c) }));
+      _tp.tracksLoaded = true;
+      _tpRender();
+    })
+    .catch(e => {
+      if (token !== _tpToken) return;
+      // Swallowing this used to leave no chips, no reason, and a download
+      // button that looked perfectly fine.
+      _tp.tracksError = e.message || 'Sorgente non raggiungibile';
+      _tp.tracksLoaded = true;
+      _tpRender();
+    });
 
   if (route.type === 'tv') {
     // The episode list waits for the year: the in-library marks and every
@@ -127,7 +102,6 @@ async function loadTitlePage(route) {
     if (token !== _tpToken) return;
     await tpLoadSeason(1, token);
   }
-  else if (route.type === 'anime') await _tpLoadAnime(token);
 }
 
 function _tpApplyMeta(meta) {
@@ -171,30 +145,6 @@ async function tpLoadSeason(n, token = _tpToken) {
   _tpRenderHero();       // and so is the chip
 }
 
-async function _tpLoadAnime(token) {
-  _tp.episodes = null;
-  _tpRenderEpisodes();
-  try {
-    const eps = await api.get(`/api/anime/${_tp.id}/episodes`);
-    if (token !== _tpToken) return;
-    // Spread, not a projection: startAnimeDownload reads episode.number and
-    // posts the whole record back. Narrowing it to {id, n} here sent the API
-    // a stripped object and labelled every job "E undefined". `n` is added
-    // only so the shared row renderer has the field it expects.
-    _tp.episodes = eps.map(e => ({ ...e, n: e.number ?? e.n }));
-    _animeCtx = {
-      animeId: _tp.id, animeName: _tp.name, animeType: _tp.animeType || 'tv',
-      animeYear: _tp.year, episodes: _tp.episodes,
-      audioLangs: _tpPicked('audio'), subLangs: _tpPicked('subs'), scheduledAt: _tp.scheduledAt,
-    };
-  } catch (e) {
-    if (token !== _tpToken) return;
-    _tp.episodes = [];
-    _tp.episodesError = e.message || 'Errore';
-  }
-  _tpRenderEpisodes();
-}
-
 // The download functions read these globals. Keeping them in sync here means
 // the page does not duplicate the download-vs-request branching.
 function _tpSyncEpCtx(token) {
@@ -220,8 +170,7 @@ function _tpPicked(which) {
 function tpSetSchedule(value) {
   _tp.scheduledRaw = value || '';
   _tp.scheduledAt = value ? new Date(value).toISOString() : null;
-  if (_tp.type === 'anime') { if (_animeCtx) _animeCtx.scheduledAt = _tp.scheduledAt; }
-  else if (_epCtx) _epCtx.scheduledAt = _tp.scheduledAt;
+  if (_epCtx) _epCtx.scheduledAt = _tp.scheduledAt;
   _tpRenderEpisodes();     // the batch buttons say "Programma" once a time is set
 }
 
@@ -229,8 +178,7 @@ function tpToggleTrack(which, code) {
   const t = (_tp[which] || []).find(x => x.code === code);
   if (!t) return;
   t.on = !t.on;
-  if (_tp.type === 'anime') { if (_animeCtx) { _animeCtx.audioLangs = _tpPicked('audio'); _animeCtx.subLangs = _tpPicked('subs'); } }
-  else if (_epCtx) { _epCtx.audioLangs = _tpPicked('audio'); _epCtx.subLangs = _tpPicked('subs'); }
+  if (_epCtx) { _epCtx.audioLangs = _tpPicked('audio'); _epCtx.subLangs = _tpPicked('subs'); }
   _tpRenderTracks();
 }
 
@@ -241,8 +189,7 @@ function _tpTabs() {
   if (_tp.type !== 'movie') tabs.push(['episodes', 'Episodi']);
   tabs.push(['about', 'Descrizione']);
   if (_tp.meta?.cast?.length || _tp.meta?.directors?.length) tabs.push(['cast', 'Cast']);
-  // Anime tracks are chosen by the source, not here.
-  if (_tp.type !== 'anime') tabs.push(['tracks', 'Tracce']);
+  tabs.push(['tracks', 'Tracce']);
   return tabs;
 }
 
@@ -288,7 +235,7 @@ function _tpRenderHero() {
     art.classList.remove('is-loaded');
   }
 
-  const kindLabel = _tp.type === 'movie' ? 'Film' : (_tp.type === 'anime' ? 'Anime' : 'Serie TV');
+  const kindLabel = _tp.type === 'movie' ? 'Film' : 'Serie TV';
   // A back control, not just a trail. The trail alone was a row of grey text
   // against artwork and read as a caption rather than as the way out.
   document.getElementById('th-crumbs').innerHTML =
@@ -333,12 +280,8 @@ function _tpRenderCta() {
   // there is one - and the season bar keeps the season. Two buttons that both
   // said "season" left nowhere to ask for the lot.
   const verb = wants ? 'Richiedi' : (_tp.scheduledAt ? 'Programma' : 'Scarica');
-  // A requester can ask for a season but not for a series or a whole anime:
-  // those two go through the batch download endpoints, which require
-  // DOWNLOAD. Offering them would be a button that 403s.
   const scope = _tp.type === 'movie' ? ''
-    : (_tp.type === 'anime' ? (wants ? '' : ' tutti gli episodi')
-    : (!wants && _tp.seasonsCount > 1 ? ' la serie' : ' la stagione'));
+    : (!wants && _tp.seasonsCount > 1 ? ' la serie' : ' la stagione');
   const label = `${verb}${scope}`;
   const icon = wants ? 'ti-send' : (_tp.seasonsCount > 1 && _tp.type === 'tv' ? 'ti-stack-2' : 'ti-download');
   const followable = _tp.type !== 'movie';
@@ -352,9 +295,7 @@ function _tpRenderCta() {
              data-change="tp:schedule">
     </label>` : '';
 
-  // An anime requester has nothing batchable to press: every episode is its
-  // own request, from the rows below.
-  const primary = (wants && _tp.type === 'anime') ? '' : `
+  const primary = `
     <button class="btn btn-primary" data-action="tp:primary">
       <i class="ti ${icon} me-1"></i>${label}
     </button>`;
@@ -405,7 +346,6 @@ function _tpRenderCast() {
 
 function _tpRenderTracks() {
   const el = document.getElementById('th-pane-tracks');
-  if (_tp.type === 'anime') { el.innerHTML = ''; return; }
   if (!_tp.tracksLoaded) {
     el.innerHTML = `<div class="th-empty"><span class="spinner-border spinner-border-sm me-2"></span>Lettura delle tracce…</div>`;
     return;
@@ -500,10 +440,7 @@ function _tpRenderEpisodes() {
   let batch = '';
   if (_tp.episodes?.length) {
     if (can('DOWNLOAD')) {
-      batch = _tp.type === 'anime'
-        ? `<button class="btn btn-sm btn-outline-primary" data-action="tp:batchAnime">
-             <i class="ti ti-download me-1"></i>${verb} tutti gli episodi</button>`
-        : `<button class="btn btn-sm btn-outline-primary" data-action="tp:batchSeason" data-season="${_tp.season}">
+      batch = `<button class="btn btn-sm btn-outline-primary" data-action="tp:batchSeason" data-season="${_tp.season}">
              <i class="ti ti-download me-1"></i>${verb} la stagione</button>`;
     } else if (_tp.type === 'tv' && can('REQUEST')) {
       batch = `<button class="btn btn-sm btn-outline-primary" data-action="tp:requestSeason">
@@ -512,7 +449,7 @@ function _tpRenderEpisodes() {
   }
 
   const head = `<div class="th-season-bar">
-      <span class="th-season-label">${_tp.type === 'anime' ? 'Episodi' : `Stagione ${_tp.season}`}</span>
+      <span class="th-season-label">Stagione ${_tp.season}</span>
       ${pills}
       <span class="th-season-batch">${batch}</span>
     </div>`;
@@ -573,8 +510,6 @@ function tpPrimary() {
   if (!can('DOWNLOAD') && _tp.type === 'tv') { tpRequestSeason(); return; }
   if (_tp.type === 'movie') {
     startFilmDownload(_tp.id, _tp.name, _tp.year, _tp.scheduledAt, _tpPicked('audio'), _tpPicked('subs'), _tp.poster);
-  } else if (_tp.type === 'anime') {
-    downloadAllAnime();
   } else if (_tp.seasonsCount > 1) {
     downloadWholeSeries();
   } else {
@@ -795,53 +730,6 @@ async function downloadWholeSeries() {
   });
 }
 
-// ── Anime Browser (AnimeUnity) ─────────────────────────────────────────────────
-
-
-async function startAnimeDownload(epIndex) {
-  const { animeId, animeName, animeType, animeYear, scheduledAt, episodes, audioLangs, subLangs } = _animeCtx;
-  const episode = episodes[epIndex];
-  const label = `${animeName} E${episode.number}`;
-
-  if (!can('DOWNLOAD')) {
-    await submitRequest({
-      source: 'animeunity', media_type: 'anime', external_id: String(animeId),
-      title: animeName, year: animeYear, anime_type: animeType,
-      episode_number: String(episode.number),
-      audio_languages: audioLangs || ['ita'],
-      subtitle_languages: subLangs || [],
-    }, label);
-    return;
-  }
-
-  const endpoint = scheduledAt ? '/api/download/schedule/anime' : '/api/download/anime';
-  const body = {
-    anime_id: animeId, episode, anime_name: animeName, anime_type: animeType, year: animeYear,
-    audio_languages: audioLangs || ['ita'],
-    subtitle_languages: subLangs || ['ita', 'eng'],
-  };
-  if (scheduledAt) body.scheduled_at = scheduledAt;
-  try {
-    await api.post(endpoint, body);
-    showToast(scheduledAt ? `Programmato: ${label}` : `In coda: ${label}`, 'success');
-  } catch(e) { showToast(errText(e), 'danger'); }
-}
-
-
-async function downloadAllAnime() {
-  const { animeId, animeName, animeType, animeYear, episodes, scheduledAt,
-          audioLangs, subLangs } = _animeCtx;
-  const label = scheduledAt ? 'Programmare' : 'Aggiungere alla coda';
-  if (!await scConfirm(`${label} tutti i ${episodes.length} episodi?`)) return;
-  await _startBatch('/api/download/anime-all', {
-    anime_id: String(animeId), anime_name: animeName, anime_type: animeType,
-    year: animeYear,
-    audio_languages: audioLangs, subtitle_languages: subLangs,
-    scheduled_at: scheduledAt || null,
-  });
-}
-
-
 // ── Stream player ────────────────────────────────────────────────────────────
 
 async function openStreamPlayer(opts) {
@@ -899,18 +787,8 @@ async function openStreamPlayer(opts) {
     }
 
     if (loadingEl) loadingEl.style.display = 'none';
-
-    // If source is animeunity with direct unblocked embed, allow embedding in iframe
-    if (info.content_type === 'anime' && info.embed_url && info.embed_url !== info.watch_url) {
-      if (iframeEl) {
-        iframeEl.src = info.embed_url;
-        iframeEl.style.display = 'block';
-        if (cardEl) cardEl.style.display = 'none';
-      }
-    } else {
-      if (iframeEl) iframeEl.style.display = 'none';
-      if (cardEl) cardEl.style.display = 'flex';
-    }
+    if (iframeEl) iframeEl.style.display = 'none';
+    if (cardEl) cardEl.style.display = 'flex';
   } catch (err) {
     if (loadingEl) {
       loadingEl.innerHTML = `<p class="text-danger mb-2">Errore caricamento: ${escapeHtml(errText(err))}</p>`;
@@ -974,8 +852,7 @@ registerActions({
   'tp:schedule':      (d, el) => tpSetSchedule(el.value),
   'tp:requestSeason': () => tpRequestSeason(),
   'tp:batchSeason':   d => downloadWholeSeason(Number(d.season)),
-  'tp:batchAnime':    () => downloadAllAnime(),
-  'tp:episode':       d => (_tp.type === 'anime' ? startAnimeDownload : startEpisodeDownload)(Number(d.index)),
+  'tp:episode':       d => startEpisodeDownload(Number(d.index)),
 });
 
 

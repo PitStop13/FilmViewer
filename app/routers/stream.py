@@ -34,20 +34,6 @@ def _sc_domain() -> str:
     return domain
 
 
-def _resolve_anime_embed(host: str, episode_id: str) -> str | None:
-    try:
-        from app.core.animeunity import _get_scraper
-        scraper = _get_scraper()
-        r = scraper.get(f"https://{host}/embed-url/{episode_id}", timeout=8)
-        if r.ok:
-            text = r.text.strip()
-            if text.startswith("http"):
-                return text
-    except Exception as e:
-        logger.debug("Failed to resolve AnimeUnity embed URL for episode %s: %s", episode_id, e)
-    return None
-
-
 @router.get("/watch-info")
 async def get_watch_info(
     content_type: str = Query(..., alias="content_type"),
@@ -86,30 +72,6 @@ async def get_watch_info(
             "watch_url": watch_url,
             "embed_url": embed_url,
             "source_name": "StreamingCommunity",
-        }
-
-    if c_type == "anime":
-        host = os.getenv("ANIMEUNITY_HOST", "www.animeunity.so")
-        ep_num = str(episode_number or "1")
-        clean_slug = slug or id
-        watch_url = f"https://{host}/anime/{id}-{clean_slug}/{ep_num}"
-
-        embed_url = None
-        if episode_id:
-            embed_url = await asyncio.to_thread(_resolve_anime_embed, host, episode_id)
-
-        # Fallback embed to watch page if direct embed not available
-        if not embed_url:
-            embed_url = watch_url
-
-        return {
-            "content_type": "anime",
-            "id": id,
-            "episode_id": episode_id,
-            "episode_number": ep_num,
-            "watch_url": watch_url,
-            "embed_url": embed_url,
-            "source_name": "AnimeUnity",
         }
 
     raise HTTPException(status_code=400, detail=f"Tipo di contenuto non valido: {content_type}")

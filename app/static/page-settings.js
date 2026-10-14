@@ -821,7 +821,7 @@ async function loadLibraries() {
     if (inp) inp.value = excl;
   } catch(e) { console.error('loadLibraries:', e); }
 }
-const _LIB_TYPE_OPTIONS = [{value:'film',label:'Film'},{value:'tv',label:'Serie TV'},{value:'anime',label:'Anime'}];
+const _LIB_TYPE_OPTIONS = [{value:'film',label:'Film'},{value:'tv',label:'Serie TV'}];
 function renderLibrariesList() {
   const c = document.getElementById('libraries-list');
   if (!c) return;

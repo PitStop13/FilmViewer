@@ -63,7 +63,7 @@ function renderWatchesList() {
       <i class="ti ti-bell-off"></i>
       <p>Nessuna serie seguita.</p>
       <p class="text-muted" style="font-size:12px;margin-top:6px">
-        Apri una serie o un anime dalla ricerca e premi «Segui» per scaricare
+        Apri una serie TV dalla ricerca e premi «Segui» per scaricare
         i nuovi episodi appena escono.
       </p>
     </div>`;
@@ -74,7 +74,7 @@ function renderWatchesList() {
     const badge = auto
       ? '<span class="badge bg-green-lt">download automatico</span>'
       : '<span class="badge bg-yellow-lt">passa dalla coda</span>';
-    const kind = w.media_type === 'anime' ? 'Anime' : 'Serie TV';
+    const kind = 'Serie TV';
     const audio = w.audio_languages.length ? w.audio_languages.map(langName).join(', ') : 'originale';
     const subs = w.subtitle_languages.length ? w.subtitle_languages.map(langName).join(', ') : 'nessuno';
     const langButton = _canEditWatchLanguages(w)
@@ -234,22 +234,19 @@ async function mergeWatchLanguages(watchId) {
 // so both are flattened to the same shape here rather than in each caller.
 function _followTarget(kind) {
   if (kind === 'page') {
-    // The title page, which serves both sources from one screen.
-    const anime = _tp.type === 'anime';
     return {
       btnId: 'th-follow-btn',
-      source: anime ? 'animeunity' : 'streamingcommunity',
-      media_type: anime ? 'anime' : 'tv',
+      source: 'streamingcommunity',
+      media_type: 'tv',
       external_id: String(_tp.id ?? ''),
       title: _tp.name,
       slug: _tp.slug,
       year: _tp.year,
       poster: _tp.poster,
-      anime_type: _tp.animeType,
       audio_languages: _tpPicked('audio'),
       subtitle_languages: _tpPicked('subs'),
       // A film has no next episode to wait for.
-      followable: _tp.type !== 'movie' && (!anime || (_tp.animeType || 'tv') !== 'movie'),
+      followable: _tp.type !== 'movie',
     };
   }
   if (kind === 'anime') {

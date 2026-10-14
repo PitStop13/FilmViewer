@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from app.auth.deps import require
 from app.auth.permissions import Permission
 from app.config import configured_domain
-from app.core import animeunity
 from app.core.page import search as core_search, browse_archive
 from app.core.film import get_film_languages
 from app.core.tv import get_tv_languages
@@ -20,7 +19,7 @@ router = APIRouter(
     dependencies=[Depends(require(Permission.REQUEST, Permission.DOWNLOAD, mode="or"))],
 )
 
-Source = Literal["streamingcommunity", "animeunity"]
+Source = Literal["streamingcommunity"]
 
 
 def _domain() -> str:
@@ -39,40 +38,25 @@ async def search(
     dubbed: bool = Query(default=False),
     sort: str = Query(default="views"),
 ):
-    if source == "streamingcommunity":
-        if dubbed:
-            raise HTTPException(status_code=422, detail="dubbed non è supportato per streamingcommunity")
-        if media_type is not None and media_type not in ("movie", "tv"):
-            raise HTTPException(status_code=422, detail=f"media_type '{media_type}' non supportato per streamingcommunity")
+    if dubbed:
+        raise HTTPException(status_code=422, detail="dubbed non è supportato per streamingcommunity")
+    if media_type is not None and media_type not in ("movie", "tv"):
+        raise HTTPException(status_code=422, detail=f"media_type '{media_type}' non supportato per streamingcommunity")
 
-        domain = _domain()
-        try:
-            if not q or not q.strip():
-                results = await asyncio.to_thread(
-                    browse_archive, domain, page=page, media_type=media_type, sort=sort)
-            else:
-                results = await asyncio.to_thread(
-                    core_search, q, domain, page=page, media_type=media_type)
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.exception("Search error")
-            raise HTTPException(status_code=502, detail=str(e))
-        return results
-
-    if source == "animeunity":
-        try:
+    domain = _domain()
+    try:
+        if not q or not q.strip():
             results = await asyncio.to_thread(
-                animeunity.search, q, page=page, media_type=media_type, dubbed=dubbed
-            )
-        except HTTPException:
-            raise
-        except Exception as e:
-            logger.exception("AnimeUnity search error")
-            raise HTTPException(status_code=502, detail=str(e))
-        return results
-
-    raise HTTPException(status_code=422, detail="Source non supportata")
+                browse_archive, domain, page=page, media_type=media_type, sort=sort)
+        else:
+            results = await asyncio.to_thread(
+                core_search, q, domain, page=page, media_type=media_type)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.exception("Search error")
+        raise HTTPException(status_code=502, detail=str(e))
+    return results
 
 
 @router.get("/languages/{title_id}")

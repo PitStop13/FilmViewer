@@ -9,8 +9,6 @@ import logging
 import threading
 import time
 
-from bs4 import BeautifulSoup
-
 from app.core import page
 
 logger = logging.getLogger(__name__)
@@ -45,8 +43,6 @@ _LABELS = {
     ("streamingcommunity", "tv_views"): "Serie TV più viste",
     ("streamingcommunity", "tv_latest"): "Nuove serie TV",
     ("streamingcommunity", "tv_top"): "Serie TV più votate",
-    ("animeunity", "latest_episodes"): "Ultimi episodi",
-    ("animeunity", "featured"): "In evidenza",
 }
 
 _CATEGORIES = {
@@ -118,59 +114,6 @@ def _sc_shelves(domain: str) -> list[dict]:
     return shelves
 
 
-# ── AnimeUnity ────────────────────────────────────────────────────────────────
-
-def _attr_json(soup, attribute: str, element: str | None = None):
-    """One element attribute carrying escaped JSON, decoded.
-
-    BeautifulSoup unescapes the attribute itself, so there is no
-    ``html.unescape()`` here — the payload is escaped exactly once, and a second
-    pass would corrupt any ``&amp;amp;`` inside it.
-    """
-    node = soup.find(element, attrs={attribute: True}) if element else None
-    if node is None:
-        node = soup.find(attrs={attribute: True})
-    if node is None:
-        return None
-    try:
-        return json.loads(node[attribute])
-    except Exception as exc:
-        logger.warning("AnimeUnity %s attribute could not be read: %s", attribute, exc)
-        return None
-
-
-def _au_shelves(domain: str | None = None) -> list[dict]:
-    """The home page's own lists: the latest episodes, and the featured carousel.
-
-    Both ride in element attributes as escaped JSON rather than in an API.
-    """
-    from app.core import animeunity
-
-    try:
-        soup = BeautifulSoup(animeunity.fetch_home_html(domain), "html.parser")
-    except Exception as exc:
-        logger.warning("AnimeUnity fetch home error: %s", exc)
-        return []
-
-    latest_raw = (_attr_json(soup, "items-json") or {}).get("data") or []
-    # Two new episodes of the same series are two rows and one card.
-    latest, seen = [], set()
-    for row in latest_raw:
-        item = animeunity.normalize_title(row.get("anime") or {})
-        if item and item["id"] not in seen:
-            seen.add(item["id"])
-            latest.append(item)
-
-    featured_raw = _attr_json(soup, "animes", element="the-carousel") or []
-    featured = [t for t in (animeunity.normalize_title(r) for r in featured_raw) if t]
-
-    shelves = []
-    for key, items in (("latest_episodes", latest), ("featured", featured)):
-        if items:
-            shelves.append(_shelf("animeunity", key, items[:_SHELF_CAP]))
-    return shelves
-
-
 # ── Assembly ──────────────────────────────────────────────────────────────────
 
 def _shelf(source: str, key: str, items: list, fallback: str | None = None) -> dict:
@@ -186,18 +129,16 @@ def _shelf(source: str, key: str, items: list, fallback: str | None = None) -> d
 
 def shelves(source: str, domain: str) -> list[dict]:
     """The front-page shelves for *source*, cached for a quarter of an hour."""
+    if source != "streamingcommunity":
+        return []
+
     key = _cache_key(source, domain)
     hit = _cached(key)
     if hit is not None:
         return hit
 
     try:
-        if source == "animeunity":
-            result = _au_shelves(domain)
-        elif source == "streamingcommunity":
-            result = _sc_shelves(domain)
-        else:
-            result = []
+        result = _sc_shelves(domain)
     except Exception:
         logger.exception("Cannot read the front page of %s", source)
         return []

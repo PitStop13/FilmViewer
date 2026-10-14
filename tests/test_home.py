@@ -14,7 +14,7 @@ import pytest
 import requests
 
 from app.auth.permissions import ALL_PERMISSIONS
-from app.core import animeunity, home, page
+from app.core import home, page
 from tests.conftest import do_setup, make_user, session_for
 
 
@@ -62,32 +62,6 @@ def sc(monkeypatch):
         return _Response(state["html"])
 
     monkeypatch.setattr(page.requests, "get", fake_get)
-    return state
-
-
-def _au_record(n, kind="TV"):
-    return {"id": n, "slug": f"anime-{n}", "title_eng": f"Anime {n}", "type": kind,
-            "imageurl": f"https://cdn.animeunity.test/{n}.jpg", "episodes_count": 12}
-
-
-def _au_home(latest_rows, featured):
-    items = html.escape(json.dumps({"data": latest_rows}), quote=True)
-    animes = html.escape(json.dumps(featured), quote=True)
-    return (f'<html><body><layout-items items-json="{items}"></layout-items>'
-            f'<the-carousel animes="{animes}"></the-carousel></body></html>')
-
-
-@pytest.fixture
-def au(monkeypatch):
-    state = {"html": _au_home([], []), "calls": []}
-
-    class _Scraper:
-        def get(self, url, **kwargs):
-            state["calls"].append(url)
-            return _Response(state["html"])
-
-    monkeypatch.setattr(animeunity, "_get_scraper", lambda: _Scraper())
-    monkeypatch.setattr(animeunity, "_csrf", None)
     return state
 
 
@@ -139,44 +113,6 @@ def test_an_empty_slider_is_not_a_shelf(sc):
                           {"name": "latest", "titles": [_sc_title(1)]})
 
     assert [s["key"] for s in home.shelves("streamingcommunity", "source.test")] == ["latest"]
-
-
-# ── AnimeUnity shelves ────────────────────────────────────────────────────────
-
-def test_the_anime_front_page_gives_both_lists(au):
-    au["html"] = _au_home([{"anime": _au_record(1)}], [_au_record(2), _au_record(3)])
-
-    result = home.shelves("animeunity", "www.animeunity.test")
-
-    assert [s["key"] for s in result] == ["latest_episodes", "featured"]
-    assert [s["title"] for s in result] == ["Ultimi episodi", "In evidenza"]
-    assert len(result[1]["items"]) == 2
-
-
-def test_the_latest_episode_list_is_deduplicated_by_anime(au):
-    """Two new episodes of the same series are two rows and one card."""
-    au["html"] = _au_home(
-        [{"anime": _au_record(1)}, {"anime": _au_record(1)}, {"anime": _au_record(2)}], [])
-
-    items = home.shelves("animeunity", "www.animeunity.test")[0]["items"]
-
-    assert [i["id"] for i in items] == ["1-anime-1", "2-anime-2"]
-
-
-def test_an_anime_poster_is_an_absolute_url(au):
-    """The other half of the dual poster shape, pinned on this path too."""
-    au["html"] = _au_home([], [_au_record(1)])
-
-    item = home.shelves("animeunity", "www.animeunity.test")[0]["items"][0]
-
-    assert item["poster"] == "https://cdn.animeunity.test/1.jpg"
-    assert item["type"] == "anime" and item["media_type"] == "TV"
-
-
-def test_a_front_page_with_neither_list_is_no_shelves(au):
-    au["html"] = "<html><body>nothing here</body></html>"
-
-    assert home.shelves("animeunity", "www.animeunity.test") == []
 
 
 # ── The cache ─────────────────────────────────────────────────────────────────
@@ -271,17 +207,9 @@ def test_streamingcommunity_needs_a_configured_domain(client, signed_in, monkeyp
     assert client.get("/api/home").status_code == 409
 
 
-def test_the_anime_front_page_needs_no_domain(client, signed_in, monkeypatch):
-    """AnimeUnity lives at a fixed host: refusing there would be a lie."""
-    from app.routers import home as router
-    monkeypatch.setattr(router, "configured_domain", lambda: "")
-    monkeypatch.setattr(router.core_home, "shelves", lambda source, host: [])
-
-    assert client.get("/api/home?source=animeunity").status_code == 200
-
-
 def test_an_unknown_source_is_refused(client, signed_in):
     assert client.get("/api/home?source=nowhere").status_code == 422
+    assert client.get("/api/home?source=animeunity").status_code == 422
 
 
 def test_the_domain_reaching_the_source_is_never_the_callers(client, signed_in, monkeypatch):
