@@ -892,6 +892,12 @@ async function openStreamPlayer(opts) {
       cardTitleEl.textContent = opts.title || 'Pronto per lo streaming';
     }
 
+    const qBadge = document.getElementById('stream-player-quality-badge');
+    if (qBadge) {
+      const q = _tp?.meta?.quality || 'HD';
+      qBadge.innerHTML = `<i class="ti ti-badge-hd me-1"></i>${escapeHtml(q)}`;
+    }
+
     if (loadingEl) loadingEl.style.display = 'none';
 
     // If source is animeunity with direct unblocked embed, allow embedding in iframe
