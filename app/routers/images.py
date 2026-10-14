@@ -1,6 +1,8 @@
 import asyncio
 import logging
 import re
+import threading
+from collections import OrderedDict
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException
@@ -32,9 +34,37 @@ router = APIRouter(
 # constrained to what a filename can actually be.
 SAFE_FILENAME = re.compile(r"^[A-Za-z0-9._/-]{1,200}$")
 
+_MAX_IMAGE_CACHE_ENTRIES = 2000
+_image_cache: OrderedDict[tuple[str, str], tuple[bytes, str]] = OrderedDict()
+_image_cache_lock = threading.Lock()
+
+
+def get_cached_image(domain: str, filename: str) -> tuple[bytes, str] | None:
+    with _image_cache_lock:
+        if (domain, filename) in _image_cache:
+            _image_cache.move_to_end((domain, filename))
+            return _image_cache[(domain, filename)]
+    return None
+
+
+def store_cached_image(domain: str, filename: str, content: bytes, content_type: str) -> None:
+    with _image_cache_lock:
+        _image_cache[(domain, filename)] = (content, content_type)
+        if len(_image_cache) > _MAX_IMAGE_CACHE_ENTRIES:
+            _image_cache.popitem(last=False)
+
+
+def clear_image_cache() -> None:
+    with _image_cache_lock:
+        _image_cache.clear()
+
 
 def _fetch_image(domain: str, filename: str) -> tuple[bytes, str]:
     """Fetch image from CDN or main domain (blocking, runs in thread)."""
+    cached = get_cached_image(domain, filename)
+    if cached is not None:
+        return cached
+
     candidates = [
         f"https://cdn.{domain}/images/{filename}",
         f"https://{domain}/images/{filename}",
@@ -55,6 +85,7 @@ def _fetch_image(domain: str, filename: str) -> tuple[bytes, str]:
             logger.info("Image proxy %s -> HTTP %d ct=%s final=%s",
                         url, res.status_code, content_type, res.url)
             if res.ok and content_type.startswith("image/"):
+                store_cached_image(domain, filename, res.content, content_type)
                 return res.content, content_type
             last_status = res.status_code
             logger.warning("Image proxy miss: %s -> HTTP %d ct=%r", url, res.status_code, content_type)
@@ -78,4 +109,8 @@ async def proxy_image(filename: str):
         raise HTTPException(status_code=400, detail="Nome file non valido")
 
     content, content_type = await asyncio.to_thread(_fetch_image, domain, filename)
-    return Response(content=content, media_type=content_type)
+    return Response(
+        content=content,
+        media_type=content_type,
+        headers={"Cache-Control": "public, max-age=604800, immutable"},
+    )

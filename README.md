@@ -125,6 +125,10 @@
   - **Wizard iniziale:** Al primo avvio scegli la cartella di download e decidi se collegare il tuo Jellyfin per l'accesso SSO oppure usare la modalità aperta senza password.
   - **Organizzazione cartelle automatica:** I file vengono rinominati e ordinati automaticamente secondo gli standard di Jellyfin (`Film (Anno)/Film (Anno).mkv`, `Serie TV/Season 01/Serie S01E01.mkv`).
   - Scansione automatica della libreria Jellyfin via webhook al termine di ogni download.
+- **Prestazioni Elevate & Caching Intelligente:**
+  - **Proxy Immagini ultra-veloce:** Caching in RAM delle locandine con intestazioni HTTP `Cache-Control` (7 giorni) per il caching lato browser; le locandine già caricate si aprono a 0ms senza intasare la banda né i thread del server.
+  - **Ricerca e Catalogo Accelerati:** Cache in memoria a breve termine per ricerche e navigazione archivio con pooling delle connessioni HTTP e socket keep-alive riutilizzati.
+  - **Apertura Istantanea dei Titoli:** Risoluzione diretta del player StreamingCommunity prioritizzando i percorsi corretti ed eliminando tentativi a vuoto su endpoint 404, con cache delle tracce audio e sottotitoli per navigare tra schede e puntate in una frazione di secondo.
 
 ---
 

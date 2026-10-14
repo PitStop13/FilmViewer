@@ -1,5 +1,7 @@
 import logging
 import os
+import threading
+import time
 
 import requests
 from bs4 import BeautifulSoup
@@ -19,10 +21,20 @@ from app.core._shared import (
 
 logger = logging.getLogger(__name__)
 
+_FILM_LANG_CACHE: dict[tuple[str, int], tuple[float, dict]] = {}
+_FILM_LANG_LOCK = threading.Lock()
+_FILM_LANG_TTL = 2 * 60 * 60  # 2 hours
+_MAX_FILM_LANG_ENTRIES = 500
+
+
+def clear_film_languages_cache():
+    with _FILM_LANG_LOCK:
+        _FILM_LANG_CACHE.clear()
+
 
 def _get_iframe(id_title, domain):
     ua = get_headers()
-    for path in (f"/iframe/{id_title}", f"/it/iframe/{id_title}"):
+    for path in (f"/it/iframe/{id_title}", f"/iframe/{id_title}"):
         req = requests.get(f"https://{domain}{path}", headers={"User-agent": ua}, timeout=15)
         if req.ok:
             break
@@ -136,6 +148,15 @@ def _collect_subtitle_tracks(m3u8_url: str, referer: str, subtitle_languages: li
 
 
 def get_film_languages(id_film: int, domain: str) -> dict:
+    key = (domain, id_film)
+    now = time.time()
+    with _FILM_LANG_LOCK:
+        if key in _FILM_LANG_CACHE:
+            exp, val = _FILM_LANG_CACHE[key]
+            if exp > now:
+                return dict(val)
+            _FILM_LANG_CACHE.pop(key, None)
+
     from urllib.parse import urlparse, parse_qs
     embed_content, url_embed = _get_iframe(id_film, domain)
     json_win_video, json_win_param = _parse_content(embed_content, url_embed)
@@ -147,6 +168,12 @@ def get_film_languages(id_film: int, domain: str) -> dict:
     langs = fetch_master_languages(m3u8_url, referer)
     explicit_lang = parse_qs(urlparse(url_embed).query).get("lang", [None])[0]
     langs["lang"] = explicit_lang
+
+    with _FILM_LANG_LOCK:
+        if len(_FILM_LANG_CACHE) >= _MAX_FILM_LANG_ENTRIES:
+            _FILM_LANG_CACHE.pop(next(iter(_FILM_LANG_CACHE)), None)
+        _FILM_LANG_CACHE[key] = (now + _FILM_LANG_TTL, dict(langs))
+
     return langs
 
 

@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import threading
 
 import requests
 from bs4 import BeautifulSoup
@@ -8,6 +9,30 @@ from bs4 import BeautifulSoup
 from app.core.headers import get_headers
 
 logger = logging.getLogger(__name__)
+
+_session = None
+_session_lock = threading.Lock()
+_ORIGINAL_REQUESTS_GET = requests.get
+
+
+def _get_session() -> requests.Session:
+    global _session
+    if _session is None:
+        with _session_lock:
+            if _session is None:
+                s = requests.Session()
+                adapter = requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20)
+                s.mount("https://", adapter)
+                s.mount("http://", adapter)
+                _session = s
+    return _session
+
+
+def _http_get(url: str, **kwargs):
+    if requests.get is not _ORIGINAL_REQUESTS_GET:
+        return requests.get(url, **kwargs)
+    return _get_session().get(url, **kwargs)
+
 
 def clean_domain(domain: str) -> str:
     """Normalize input domain, stripping protocol, paths, queries, and trailing slashes."""
@@ -45,10 +70,9 @@ def _data_page(html: str) -> dict:
 def fetch_page_props(url: str, *, params: dict | None = None, timeout: int = 10) -> dict:
     """The ``props`` of one server-rendered page.
 
-    One request, no session: the payload is in the HTML the source hands to any
-    visitor. Shared by the search and by the start page's shelves.
+    Shared by the search and by the start page's shelves.
     """
-    response = requests.get(
+    response = _http_get(
         url, params=params, headers={"user-agent": get_headers()}, timeout=timeout,
     )
     response.raise_for_status()
@@ -68,7 +92,7 @@ def get_domain_version(domain: str) -> str | None:
     domain = clean_domain(domain)
     site_url = f"https://{domain}"
     try:
-        response = requests.get(site_url, headers={"user-agent": get_headers()}, timeout=10)
+        response = _http_get(site_url, headers={"user-agent": get_headers()}, timeout=10)
         response.raise_for_status()
     except Exception as e:
         raise RuntimeError(f"Cannot reach {domain}: {e}")

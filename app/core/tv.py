@@ -1,5 +1,7 @@
 import logging
 import os
+import threading
+import time
 from urllib.parse import unquote, quote
 
 import requests
@@ -19,6 +21,16 @@ from app.core._shared import (
 from app.core.paths import episode_path, fmt_ep  # noqa: F401  (fmt_ep re-exported)
 
 logger = logging.getLogger(__name__)
+
+_TV_LANG_CACHE: dict[tuple[str, int, str], tuple[float, dict]] = {}
+_TV_LANG_LOCK = threading.Lock()
+_TV_LANG_TTL = 2 * 60 * 60  # 2 hours
+_MAX_TV_LANG_ENTRIES = 500
+
+
+def clear_tv_languages_cache():
+    with _TV_LANG_LOCK:
+        _TV_LANG_CACHE.clear()
 
 
 def get_token(id_tv: int, domain: str) -> str:
@@ -122,7 +134,7 @@ def _get_iframe(tv_id, ep_id, domain, token):
     ua = get_headers()
     params = {"episode_id": ep_id, "next_episode": "1"}
     cookies = {"XSRF-TOKEN": token}
-    for path in (f"/iframe/{tv_id}", f"/it/iframe/{tv_id}"):
+    for path in (f"/it/iframe/{tv_id}", f"/iframe/{tv_id}"):
         req = requests.get(
             f"https://{domain}{path}",
             params=params,
@@ -152,6 +164,15 @@ from app.core.film import _collect_audio_tracks, _collect_subtitle_tracks  # noq
 
 def get_tv_languages(tv_id: int, slug: str, domain: str, version: str) -> dict:
     """Detect available audio/subtitle languages using episode 1x01 as sample."""
+    key = (domain, tv_id, slug)
+    now = time.time()
+    with _TV_LANG_LOCK:
+        if key in _TV_LANG_CACHE:
+            exp, val = _TV_LANG_CACHE[key]
+            if exp > now:
+                return dict(val)
+            _TV_LANG_CACHE.pop(key, None)
+
     from urllib.parse import urlparse, parse_qs
     token = get_token(tv_id, domain)
     eps = get_info_season(tv_id, slug, domain, version, token, 1)
@@ -167,6 +188,12 @@ def get_tv_languages(tv_id: int, slug: str, domain: str, version: str) -> dict:
     langs = fetch_master_languages(m3u8_url, referer)
     explicit_lang = parse_qs(urlparse(url_embed).query).get("lang", [None])[0]
     langs["lang"] = explicit_lang
+
+    with _TV_LANG_LOCK:
+        if len(_TV_LANG_CACHE) >= _MAX_TV_LANG_ENTRIES:
+            _TV_LANG_CACHE.pop(next(iter(_TV_LANG_CACHE)), None)
+        _TV_LANG_CACHE[key] = (now + _TV_LANG_TTL, dict(langs))
+
     return langs
 
 
