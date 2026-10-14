@@ -1,10 +1,17 @@
-fastapi==0.110.0
-uvicorn[standard]==0.29.0
-requests==2.31.0
-beautifulsoup4==4.12.3
-m3u8==4.0.0
-websockets==12.0
-lxml==5.1.0
-aiohttp==3.9.3
-pydantic==2.6.4
-pydantic-settings==2.2.1
+requests
+bs4
+lxml
+tqdm
+rich
+random-user-agent
+ffmpeg-python
+imageio-ffmpeg
+cryptography==3.4.8  # Pinned: newer versions (40+) removed default_backend(), requires API change in m3u8.py
+filelock>=3.12.0
+m3u8
+fastapi
+uvicorn[standard]
+jinja2
+cloudscraper
+apprise
+mcp>=2.3,<3
