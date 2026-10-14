@@ -473,10 +473,14 @@ class JobManager:
         if self._schedule_store is not None:
             self._schedule_store.remove_by_job_id(job_id)
         self._broadcast({"type": "job_dismissed", "job_id": job_id})
+        tmp_path = TMP_DIR / job_id
+        if tmp_path.exists():
+            shutil.rmtree(tmp_path, ignore_errors=True)
+            logger.info("Cleaned up temp dir on dismiss: %s", tmp_path)
         return True
 
     def retry(self, job_id: str) -> Optional[str]:
-        """Run a failed job again as a new job; returns the new job id.
+        """Run a failed or cancelled job again as a new job; returns the new job id.
 
         The failed entry goes away in the same step, so a second failure makes a
         fresh entry instead of a duplicate. The new job leaves the batch it came
@@ -487,7 +491,7 @@ class JobManager:
         """
         with self._lock:
             old = self._jobs.get(job_id)
-            if not old or old.status != "error" or old.call is None:
+            if not old or old.status not in ("error", "cancelled") or old.call is None:
                 return None
             del self._jobs[job_id]
         if self._schedule_store is not None:
@@ -500,7 +504,34 @@ class JobManager:
             season=old.season, episode_number=old.episode_number,
             external_id=old.external_id,
         )
+
+        old_tmp = TMP_DIR / old.job_id
+        new_tmp = TMP_DIR / job.job_id
+        if old_tmp.exists():
+            try:
+                if new_tmp.exists():
+                    shutil.rmtree(new_tmp, ignore_errors=True)
+                old_tmp.rename(new_tmp)
+                logger.info("Migrated temp dir for retry/resume: %s -> %s", old_tmp, new_tmp)
+            except Exception as e:
+                logger.warning("Could not rename temp dir %s to %s: %s", old_tmp, new_tmp, e)
+
         fn, args, kwargs = old.call
+
+        try:
+            from app.config import configured_domain
+            cur_domain = configured_domain()
+            if cur_domain and args:
+                args_list = list(args)
+                if old.type == "film" and len(args_list) >= 3:
+                    args_list[2] = cur_domain
+                    args = tuple(args_list)
+                elif old.type == "episode" and len(args_list) >= 4:
+                    args_list[3] = cur_domain
+                    args = tuple(args_list)
+        except Exception as e:
+            logger.warning("Could not refresh domain for retry: %s", e)
+
         return self._submit_job(
             job, fn, *args, **kwargs,
             temp_dir=str(TMP_DIR / job.job_id),
@@ -572,10 +603,11 @@ class JobManager:
                 job.error = str(e)
                 self._emit(job, {"type": "error", "message": str(e)})
             finally:
-                tmp_path = TMP_DIR / job.job_id
-                if tmp_path.exists():
-                    shutil.rmtree(tmp_path, ignore_errors=True)
-                    logger.info("Cleaned up temp dir: %s", tmp_path)
+                if job.status == "done":
+                    tmp_path = TMP_DIR / job.job_id
+                    if tmp_path.exists():
+                        shutil.rmtree(tmp_path, ignore_errors=True)
+                        logger.info("Cleaned up temp dir: %s", tmp_path)
         finally:
             self._slots.release()
         return False

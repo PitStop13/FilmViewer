@@ -121,7 +121,7 @@ const PHASE_BADGE = {
 const PHASE_BAR = {
   running:'bg-blue', video:'bg-blue', joining:'phase-bar-joining bg-warning',
   audio:'phase-bar-audio bg-teal', merging:'phase-bar-merging bg-purple',
-  done:'phase-bar-done bg-success', error:'phase-bar-error bg-danger',
+  done:'phase-bar-done bg-success', error:'phase-bar-error bg-danger', cancelled:'phase-bar-error bg-danger',
 };
 const PHASE_BORDER_MAP = {
   scheduled:'var(--yellow)', queued:'var(--text-dim)', running:'var(--blue)',
@@ -269,10 +269,12 @@ function _waitingText(j) {
   return position === 1 ? 'Il prossimo a partire' : `${position}° in coda`;
 }
 
-function _failedBtnsHtml(jobId) {
+function _failedBtnsHtml(jobId, status) {
+  const isCancelled = status === 'cancelled';
+  const title = isCancelled ? 'Riprendi download' : 'Riprova';
   const retry = can('DOWNLOAD')
     ? `<button class="btn btn-sm btn-outline-primary ms-1" data-action="jobs:retry"
-               data-job="${jobId}" title="Riprova"><i class="ti ti-reload"></i></button>`
+               data-job="${jobId}" title="${title}"><i class="ti ti-reload"></i></button>`
     : '';
   return retry + `<button class="btn btn-sm btn-outline-secondary ms-1" data-action="jobs:dismiss"
                   data-job="${jobId}" title="Rimuovi dall'elenco"><i class="ti ti-x"></i></button>`;
@@ -300,7 +302,7 @@ function _buildJobCard(j) {
 
   const fireBtn = j.status === 'scheduled' ? _fireBtnHtml(j.job_id) : '';
   const stopBtn = isActive ? _stopBtnHtml(j.job_id)
-    : (j.status === 'error' ? _failedBtnsHtml(j.job_id) : '');
+    : ((j.status === 'error' || j.status === 'cancelled') ? _failedBtnsHtml(j.job_id, j.status) : '');
 
   const rawTs = j.scheduled_at || j.created_at;
   const dateStr = rawTs
@@ -353,8 +355,8 @@ function _jobBucket(j) {
   if (j.status === 'queued') return 'waiting';
   if (j.status === 'scheduled') return 'scheduled';
   if (j.status === 'done') return 'done';
-  if (j.status === 'error') return 'error';
-  return 'other';   // cancelled
+  if (j.status === 'error' || j.status === 'cancelled') return 'error';
+  return 'other';   // other unexpected status
 }
 
 function _isUnfinished(j) {
@@ -541,7 +543,7 @@ function refreshCardAppearance(jobId) {
   const stop = document.getElementById(`job-stop-${jobId}`);
   if (stop) {
     stop.innerHTML = isActive && j.status !== 'scheduled' ? _stopBtnHtml(jobId)
-      : (j.status === 'error' ? _failedBtnsHtml(jobId) : '');
+      : ((j.status === 'error' || j.status === 'cancelled') ? _failedBtnsHtml(jobId, j.status) : '');
   }
 
   // Update info text
@@ -714,7 +716,7 @@ async function retryJob(jobId) {
 }
 
 async function retryFailed() {
-  const failed = [..._jobs.values()].filter(j => j.status === 'error').map(j => j.job_id);
+  const failed = [..._jobs.values()].filter(j => j.status === 'error' || j.status === 'cancelled').map(j => j.job_id);
   const results = await Promise.allSettled(failed.map(id => api.post(`/api/download/${id}/retry`)));
   const refused = results.filter(r => r.status === 'rejected').length;
   if (refused) showToast(`${refused} download non sono stati rimessi in coda`, 'warning');

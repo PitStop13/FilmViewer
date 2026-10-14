@@ -64,6 +64,48 @@ def test_only_a_failed_job_can_be_retried():
         jm._executor.shutdown(wait=False)
 
 
+def test_a_cancelled_job_can_be_retried_and_resumed(tmp_path, monkeypatch):
+    from pathlib import Path
+    from app import jobs
+    from app.progress import DownloadCancelledError
+
+    monkeypatch.setattr(jobs, "TMP_DIR", tmp_path)
+    jm = JobManager()
+    calls = []
+
+    def cancellable(temp_dir, cancel_event, progress_factory=None):
+        calls.append(temp_dir)
+        p = Path(temp_dir)
+        p.mkdir(parents=True, exist_ok=True)
+        (p / "segment_0.ts").write_text("segment content")
+        if len(calls) == 1:
+            raise DownloadCancelledError("cancelled")
+        return "/lib/resumed.mkv"
+
+    try:
+        job = jm._make_job("Film", "film")
+        jm._submit_job(job, cancellable, temp_dir=str(tmp_path / job.job_id),
+                       cancel_event=job.cancel_event, progress_factory=None)
+        _wait(job)
+        assert job.status == "cancelled"
+        # Verify temp dir was kept with segment on cancel
+        assert (tmp_path / job.job_id / "segment_0.ts").exists()
+
+        new_id = jm.retry(job.job_id)
+        assert new_id and new_id != job.job_id
+        # Verify temp dir was migrated
+        assert not (tmp_path / job.job_id).exists()
+        assert (tmp_path / new_id / "segment_0.ts").exists()
+
+        new = jm.get(new_id)
+        _wait(new)
+        assert new.status == "done"
+        # On done, temp dir is cleaned up
+        assert not (tmp_path / new_id).exists()
+    finally:
+        jm._executor.shutdown(wait=False)
+
+
 def test_a_failure_is_retried_automatically_before_it_is_shown(monkeypatch):
     from app import jobs
 

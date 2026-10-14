@@ -108,6 +108,22 @@ class DeleteNotificationsRequest(BaseModel):
     # which needs no list at all.
     ids: list[int] | None = Field(default=None, max_length=200)
 
+    @field_validator("ids", mode="before")
+    @classmethod
+    def _clean_ids(cls, v):
+        if v is None:
+            return None
+        if isinstance(v, list):
+            cleaned = []
+            for item in v:
+                if item is not None and str(item).strip() != "" and str(item) != "NaN":
+                    try:
+                        cleaned.append(int(item))
+                    except (ValueError, TypeError):
+                        pass
+            return cleaned
+        return v
+
 
 MAX_BATCH = 200
 
@@ -679,14 +695,22 @@ def list_notifications(http_request: HttpRequest):
 
 
 @notifications_router.post("/read", dependencies=CAN_SEE_OWN)
-def mark_notifications_read(body: MarkReadRequest, http_request: HttpRequest):
+def mark_notifications_read(
+    http_request: HttpRequest,
+    body: MarkReadRequest = MarkReadRequest(),
+):
     owner = _bell_owner(http_request)
     notify.mark_read(owner, body.ids)
     return {"unread": notify.unread_count(owner)}
 
 
 @notifications_router.post("/delete", dependencies=CAN_SEE_OWN)
-def delete_notifications(body: DeleteNotificationsRequest, http_request: HttpRequest):
+@notifications_router.post("/clear", dependencies=CAN_SEE_OWN)
+@notifications_router.delete("", dependencies=CAN_SEE_OWN)
+def delete_notifications(
+    http_request: HttpRequest,
+    body: DeleteNotificationsRequest = DeleteNotificationsRequest(),
+):
     """Remove notifications. No ids clears the bell.
 
     Scoped to the caller the same way marking read is, so ids belonging to
@@ -695,4 +719,15 @@ def delete_notifications(body: DeleteNotificationsRequest, http_request: HttpReq
     """
     owner = _bell_owner(http_request)
     deleted = notify.delete(owner, body.ids)
+    return {"deleted": deleted, "unread": notify.unread_count(owner)}
+
+
+@notifications_router.delete("/{notification_id}", dependencies=CAN_SEE_OWN)
+def delete_single_notification(
+    notification_id: int,
+    http_request: HttpRequest,
+):
+    """Delete a single notification by id."""
+    owner = _bell_owner(http_request)
+    deleted = notify.delete(owner, [notification_id])
     return {"deleted": deleted, "unread": notify.unread_count(owner)}

@@ -67,12 +67,34 @@ async function markAllNotificationsRead() {
   refreshNotifications();
 }
 
-async function _deleteNotifications(body) {
-  let result;
+async function _deleteNotifications(body, singleId = null) {
+  let result = null;
   try {
-    // Always {deleted, unread}, so the object itself is the success signal
-    // the caller checks - as res.json() was before.
-    result = await api.post('/api/notifications/delete', body);
+    if (singleId != null) {
+      // Primary: RESTful DELETE /api/notifications/{id}
+      try {
+        result = await api.del(`/api/notifications/${singleId}`);
+      } catch (e1) {
+        // Fallback 1: POST /api/notifications/clear (avoids adblockers blocking '/delete')
+        try {
+          result = await api.post('/api/notifications/clear', body);
+        } catch (e2) {
+          // Fallback 2: POST /api/notifications/delete
+          result = await api.post('/api/notifications/delete', body);
+        }
+      }
+    } else {
+      // Clear all: try DELETE /api/notifications, then POST /api/notifications/clear, then POST /api/notifications/delete
+      try {
+        result = await api.del('/api/notifications');
+      } catch (e1) {
+        try {
+          result = await api.post('/api/notifications/clear', body);
+        } catch (e2) {
+          result = await api.post('/api/notifications/delete', body);
+        }
+      }
+    }
   } catch (e) {
     showToast(errText(e, 'Eliminazione fallita'), 'danger');
     return null;
@@ -84,7 +106,9 @@ async function _deleteNotifications(body) {
 // One row: no confirmation. It is a single line of history, and asking every
 // time would cost more than the mistake.
 async function deleteNotification(id) {
-  await _deleteNotifications({ ids: [id] });
+  const numId = Number(id);
+  if (isNaN(numId) || numId <= 0) return;
+  await _deleteNotifications({ ids: [numId] }, numId);
 }
 
 async function clearAllNotifications() {
@@ -108,5 +132,5 @@ registerActions({
   'notif:toggle':   () => toggleNotifications(),
   'notif:readAll':  () => markAllNotificationsRead(),
   'notif:clearAll': () => clearAllNotifications(),
-  'notif:delete':   d => deleteNotification(Number(d.id)),
+  'notif:delete':   d => deleteNotification(d.id),
 });

@@ -414,7 +414,7 @@ def fire_now(job_id: str):
 def retry(job_id: str):
     new_id = job_manager.retry(job_id)
     if new_id is None:
-        raise HTTPException(status_code=404, detail="Job non trovato o non fallito")
+        raise HTTPException(status_code=404, detail="Job non trovato o non riavviabile")
     return {"job_id": new_id, "replaces": job_id, "status": "queued"}
 
 

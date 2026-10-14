@@ -596,7 +596,17 @@ class M3U8_Segments:
         ts_filename = os.path.join(self.temp_folder, f"{index}.ts")
 
         downloaded_bytes = 0
-        if not os.path.exists(ts_filename):
+        file_valid = False
+        if os.path.exists(ts_filename):
+            try:
+                sz = os.path.getsize(ts_filename)
+                if sz > 0:
+                    downloaded_bytes = sz
+                    file_valid = True
+            except OSError:
+                pass
+
+        if not file_valid:
             ts_content = self.get_req_ts(ts_url)
             # Empty content counts as a failure: it would otherwise write a
             # zero-byte file, which then looks like a segment that is present.
@@ -605,11 +615,6 @@ class M3U8_Segments:
                 return
             self._write_ts(index, ts_content)
             downloaded_bytes = len(ts_content)
-        else:
-            try:
-                downloaded_bytes = os.path.getsize(ts_filename)
-            except OSError:
-                pass
 
         self._record_success()
 

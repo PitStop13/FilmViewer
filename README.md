@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>Un pannello web self-hosted per cercare, visualizzare e scaricare film, serie TV e anime direttamente nella tua libreria Jellyfin.</b><br/>
-  Coda richieste, monitoraggio automatico nuove uscite, notifiche Discord/Telegram, server MCP per agenti AI e file manager integrato.
+  Coda richieste, ripresa download (resume), player streaming integrato, monitoraggio automatico nuove uscite, notifiche e file manager integrato.
 </p>
 
 ---
@@ -93,7 +93,8 @@
 
 ## ⚡ Caratteristiche Principali
 
-- **Streaming Diretto ("Guarda Subito"):** Riproduzione immediata di film, serie ed episodi tramite Web Player integrato in popup modal con pulsante di fallback per aprire direttamente la pagina di streaming ufficiale su StreamingCommunity o AnimeUnity.
+- **Streaming Diretto ("Guarda Subito"):** Riproduzione immediata di film, serie ed episodi tramite Web Player integrato in popup modal con risoluzione massima disponibile (fino a 1080p) e pulsante per aprire direttamente la pagina di streaming ufficiale su StreamingCommunity o AnimeUnity.
+- **Ripresa dei Download (Resume):** Possibilità di interrompere (pausa) e riprendere i download in qualsiasi momento. I segmenti video `.ts` già scaricati vengono preservati nella cache locale, consentendo di riprendere il download esattamente da dove si era interrotto senza dover riscaricare i dati già ottenuti.
 - **Doppia Sorgente Integrata:** Ricerca simultanea su **StreamingCommunity** e **AnimeUnity** con catalogazione automatica.
 - **Auto-Discovery e Domain Recovery:** Algoritmo avanzato con protezioni anti-SSRF che rileva se il dominio di streaming è bloccato e individua automaticamente l'indirizzo funzionante da una fonte sicura, proponendone l'adozione o applicandolo da solo.
 - **Motore di Download HLS / M3U8:**
@@ -108,8 +109,8 @@
 - **Coda Richieste e Watchlist:**
   - Portale richieste per gli utenti di casa o amici.
   - Serie seguite con polling automatico in background per il download delle nuove uscite.
-- **Server MCP (Model Context Protocol):**
-  - Espone un endpoint `/mcp` (Streamable HTTP) che consente ad assistenti AI (es. Claude Code, Cursor) di cercare titoli, consultare dettagli, avviare download e gestire la coda richieste con autenticazione basata su Bearer token crittograficamente sicuro.
+- **Gestione Notifiche in Tempo Reale:**
+  - Notifiche in-app istantanee al completamento o fallimento dei download, con possibilità di segnare come lette o eliminare notifiche singole e multiple.
 - **Privacy e Zero Telemetria:**
   - Nessun tracker, nessun cookie di terze parti, nessun dato telemetrico inviato all'esterno.
   - Tutte le librerie frontend (Tabler CSS, JS, icone) sono integrate in locale senza dipendenze da CDN esterne.
@@ -243,28 +244,13 @@ Il formato di esportazione predefinito è `.mkv` (supporta tutte le tracce audio
 
 ---
 
-## 🤖 Integrazione AI con Model Context Protocol (MCP)
+## ⏯️ Ripresa dei Download (Resume)
 
-Il pannello implementa un server **MCP nativo** su endpoint `/mcp` (trasporto Streamable HTTP).
+Il sistema include la gestione resiliente delle interruzioni di rete e delle pause manuali:
 
-1. Abilita la funzionalità in **Impostazioni → MCP** e genera il token segreto.
-2. Configura il client MCP (ad esempio su Claude Desktop o Claude Code):
-
-```json
-{
-  "mcpServers": {
-    "filmviewer": {
-      "type": "http",
-      "url": "http://tuo-server:8000/mcp",
-      "headers": {
-        "Authorization": "Bearer <TUO_TOKEN>"
-      }
-    }
-  }
-}
-```
-
-Gli agenti AI possono eseguire ricerche, consultare dettagli, pianificare download, approvare richieste e verificare lo stato del sistema rispettando i permessi dell'utente che ha generato il token.
+- **Pausa o Interruzione Manuale:** Cliccando sull'icona di arresto (quadrato) nella schermata **Download**, il download in corso si ferma immediatamente. I segmenti video `.ts` già completati vengono mantenuti intatti sul disco nella directory temporanea.
+- **Ripresa con un Click:** Cliccando sul pulsante **Riprendi download** (icona circolare di ricarica) o su **Riprova falliti**, il sistema migra la cartella temporanea al nuovo job e riprende lo scaricamento saltando tutti i segmenti già ottenuti.
+- **Nessuno spreco di banda o spazio:** I file temporanei vengono eliminati automaticamente soltanto al termine dell'unione definitiva del filmato (`done`), oppure eliminando esplicitamente la scheda dalla lista (`X`).
 
 ---
 

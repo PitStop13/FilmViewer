@@ -260,11 +260,14 @@ def delete(user_id: int | None, notification_ids: list[int] | None = None) -> in
     were not yours" rather than reporting success for a no-op.
     """
     where, params = _owner_clause(user_id)
-    if notification_ids:
-        placeholders = ",".join("?" * len(notification_ids))
+    if notification_ids is not None:
+        valid_ids = [int(i) for i in notification_ids if i is not None]
+        if not valid_ids:
+            return 0
+        placeholders = ",".join("?" * len(valid_ids))
         cursor = db.execute(
             f"DELETE FROM jf_notification WHERE {where} AND id IN ({placeholders})",
-            (*params, *notification_ids),
+            (*params, *valid_ids),
         )
     else:
         cursor = db.execute(f"DELETE FROM jf_notification WHERE {where}", params)
