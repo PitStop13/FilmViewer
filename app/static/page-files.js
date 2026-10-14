@@ -149,6 +149,14 @@ function setupFileManager() {
     _lastSelectedIndex = -1;
     syncSelectionUI();
   });
+
+  // Built-in player modal listeners
+  const playerModal = document.getElementById('player-modal');
+  if (playerModal) {
+    playerModal.addEventListener('hidden.bs.modal', stopPlayer);
+    const closeBtn = playerModal.querySelector('[data-bs-dismiss="modal"]');
+    if (closeBtn) closeBtn.addEventListener('click', stopPlayer);
+  }
 }
 
 function syncSelectionUI() {
@@ -419,14 +427,28 @@ async function batchDeletePaths(paths) {
   } catch(e) { showToast('Errore di rete','danger'); }
 }
 
-function playFile(path, name) {
-  document.getElementById('player-modal-title').textContent=name;
+function stopPlayer() {
   const video = document.getElementById('video-player');
-  video.src=`/api/files/stream/${encodeURI(path)}`; video.load();
+  if (video) {
+    try {
+      video.pause();
+      video.currentTime = 0;
+      video.removeAttribute('src');
+      video.load();
+    } catch (e) {}
+  }
+}
+
+function playFile(path, name) {
+  const titleEl = document.getElementById('player-modal-title');
+  if (titleEl) titleEl.textContent = name;
+  const video = document.getElementById('video-player');
+  if (video) {
+    video.src = `/api/files/stream/${encodeURI(path)}`;
+    video.load();
+    video.play().catch(() => {});
+  }
   showModal('player-modal');
-  document.getElementById('player-modal').addEventListener('click', (e) => {
-    if (e.target.closest('[data-bs-dismiss="modal"]')) { video.pause(); video.src=''; }
-  }, {once:true});
 }
 
 async function renamePath(path, name) {

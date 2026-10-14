@@ -180,6 +180,7 @@ function closeMobileMenu() {
 // the default and then correcting itself.
 function showPage(page, params = null) {
   closeMobileMenu();
+  document.querySelectorAll('.modal.show, .modal[style*="display: block"]').forEach(m => hideModal(m.id));
   if (params) PAGE_HASH[page]?.apply?.(params);
   ['search','downloads','files','requests','my-requests','watches','users','detail','settings'].forEach(p => {
     const el = document.getElementById(`page-${p}`);

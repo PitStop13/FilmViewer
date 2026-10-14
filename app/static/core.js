@@ -203,19 +203,50 @@ function showModal(id) {
 function hideModal(id) {
   const el = document.getElementById(id);
   if (!el) return;
+
+  // Immediately stop, pause and detach any audio/video elements inside this modal
+  el.querySelectorAll('video, audio').forEach(media => {
+    try {
+      media.pause();
+      media.currentTime = 0;
+      media.removeAttribute('src');
+      media.load();
+    } catch (err) {}
+  });
+
+  // Also clean up any active iframes (e.g. streaming embeds) to stop background playback
+  el.querySelectorAll('iframe').forEach(iframe => {
+    try {
+      iframe.src = 'about:blank';
+    } catch (err) {}
+  });
+
   el.style.display = 'none';
   el.classList.remove('show');
   el.setAttribute('aria-hidden', 'true');
   el.removeAttribute('aria-modal');
   document.querySelector('.modal-backdrop')?.remove();
   document.body.classList.remove('modal-open');
+
+  try {
+    el.dispatchEvent(new CustomEvent('hidden.bs.modal', { bubbles: true }));
+    el.dispatchEvent(new CustomEvent('modal:hidden', { detail: { id }, bubbles: true }));
+  } catch (err) {}
 }
 document.addEventListener('click', (e) => {
-  if (e.target.classList.contains('modal') && e.target.classList.contains('show'))
+  if (e.target.classList.contains('modal') && (e.target.classList.contains('show') || e.target.style.display === 'block'))
     hideModal(e.target.id);
   if (e.target.closest('[data-bs-dismiss="modal"]')) {
     const modal = e.target.closest('.modal');
     if (modal) hideModal(modal.id);
+  }
+});
+
+// Close open modal on Escape key
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' || e.key === 'Esc') {
+    const openModals = document.querySelectorAll('.modal.show, .modal[style*="display: block"]');
+    openModals.forEach(m => hideModal(m.id));
   }
 });
 
