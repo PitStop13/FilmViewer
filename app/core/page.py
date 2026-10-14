@@ -151,3 +151,16 @@ def search(title_search: str, domain: str, *, page: int = 1,
         titles = [t for t in titles if t.get("type") == media_type]
 
     return [t for t in (normalize_title(raw) for raw in titles[:_RESULT_CAP]) if t]
+
+
+def browse_archive(domain: str, *, page: int = 1,
+                   media_type: str | None = None, sort: str = "views") -> list[dict]:
+    """Browse StreamingCommunity's full catalog archive with pagination and sorting."""
+    params = {"page": page, "sort": sort}
+    if media_type:
+        params["type"] = media_type
+
+    domain = clean_domain(domain)
+    props = fetch_page_props(f"https://{domain}/it/archive", params=params)
+    titles = props.get("titles") or []
+    return [t for t in (normalize_title(raw) for raw in titles[:_RESULT_CAP]) if t]

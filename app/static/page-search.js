@@ -10,32 +10,24 @@
 const KIND_BADGES = {
   movie:   {label: 'Film',     cls: 'bg-blue-lt'},
   tv:      {label: 'Serie TV', cls: 'bg-green-lt'},
-  ova:     {label: 'OVA',      cls: 'bg-purple-lt'},
-  ona:     {label: 'ONA',      cls: 'bg-teal-lt'},
-  special: {label: 'Speciale', cls: 'bg-yellow-lt'},
-  anime:   {label: 'Anime',    cls: 'bg-purple-lt'},
 };
 function kindBadge(item) {
   const key = String(item.media_type || item.type || '').toLowerCase();
-  // An unrecognised kind is shown as it came, in a neutral colour. Folding it
-  // into "TV" is exactly the bug this replaced: every anime, films included,
-  // was labelled a TV series. The source's own word first — AnimeUnity has a
-  // long tail of them ("TV Short" turns up in a normal search) and its own name
-  // for a thing says more than the "anime" every one of its records carries.
   return KIND_BADGES[key] || {label: item.media_type || item.type || '?',
                               cls: 'bg-secondary-lt'};
 }
 
-// ── Source selector ────────────────────────────────────────────────────────────
+// ── Source & Category selector ────────────────────────────────────────────────
+
+let _homeCategory = 'all'; // 'all' | 'movie' | 'tv'
 
 function setSource(src) {
-  currentSource = src;
-  document.getElementById('src-sc').classList.toggle('active', src === 'streamingcommunity');
-  document.getElementById('src-au').classList.toggle('active', src === 'animeunity');
+  currentSource = 'streamingcommunity';
+  document.getElementById('src-sc')?.classList.toggle('active', true);
+  document.getElementById('src-au')?.classList.toggle('active', false);
   const input = document.getElementById('search-input');
-  if (input) input.placeholder = src === 'animeunity' ? 'Cerca anime...' : 'Film, serie TV...';
+  if (input) input.placeholder = 'Cerca film o serie TV per titolo...';
   document.getElementById('search-results').innerHTML = '';
-  // The kinds are each source's own vocabulary, so a filter does not carry over.
   _searchResults = [];
   _requestStatus = {};
   _searchPage = 1;
@@ -44,10 +36,16 @@ function setSource(src) {
   _dubOnly = false;
   renderSearchFilters();
   _setMoreVisible(false);
-  // Clearing the grid and leaving the query typed is what made the selector
-  // read as broken: nothing happened until you typed again.
   _rerunSearch();
   syncHash();
+}
+
+function setHomeCategory(cat) {
+  _homeCategory = cat || 'all';
+  document.getElementById('cat-all')?.classList.toggle('active', _homeCategory === 'all');
+  document.getElementById('cat-movie')?.classList.toggle('active', _homeCategory === 'movie');
+  document.getElementById('cat-tv')?.classList.toggle('active', _homeCategory === 'tv');
+  applyCategoryFilter();
 }
 
 // ── Search ─────────────────────────────────────────────────────────────────────
@@ -88,31 +86,22 @@ function _showSearchSkeletons() {
 let _searchPage = 1;
 let _searchExhausted = false;
 let _loadingMore = false;
-let _kindFilter = '';   // '' | movie | tv | ova | ona | special
+let _kindFilter = '';   // '' | movie | tv
 let _dubOnly = false;
 
-// Each source classifies its catalogue in its own vocabulary, so the chips are
-// rebuilt when the source changes rather than offering one of them a filter the
-// other cannot answer.
-const KIND_FILTERS = {
-  streamingcommunity: [['', 'Tutti'], ['movie', 'Film'], ['tv', 'Serie TV']],
-  animeunity: [['', 'Tutti'], ['movie', 'Film'], ['tv', 'Serie TV'],
-               ['ova', 'OVA'], ['ona', 'ONA'], ['special', 'Speciali']],
-};
+const KIND_FILTERS = [
+  ['', 'Tutti i risultati'],
+  ['movie', '🎬 Solo Film'],
+  ['tv', '📺 Solo Serie TV'],
+];
 
 function renderSearchFilters() {
   const bar = document.getElementById('search-filters');
   if (!bar) return;
-  const chips = (KIND_FILTERS[currentSource] || []).map(([value, label]) =>
+  const chips = KIND_FILTERS.map(([value, label]) =>
     `<button class="source-btn${value === _kindFilter ? ' active' : ''}" ` +
     `data-action="search:kind" data-kind="${value}">${label}</button>`).join('');
-  // AnimeUnity keeps an Italian dub as a record of its own, so this is a real
-  // filter there and meaningless on the other source.
-  const dub = currentSource === 'animeunity'
-    ? `<button class="source-btn${_dubOnly ? ' active' : ''}" data-action="search:dub" data-on="${_dubOnly ? '0' : '1'}">` +
-      `<i class="ti ti-microphone"></i>Solo doppiati IT</button>`
-    : '';
-  bar.innerHTML = chips + dub;
+  bar.innerHTML = chips;
 }
 
 function setKindFilter(kind) {
@@ -150,10 +139,8 @@ function _afterFilterChange() {
 // blank, so the optional filters resolve to undefined rather than ''.
 function _searchParams(q, page) {
   return {
-    q, source: currentSource, page: String(page),
+    q, source: 'streamingcommunity', page: String(page),
     media_type: _kindFilter || undefined,
-    // Sent only where it means something; the other source answers 422 for it.
-    dubbed: (_dubOnly && currentSource === 'animeunity') ? 'true' : undefined,
   };
 }
 
@@ -180,7 +167,7 @@ function renderResultCards(items, container, baseIndex,
     card.className = wrapperClass;
     card.dataset.idx = String(idx);
     const posterHtml = posterUrl
-      ? `<img src="${posterUrl}" alt="" onerror="posterError(this)">`
+      ? `<img src="${posterUrl}" alt="" loading="lazy" decoding="async" onerror="posterError(this)">`
       : '';
     // Movie cards carry no status ribbon: a movie can be requested again
     // freely (denied/failed/cancelled never block it), so a "richiesto" chip
@@ -323,7 +310,11 @@ function _setStartPageVisible(on) {
   const shelves = document.getElementById('home-shelves');
   const results = document.getElementById('search-results');
   const hero = document.getElementById('search-hero');
+  const filters = document.getElementById('search-filters');
+  const categories = document.getElementById('home-categories');
   if (hero) hero.style.display = on ? '' : 'none';
+  if (categories) categories.style.display = on ? '' : 'none';
+  if (filters) filters.style.display = on ? 'none' : '';
   if (shelves) shelves.style.display = on ? '' : 'none';
   if (results) results.style.display = on ? 'none' : '';
   if (on) _setMoreVisible(false);
@@ -351,24 +342,18 @@ function _shelfSkeletons() {
 async function showStartPage() {
   const host = document.getElementById('home-shelves');
   if (!host) return;
-  if (currentSource !== 'animeunity') {
-    await ensureDomain();
-    if (!currentDomain) { _setStartPageVisible(false); return; }
-  }
+  await ensureDomain();
+  if (!currentDomain) { _setStartPageVisible(false); return; }
 
   _setStartPageVisible(true);
-  if (_homeCache[currentSource]) { renderShelves(); return; }
+  if (_homeCache['streamingcommunity']) { renderShelves(); return; }
 
   if (_homeAbort) _homeAbort.abort();
   _homeAbort = new AbortController();
-  const source = currentSource;
   host.innerHTML = _shelfSkeletons();
   try {
-    // A 409 with no domain configured throws like any other refusal, and
-    // lands in the catch below, which leaves the same bare search box.
-    const body = await api.get('/api/home', {source}, {signal: _homeAbort.signal});
-    _homeCache[source] = body.shelves || [];
-    if (source !== currentSource) return;  // switched away while it was in flight
+    const body = await api.get('/api/home', {source: 'streamingcommunity'}, {signal: _homeAbort.signal});
+    _homeCache['streamingcommunity'] = body.shelves || [];
     renderShelves();
   } catch (e) {
     if (e.name === 'AbortError') return;
@@ -397,7 +382,7 @@ function _renderHeroArt(items) {
 
 function renderShelves() {
   const host = document.getElementById('home-shelves');
-  const shelves = _homeCache[currentSource] || [];
+  const shelves = _homeCache['streamingcommunity'] || [];
   host.innerHTML = '';
   // One flat array across every rail, reset once here and appended to in order,
   // so openTitle(idx) needs no special case for the start page.
@@ -409,8 +394,17 @@ function renderShelves() {
   shelves.forEach(shelf => {
     const section = document.createElement('div');
     section.className = 'shelf';
+    section.dataset.shelfCategory = shelf.category || 'all';
+
+    let catBadge = '';
+    if (shelf.category === 'movie') {
+      catBadge = '<span class="badge bg-blue-lt ms-2" style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px">Film</span>';
+    } else if (shelf.category === 'tv') {
+      catBadge = '<span class="badge bg-green-lt ms-2" style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px">Serie TV</span>';
+    }
+
     section.innerHTML =
-      `<div class="shelf-head"><div class="shelf-title">${escapeHtml(shelf.title)}</div></div>` +
+      `<div class="shelf-head"><div class="shelf-title d-flex align-items-center">${escapeHtml(shelf.title)}${catBadge}</div></div>` +
       '<div class="shelf-rail-wrap">' +
         '<button class="shelf-arrow shelf-arrow-prev" hidden aria-label="Titoli precedenti">' +
           '<i class="ti ti-chevron-left"></i></button>' +
@@ -427,7 +421,7 @@ function renderShelves() {
   });
   _renderHeroArt(_searchResults);
 
-  applyClientFilter();
+  applyCategoryFilter();
   loadRequestStatuses(ribbonIds);
 }
 
@@ -445,8 +439,6 @@ function _wireShelfArrows(section) {
   function step() {
     const card = rail.querySelector('.shelf-item:not(.d-none)');
     const one = (card ? card.offsetWidth : 132) + 12;   // the rail's gap
-    // Three cards, unless the rail is too narrow to show three — then as many
-    // as fit, and never less than one.
     return Math.max(one, Math.min(one * 3, Math.floor(rail.clientWidth / one) * one));
   }
 
@@ -457,9 +449,62 @@ function _wireShelfArrows(section) {
     next.hidden = !scrollable || rail.scrollLeft >= max - 2;
   }
 
+  let ticking = false;
+  function onScroll() {
+    if (!ticking) {
+      window.requestAnimationFrame(() => {
+        sync();
+        ticking = false;
+      });
+      ticking = true;
+    }
+  }
+
   prev.addEventListener('click', () => rail.scrollBy({left: -step(), behavior: 'smooth'}));
   next.addEventListener('click', () => rail.scrollBy({left: step(), behavior: 'smooth'}));
-  rail.addEventListener('scroll', sync, {passive: true});
+  rail.addEventListener('scroll', onScroll, {passive: true});
+
+  // Smooth mouse drag-to-scroll support
+  let isDown = false;
+  let startX = 0;
+  let scrollLeftStart = 0;
+  let hasMoved = false;
+
+  rail.addEventListener('mousedown', (e) => {
+    if (e.button !== 0 || e.target.closest('button')) return;
+    isDown = true;
+    hasMoved = false;
+    startX = e.pageX - rail.offsetLeft;
+    scrollLeftStart = rail.scrollLeft;
+  });
+
+  const onGlobalMouseUp = () => {
+    if (isDown) {
+      isDown = false;
+      rail.classList.remove('is-dragging');
+    }
+  };
+  window.addEventListener('mouseup', onGlobalMouseUp);
+
+  rail.addEventListener('mousemove', (e) => {
+    if (!isDown) return;
+    const x = e.pageX - rail.offsetLeft;
+    const walk = (x - startX);
+    if (Math.abs(walk) > 4) {
+      hasMoved = true;
+      rail.classList.add('is-dragging');
+      rail.scrollLeft = scrollLeftStart - walk;
+    }
+  });
+
+  rail.addEventListener('click', (e) => {
+    if (hasMoved) {
+      e.preventDefault();
+      e.stopPropagation();
+      hasMoved = false;
+    }
+  }, true);
+
   sync();
   return sync;
 }
@@ -470,31 +515,36 @@ function _syncShelfArrows() {
 
 window.addEventListener('resize', _syncShelfArrows);
 
-function itemMatchesFilter(item) {
-  if (_kindFilter &&
-      String(item.media_type || item.type || '').toLowerCase() !== _kindFilter) return false;
-  if (_dubOnly && currentSource === 'animeunity' && !item.dubbed) return false;
-  return true;
-}
-
-// The rails are whatever the source's front page holds: there is no server-side
-// variant of them to ask for, and no paging to keep honest. So the chips hide
-// cards instead of refetching — instant, and it cannot desynchronise an index,
-// because nothing is removed and nothing is reordered.
-function applyClientFilter() {
+function applyCategoryFilter() {
   const host = document.getElementById('home-shelves');
   if (!host) return;
   host.querySelectorAll('.shelf').forEach(section => {
-    let visible = 0;
+    const shelfCat = section.dataset.shelfCategory || 'all';
+    let visibleCards = 0;
     section.querySelectorAll('.shelf-item').forEach(card => {
       const item = _searchResults[Number(card.dataset.idx)];
-      const show = !item || itemMatchesFilter(item);
-      card.classList.toggle('d-none', !show);
-      if (show) visible++;
+      if (!item) return;
+      let showCard = true;
+      if (_homeCategory === 'movie') {
+        showCard = (shelfCat === 'movie') || (item.type === 'movie');
+      } else if (_homeCategory === 'tv') {
+        showCard = (shelfCat === 'tv') || (item.type === 'tv');
+      }
+      card.classList.toggle('d-none', !showCard);
+      if (showCard) visibleCards++;
     });
-    section.classList.toggle('d-none', visible === 0);
+
+    const showSection = (_homeCategory === 'all')
+      ? true
+      : ((shelfCat === _homeCategory || shelfCat === 'all') && visibleCards > 0);
+
+    section.classList.toggle('d-none', !showSection);
   });
   _syncShelfArrows();
+}
+
+function applyClientFilter() {
+  applyCategoryFilter();
 }
 
 // ── Request status on the result cards ─────────────────────────────────────────
@@ -565,11 +615,11 @@ function renderRequestRibbons() {
 // ── Delegated handlers ───────────────────────────────────────────────────────
 
 registerActions({
+  'home:category': d => setHomeCategory(d.cat),
   'search:source': d => setSource(d.source),
   'search:run':    () => doSearch(),
   'search:more':   () => loadMoreResults(),
   'search:kind':   d => setKindFilter(d.kind),
-  'search:dub':    d => setDubOnly(d.on === '1'),
   'search:open':   d => openTitle(Number(d.idx)),
 });
 
@@ -585,22 +635,19 @@ registerPageHash('search', {
   read: () => ({
     params: {
       q: document.getElementById('search-input')?.value.trim() || null,
-      src: currentSource === 'animeunity' ? 'animeunity' : null,
+      cat: _homeCategory !== 'all' ? _homeCategory : null,
       type: _kindFilter || null,
-      dub: _dubOnly ? '1' : null,
     },
   }),
   apply: params => {
     const input = document.getElementById('search-input');
     if (input) input.value = params.q || '';
-    // Not setSource(): that clears the grid and re-runs the search, which is
-    // the opposite of restoring one. Only the parts that are state.
-    currentSource = params.src === 'animeunity' ? 'animeunity' : 'streamingcommunity';
-    document.getElementById('src-sc')?.classList.toggle('active', currentSource === 'streamingcommunity');
-    document.getElementById('src-au')?.classList.toggle('active', currentSource === 'animeunity');
-    if (input) input.placeholder = currentSource === 'animeunity' ? 'Cerca anime...' : 'Film, serie TV...';
+    currentSource = 'streamingcommunity';
+    if (input) input.placeholder = 'Cerca film o serie TV per titolo...';
     _kindFilter = params.type || '';
-    _dubOnly = params.dub === '1';
+    if (params.cat) {
+      setHomeCategory(params.cat);
+    }
     _searchResults = [];
     _searchPage = 1;
     _searchExhausted = false;

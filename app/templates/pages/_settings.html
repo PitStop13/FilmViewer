@@ -117,8 +117,8 @@
         <p class="settings-section-hint">
           <strong>Su Docker serve il percorso interno al container</strong>, cioè
           <code>/app/videos/&lt;cartella nel volume&gt;</code> — per esempio
-          <code>/app/videos/Anime</code>. Il percorso dell&rsquo;host
-          (<code>N:\Jellyfin\Anime</code>, <code>/srv/nfs/storage/Anime</code>) va nel
+          <code>/app/videos/Film</code>. Il percorso dell&rsquo;host
+          (<code>N:\Jellyfin\Film</code>, <code>/srv/nfs/storage/Film</code>) va nel
           <code>docker-compose.yml</code>, non qui: è la parte a sinistra dei due punti nel
           volume montato su <code>/app/videos</code>.
         </p>
@@ -239,29 +239,6 @@
             <label class="form-label" for="naming-episode_file">File episodio</label>
             <input type="text" id="naming-episode_file" class="form-control" data-naming-slot="episode_file" placeholder="{title} S{season2}E{episode2}">
             <div class="form-text" id="naming-preview-episode_file"></div>
-          </div>
-        </div>
-        <p class="settings-section-label mt-3 mb-2">Anime</p>
-        <div class="row g-3">
-          <div class="col-sm-6">
-            <label class="form-label" for="naming-anime_folder">Cartella</label>
-            <input type="text" id="naming-anime_folder" class="form-control" data-naming-slot="anime_folder" placeholder="{title}[ ({year})]">
-            <div class="form-text" id="naming-preview-anime_folder"></div>
-          </div>
-          <div class="col-sm-6">
-            <label class="form-label" for="naming-anime_season_folder">Cartella stagione</label>
-            <input type="text" id="naming-anime_season_folder" class="form-control" data-naming-slot="anime_season_folder" placeholder="Season 01">
-            <div class="form-text" id="naming-preview-anime_season_folder"></div>
-          </div>
-          <div class="col-sm-6">
-            <label class="form-label" for="naming-anime_episode_file">File episodio</label>
-            <input type="text" id="naming-anime_episode_file" class="form-control" data-naming-slot="anime_episode_file" placeholder="{title} S01E{episode2}">
-            <div class="form-text" id="naming-preview-anime_episode_file"></div>
-          </div>
-          <div class="col-sm-6">
-            <label class="form-label" for="naming-anime_movie_file">File film</label>
-            <input type="text" id="naming-anime_movie_file" class="form-control" data-naming-slot="anime_movie_file" placeholder="{title}">
-            <div class="form-text" id="naming-preview-anime_movie_file"></div>
           </div>
         </div>
 

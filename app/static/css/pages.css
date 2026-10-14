@@ -102,7 +102,11 @@
     /* ═══════════════════════════════════════════════════════
        START PAGE — the source's own shelves
        ═══════════════════════════════════════════════════════ */
-    .shelf { margin-bottom: 26px; }
+    .shelf {
+      margin-bottom: 26px;
+      content-visibility: auto;
+      contain-intrinsic-size: 0 320px;
+    }
     .shelf-head {
       display: flex;
       align-items: baseline;
@@ -111,18 +115,25 @@
     }
     .shelf-title {
       font-family: var(--font-ui);
-      font-size: 14px;
+      font-size: 16px;
       font-weight: 700;
       color: var(--text);
-      letter-spacing: .2px;
+      letter-spacing: -.2px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     .shelf-rail {
       display: flex;
       gap: 12px;
       overflow-x: auto;
       overflow-y: hidden;
-      scroll-snap-type: x proximity;
       scroll-behavior: smooth;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior-x: contain;
+      will-change: scroll-position;
+      contain: layout style;
+      transform: translateZ(0);
       /* .result-card lifts 7px on hover, and an overflow-x container clips
          vertically too, so the rail pays for the lift in padding.
          The horizontal padding is the container's own gutter, given back:
@@ -132,6 +143,15 @@
       padding: 8px calc(var(--bs-gutter-x, 1.5rem) / 2) 10px;
       margin: 0;
       scrollbar-width: thin;
+      cursor: grab;
+    }
+    .shelf-rail.is-dragging {
+      scroll-behavior: auto !important;
+      cursor: grabbing !important;
+      user-select: none !important;
+    }
+    .shelf-rail.is-dragging * {
+      pointer-events: none !important;
     }
     .shelf-rail::-webkit-scrollbar { height: 6px; }
     .shelf-rail::-webkit-scrollbar-track { background: transparent; }
@@ -209,7 +229,7 @@
     .shelf-item {
       flex: 0 0 132px;
       width: 132px;
-      scroll-snap-align: start;
+      contain: layout style;
     }
     @media (min-width: 992px) {
       .shelf-item { flex-basis: 158px; width: 158px; }
@@ -224,14 +244,16 @@
       background: var(--bg-surface) !important;
       border: 1px solid var(--border) !important;
       overflow: hidden !important;
-      transition: transform .22s cubic-bezier(.34,1.56,.64,1), box-shadow .22s, border-color .22s !important;
+      transition: transform .18s ease-out, box-shadow .18s ease-out, border-color .18s ease-out !important;
       display: flex;
       flex-direction: column;
+      transform: translateZ(0);
+      backface-visibility: hidden;
     }
 
     .result-card:hover {
-      transform: translateY(-7px) scale(1.015) !important;
-      box-shadow: 0 14px 40px rgba(0,0,0,.35) !important;
+      transform: translateY(-5px) scale(1.02) !important;
+      box-shadow: 0 10px 28px rgba(0,0,0,.45) !important;
       border-color: var(--border-strong) !important;
     }
 

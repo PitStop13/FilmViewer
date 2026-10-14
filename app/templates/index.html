@@ -48,21 +48,24 @@
                  only: it is filled after the shelves load and stays empty if
                  they fail. -->
             <div class="sh-art" id="search-hero-art" aria-hidden="true"></div>
-            <h1 class="sh-title">La tua prossima<br><span class="sh-accent">serie, film, anime.</span></h1>
-            <p class="sh-sub">Cerca nel catalogo, scegli audio e sottotitoli, e mandalo in libreria.</p>
+            <h1 class="sh-title">I tuoi prossimi<br><span class="sh-accent">film e serie TV.</span></h1>
+            <p class="sh-sub">Esplora il catalogo completo di StreamingCommunity, guarda subito o scarica in alta qualità.</p>
           </div>
           <div class="mb-4">
-            <div class="source-selector">
-              <button class="source-btn active" id="src-sc" data-action="search:source" data-source="streamingcommunity">
-                <i class="ti ti-device-tv"></i>StreamingCommunity
+            <div class="source-selector mb-3" id="home-categories">
+              <button class="source-btn active" id="cat-all" data-action="home:category" data-cat="all">
+                <i class="ti ti-layout-grid"></i>Tutti i titoli
               </button>
-              <button class="source-btn" id="src-au" data-action="search:source" data-source="animeunity">
-                <i class="ti ti-sword"></i>AnimeUnity
+              <button class="source-btn" id="cat-movie" data-action="home:category" data-cat="movie">
+                <i class="ti ti-movie"></i>Film
+              </button>
+              <button class="source-btn" id="cat-tv" data-action="home:category" data-cat="tv">
+                <i class="ti ti-device-tv"></i>Serie TV
               </button>
             </div>
             <div class="sc-searchbar">
               <input type="text" id="search-input"
-                     placeholder="Film, serie TV..."
+                     placeholder="Cerca film o serie TV per titolo..."
                      data-enter="search:run">
               <button class="sc-search-btn" data-action="search:run" id="search-btn">
                 <i class="ti ti-search"></i>Cerca
