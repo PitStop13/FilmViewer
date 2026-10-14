@@ -7,8 +7,8 @@ services:
     ports:
       - "9876:9876"
     volumes:
-      # Video library storage
-      - videos_storage:/app/videos
+      # Video library storage directly in your project folder on Windows (./videos)
+      - ./videos:/app/videos
       # Persistent configuration (database, state, schedules)
       - panel_config:/app/config
     environment:
@@ -26,7 +26,5 @@ services:
       replicas: 1
 
 volumes:
-  videos_storage:
-    driver: local
   panel_config:
     driver: local
