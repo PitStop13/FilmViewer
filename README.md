@@ -32,7 +32,82 @@ FilmViewer è un'applicazione web leggera pensata per uso personale e domestico 
 
 ### 🏠 CasaOS (Home Server / NAS)
 
-Accedi al terminale di CasaOS (oppure via SSH) ed esegui:
+Puoi installare FilmViewer su CasaOS in due modi: direttamente dall'interfaccia grafica (consigliato) oppure via terminale.
+
+#### Metodo 1: Dall'interfaccia web di CasaOS (Consigliato)
+
+1. Nella dashboard principale di CasaOS, clicca sul pulsante **"+"** (in alto a destra nella sezione App) e seleziona **"Installa un'applicazione personalizzata"** (*Install a customized app*).
+2. In alto a destra della finestra popup, clicca sul pulsante **"Importa"** (icona del codice `</>` o icona file accanto alla `X`).
+3. Incolla il seguente codice Docker Compose completo:
+
+```yaml
+name: filmviewer
+services:
+  filmviewer:
+    image: ghcr.io/pitstop13/filmviewer:latest
+    container_name: filmviewer-panel
+    ports:
+      - "9876:9876"
+    volumes:
+      # Cartella host sul tuo server per salvare i film/serie (modifica se usi un altro percorso)
+      - /DATA/Media/FilmViewer/videos:/app/videos
+      # Configurazione, database utenti e cronologia persistenti
+      - /DATA/AppData/FilmViewer/config:/app/config
+    environment:
+      - HOST=0.0.0.0
+      - PORT=9876
+      - VIDEOS_DIR=/app/videos
+      - DB_FILE=/app/config/panel.db
+      - DATA_FILE=/app/config/data.json
+      - SCHEDULE_FILE=/app/config/schedule.json
+      - COOKIE_SECURE=0
+      - COOKIE_SAMESITE=lax
+      - TRUST_PROXY_HEADERS=0
+    restart: unless-stopped
+    x-casaos:
+      ports:
+        - container: "9876"
+          description:
+            en_us: Porta interfaccia Web FilmViewer
+      volumes:
+        - container: /app/videos
+          description:
+            en_us: Cartella video e download
+        - container: /app/config
+          description:
+            en_us: Configurazione e database
+x-casaos:
+  architectures:
+    - amd64
+    - arm64
+    - arm
+  main: filmviewer
+  description:
+    en_us: Web interface to stream and download movies and TV series for personal use.
+    it_it: Interfaccia web per guardare e scaricare film e serie TV con ripresa automatica dei download.
+  tagline:
+    en_us: Streaming & Downloader
+    it_it: Streaming & Downloader
+  developer: FilmViewer
+  author: PitStop13
+  icon: https://raw.githubusercontent.com/PitStop13/FilmViewer/main/docs/logo.png
+  thumbnail: https://raw.githubusercontent.com/PitStop13/FilmViewer/main/docs/logo.png
+  title:
+    en_us: FilmViewer
+  index: /
+  port_map: "9876"
+```
+
+4. Clicca su **"Invia"** (*Submit*). Grazie ai metadati `x-casaos`, tutti i campi (Nome, Icona, Porta Web, Volumi ed Environment) saranno precompilati in automatico!
+   - **Logo / Icona:** se compili a mano o vuoi cambiare l'icona, incolla questo URL nel campo Icona:  
+     `https://raw.githubusercontent.com/PitStop13/FilmViewer/main/docs/logo.png`
+   - **Cartella video Host:** assicurati che il percorso dell'host montato su `/app/videos` (es. `/DATA/Media/FilmViewer/videos` o `/DATA/Media/Movies`) sia quello dove vuoi archiviare i file.
+5. Clicca su **"Installa"** e attendi il completamento del download dell'immagine.
+6. L'applicazione sarà subito accessibile cliccando sull'icona di FilmViewer nella dashboard o all'indirizzo: 👉 **`http://<IP-DEL-TUO-SERVER>:9876`**
+
+#### Metodo 2: Da Terminale (o SSH)
+
+Se preferisci usare la riga di comando o compilare il codice sorgente direttamente:
 ```bash
 cd /DATA/AppData
 git clone https://github.com/PitStop13/FilmViewer.git
@@ -92,11 +167,16 @@ Apri il browser su: 👉 **`http://localhost:9876`**
 
 ## 🎯 Configurazione al Primo Avvio
 
-La prima volta che ti colleghi a **`http://localhost:9876`**:
-1. **Cartella video**: conferma il percorso di salvataggio (se usi Docker lascia `/app/videos`).
-2. **Accesso**:
-   - Clicca **"Continua senza Jellyfin"** per usare subito l'app in modalità libera.
-   - Oppure inserisci URL e credenziali del tuo server Jellyfin se desideri collegarlo.
+La prima volta che ti colleghi a **`http://<IP-SERVER>:9876`** (o `http://localhost:9876` da locale):
+
+1. **Cartella video (Percorso di download):**
+   > ⚠️ **IMPORTANTE SE USI DOCKER O CASAOS:**  
+   > Nel campo del percorso video **lascia o inserisci esattamente `/app/videos`** (il valore predefinito).  
+   > **NON inserire percorsi dell'host come `/DATA/...` o `C:\...`**: l'applicazione viene eseguita all'interno di un container Docker che riconosce unicamente il percorso interno `/app/videos`. Questo percorso è già collegato in automatico tramite i volumi alla tua cartella reale sul disco/NAS. Se modifichi `/app/videos` con un percorso dell'host, il container non potrà accedervi e i download restituiranno errore.
+
+2. **Accesso iniziale:**
+   - Clicca **"Continua senza Jellyfin"** per usare immediatamente l'applicazione in modalità libera, senza bisogno di server multimediali.
+   - Oppure inserisci URL e credenziali del tuo server Jellyfin se desideri collegarlo per gestire profili o la sincronizzazione della libreria.
 
 ---
 
