@@ -50,7 +50,7 @@ services:
       - "9876:9876"
     volumes:
       # Cartella host sul tuo server per salvare i film/serie (modifica se usi un altro percorso)
-      - /DATA/Media/FilmViewer/videos:/app/videos
+      - /DATA/Storage/nas/Download-Film:/app/videos
       # Configurazione, database utenti e cronologia persistenti
       - /DATA/AppData/FilmViewer/config:/app/config
     environment:
