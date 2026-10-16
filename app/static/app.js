@@ -40,7 +40,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     // polls instead. Cheap: one indexed count per minute.
     setInterval(refreshNotifications, 60000);
   }
-  if (can('VIEW_LIBRARY')) { setupFileManager(); loadSidebarDisk(); }
+  if (can('MANAGE_FILES')) { setupFileManager(); loadSidebarDisk(); }
   setupSettingsTabs();
   setupSearchDebounce();
   renderSearchFilters();
@@ -51,7 +51,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 function defaultPage() {
   if (can('REQUEST') || can('DOWNLOAD')) return 'search';
   if (can('MANAGE_REQUESTS')) return 'requests';
-  if (can('VIEW_LIBRARY')) return 'files';
+  if (can('MANAGE_FILES')) return 'files';
   return 'search';
 }
 

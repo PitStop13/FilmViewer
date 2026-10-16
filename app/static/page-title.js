@@ -39,10 +39,6 @@ async function loadTitlePage(route) {
   _tp = {
     ...route,
     name: seed?.name || '',
-    // Not for a series: its search record has no release_date, and the
-    // last_air_date itemYear() falls back to is the latest season's - the
-    // folder was named after it (issue #21). The title page's own year
-    // arrives with the metadata.
     year: seed && route.type !== 'tv' ? itemYear(seed) : null,
     poster: seed?.poster || null,
     score: seed?.score ? parseFloat(seed.score).toFixed(1) : null,
@@ -52,24 +48,34 @@ async function loadTitlePage(route) {
     plot: seed?.plot || null,
     genres: seed?.genres || [],
     meta: null,
-    // From the address when a link named one, so a reload of S03 is S03.
+    cw: seed?.cw || null,
     season: route.season || 1,
     episodes: [],
     audio: [], subs: [], tracksLoaded: false, tracksError: null,
-    // Raw value of the datetime input, kept so a re-render does not clear
-    // what the user typed; scheduledAt is its ISO form, or null for "now".
     scheduledRaw: '', scheduledAt: null,
     tab: null,
   };
 
   showPage('detail');
   _tpRender();
-  // Which library folder holds this title - for whoever manages the library.
   libRenderTitleCard(route, _tp.name);
 
+  // Check continue watching status for this title
+  api.get('/api/continue-watching')
+    .then(res => {
+      if (token !== _tpToken || !res?.items) return;
+      const found = res.items.find(i =>
+        String(i.content_id) === String(route.id) &&
+        (i.content_type === route.type || (route.type === 'movie' && i.content_type === 'film'))
+      );
+      if (found) {
+        _tp.cw = found;
+        _tpRenderCta();
+      }
+    })
+    .catch(() => {});
+
   const q = { slug: route.slug, version: currentVersion || '' };
-  // Metadata and the track list are independent: one reads the title page,
-  // the other reaches the stream host. Neither waits on the other.
   const metaReady = api.get(`/api/metadata/${route.type}/${route.id}`, q)
     .then(meta => { if (token === _tpToken) { _tpApplyMeta(meta); _tpRender(); } })
     .catch(() => {});
@@ -300,10 +306,29 @@ function _tpRenderCta() {
       <i class="ti ${icon} me-1"></i>${label}
     </button>`;
 
-  const watchBtn = _tp.type === 'movie' ? `
-    <button class="btn btn-outline-success" data-action="tp:watch-movie" title="Guarda in streaming">
-      <i class="ti ti-player-play me-1"></i>Guarda
-    </button>` : '';
+  let watchBtn = '';
+  if (_tp.cw) {
+    const remStr = typeof formatCwTime === 'function' ? formatCwTime(_tp.cw.remaining_seconds) : '';
+    const remBadge = remStr ? ` (${remStr})` : '';
+    const resumeLabel = _tp.cw.content_type === 'tv' && _tp.cw.season_number && _tp.cw.episode_number
+      ? `Continua S${String(_tp.cw.season_number).padStart(2, '0')}E${String(_tp.cw.episode_number).padStart(2, '0')}${remBadge}`
+      : `Continua a guardare${remBadge}`;
+    watchBtn = `
+      <button class="btn btn-success" data-action="tp:resume-cw" title="Continua da dove eri rimasto">
+        <i class="ti ti-player-play-filled me-1"></i>${escapeHtml(resumeLabel)}
+      </button>
+      <button class="btn btn-dark border border-secondary text-white" data-action="tp:restart-cw" title="Ricomincia dall'inizio">
+        <i class="ti ti-rotate-2 me-1"></i>Ricomincia
+      </button>
+      <button class="btn btn-outline-danger" data-action="tp:delete-cw" title="Rimuovi da Continua a guardare">
+        <i class="ti ti-trash me-1"></i>Rimuovi da Continua
+      </button>`;
+  } else if (_tp.type === 'movie') {
+    watchBtn = `
+      <button class="btn btn-outline-success" data-action="tp:watch-movie" title="Guarda in streaming">
+        <i class="ti ti-player-play me-1"></i>Guarda
+      </button>`;
+  }
 
   document.getElementById('th-cta').innerHTML = `
     ${sched}
@@ -759,6 +784,10 @@ function _savePlaybackProgress(isFinish = false) {
   const cId = String(_currentStreamTracking.id);
 
   if (finished) {
+    if (_tp && String(_tp.id) === cId) {
+      _tp.cw = null;
+      _tpRenderCta();
+    }
     api.post('/api/continue-watching/delete', {
       content_type: cType,
       content_id: cId,
@@ -766,6 +795,24 @@ function _savePlaybackProgress(isFinish = false) {
       if (typeof refreshContinueWatching === 'function') refreshContinueWatching();
     }).catch(() => {});
     return;
+  }
+
+  if (_tp && String(_tp.id) === cId) {
+    _tp.cw = {
+      content_type: cType,
+      content_id: cId,
+      slug: _currentStreamTracking.slug || _tp.slug || '',
+      title: _currentStreamTracking.title || _tp.name,
+      poster: _currentStreamTracking.poster || _tp.poster,
+      episode_id: _currentStreamTracking.episodeId,
+      episode_number: _currentStreamTracking.episodeNumber != null ? parseInt(_currentStreamTracking.episodeNumber) : null,
+      season_number: _currentStreamTracking.seasonNumber != null ? parseInt(_currentStreamTracking.seasonNumber) : null,
+      episode_title: _currentStreamTracking.episodeTitle,
+      position_seconds: Math.floor(cur),
+      duration_seconds: Math.floor(dur),
+      remaining_seconds: Math.max(0, Math.floor(dur - cur)),
+    };
+    _tpRenderCta();
   }
 
   api.post('/api/continue-watching/progress', {
@@ -1072,10 +1119,63 @@ document.addEventListener('keydown', (e) => {
 // which is state this page already holds, so the branch belongs here and not
 // in the markup.
 
+function tpResumeCw() {
+  if (!_tp?.cw) return;
+  openStreamPlayer({
+    type: _tp.cw.content_type,
+    id: _tp.cw.content_id,
+    slug: _tp.cw.slug || _tp.slug || '',
+    title: _tp.cw.title || _tp.name,
+    poster: _tp.cw.poster || _tp.poster,
+    episodeId: _tp.cw.episode_id,
+    episodeNumber: _tp.cw.episode_number,
+    seasonNumber: _tp.cw.season_number,
+    episodeTitle: _tp.cw.episode_title,
+    startTime: _tp.cw.position_seconds,
+  });
+}
+
+function tpRestartCw() {
+  if (!_tp?.cw) return;
+  openStreamPlayer({
+    type: _tp.cw.content_type,
+    id: _tp.cw.content_id,
+    slug: _tp.cw.slug || _tp.slug || '',
+    title: _tp.cw.title || _tp.name,
+    poster: _tp.cw.poster || _tp.poster,
+    episodeId: _tp.cw.episode_id,
+    episodeNumber: _tp.cw.episode_number,
+    seasonNumber: _tp.cw.season_number,
+    episodeTitle: _tp.cw.episode_title,
+    startTime: 0,
+  });
+}
+
+async function tpDeleteCw() {
+  if (!_tp?.cw) return;
+  const cw = _tp.cw;
+  _tp.cw = null;
+  _tpRenderCta();
+  try {
+    await api.post('/api/continue-watching/delete', {
+      content_type: cw.content_type,
+      content_id: cw.content_id,
+    });
+    if (typeof refreshContinueWatching === 'function') {
+      refreshContinueWatching();
+    }
+  } catch (e) {
+    console.error('Errore rimozione da continua a guardare:', e);
+  }
+}
+
 registerActions({
   'tp:back':          () => tpBack(),
   'tp:primary':       () => tpPrimary(),
   'tp:watch-movie':   () => tpWatchMovie(),
+  'tp:resume-cw':     () => tpResumeCw(),
+  'tp:restart-cw':    () => tpRestartCw(),
+  'tp:delete-cw':     () => tpDeleteCw(),
   'tp:watch-episode': d => tpWatchEpisode(Number(d.index)),
   'tp:follow':        () => tpToggleFollow(),
   'tp:tab':           d => tpSetTab(d.tab),

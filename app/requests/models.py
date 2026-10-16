@@ -249,6 +249,13 @@ def subscribers(request_id: int) -> list[int]:
     return [r["user_id"] for r in rows]
 
 
+def remove_subscriber(request_id: int, user_id: int) -> None:
+    db.execute(
+        "DELETE FROM jf_request_subscriber WHERE request_id = ? AND user_id = ?",
+        (request_id, user_id),
+    )
+
+
 # Statuses whose chosen tracks still describe what somebody expects to find in
 # the file. A denied or cancelled request asked for nothing; a failed one was
 # told so. The rest — including the ones already satisfied — are people who will
@@ -454,3 +461,12 @@ def rekey(request_id: int, request: Request) -> str:
     )
     db.execute("UPDATE jf_request SET content_key = ? WHERE id = ?", (key, request_id))
     return key
+
+
+def delete_request(request_id: int) -> None:
+    """Completely delete a request and its subscribers/notifications."""
+    with db.tx() as conn:
+        conn.execute("DELETE FROM jf_request_subscriber WHERE request_id = ?", (request_id,))
+        conn.execute("DELETE FROM jf_notification WHERE request_id = ?", (request_id,))
+        conn.execute("DELETE FROM jf_request WHERE id = ?", (request_id,))
+

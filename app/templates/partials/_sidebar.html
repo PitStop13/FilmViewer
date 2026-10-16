@@ -48,7 +48,7 @@
               <span class="nav-link-title">Serie seguite</span>
             </a>
           </li>
-          <li class="nav-item" data-perm="VIEW_LIBRARY">
+          <li class="nav-item" data-perm="MANAGE_FILES">
             <a class="nav-link" href="#" data-page="files" data-action="nav">
               <span class="nav-link-icon"><i class="ti ti-folder-filled"></i></span>
               <span class="nav-link-title">File</span>
@@ -68,9 +68,23 @@
           <span id="domain-badge" class="badge bg-secondary">caricamento...</span>
           <!-- How full the library volume is. Hidden until it is known, and
                for anyone who cannot see the library anyway. -->
-          <div id="sidebar-disk" class="sb-disk" data-perm="VIEW_LIBRARY" hidden>
+          <div id="sidebar-disk" class="sb-disk" data-perm="MANAGE_FILES" hidden>
             <div class="sb-disk-bar"><span id="sb-disk-fill"></span></div>
             <div class="sb-disk-text" id="sb-disk-text"></div>
+          </div>
+          <div class="sidebar-user d-flex align-items-center justify-content-between p-2 mb-2 rounded" style="background:var(--bg-surface); border:1px solid var(--border);" data-requires-auth="1">
+            <div class="d-flex align-items-center gap-2 overflow-hidden">
+              <span class="avatar avatar-xs bg-primary text-white rounded d-flex align-items-center justify-content-center" id="sb-user-avatar" style="width:26px; height:26px; font-size:12px;">
+                <i class="ti ti-user"></i>
+              </span>
+              <div class="overflow-hidden">
+                <div class="text-truncate fw-semibold" id="sb-user-name" style="font-size:12px; line-height:1.2;">—</div>
+                <div class="text-muted text-truncate" id="sb-user-profile" style="font-size:10px; line-height:1.2;">—</div>
+              </div>
+            </div>
+            <button class="btn btn-sm btn-icon btn-ghost-danger" data-action="session:logout" title="Disconnetti" style="padding:2px 6px">
+              <i class="ti ti-logout" style="font-size:15px"></i>
+            </button>
           </div>
           <button class="btn-sidebar-settings" data-perm="MANAGE_SETTINGS" data-action="settings:open">
             <i class="ti ti-settings" style="font-size:15px;flex-shrink:0"></i>

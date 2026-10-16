@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
+  <title>Accedi - FilmViewer</title>
+  <link rel="icon" type="image/x-icon" href="{{ asset('favicon.ico') }}"/>
+  <link rel="stylesheet" href="{{ asset('vendor/fonts/fonts.css') }}"/>
+  <link rel="stylesheet" href="{{ asset('vendor/tabler-1.4.0/tabler.min.css') }}"/>
+  <link rel="stylesheet" href="{{ asset('vendor/tabler-icons-3.19.0/tabler-icons.min.css') }}"/>
+  <link rel="stylesheet" href="{{ asset('css/tokens.css') }}"/>
+  <link rel="stylesheet" href="{{ asset('css/base.css') }}"/>
+  <link rel="stylesheet" href="{{ asset('css/components.css') }}"/>
+  <link rel="stylesheet" href="{{ asset('css/login.css') }}"/>
+</head>
+<body class="antialiased">
+
+<div class="aurora" aria-hidden="true">
+  <span></span>
+  <span></span>
+</div>
+
+<main class="auth-card" role="main">
+  <div class="brand">
+    <div class="brand-icon d-flex align-items-center justify-content-center"
+         style="background: linear-gradient(135deg, var(--accent), var(--purple)); border-radius: 12px; width:44px; height:44px; color:#fff; font-size:22px;">
+      <i class="ti ti-movie"></i>
+    </div>
+    <div>
+      <div class="brand-text">FilmViewer</div>
+      <div class="brand-sub">Piattaforma Streaming & Download</div>
+    </div>
+  </div>
+
+  <div id="auth-alert" class="auth-alert" role="alert" style="display:none;"></div>
+
+  <div id="setup-banner" class="setup-note" style="display:none;">
+    <strong>Primo avvio:</strong> Nessun utente registrato. Crea l'account amministratore per proteggere e gestire il tuo server.
+  </div>
+
+  <h1 id="auth-title" class="auth-title">Accedi</h1>
+  <p id="auth-hint" class="auth-hint">Inserisci le tue credenziali per accedere al pannello.</p>
+
+  <form id="auth-form" autocomplete="on">
+    <div class="mb-3">
+      <label class="form-label" for="auth-username">Nome utente</label>
+      <input type="text" id="auth-username" name="username" class="form-control"
+             placeholder="es. admin" autocomplete="username" autocapitalize="none" required autofocus />
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="auth-password">Password</label>
+      <input type="password" id="auth-password" name="password" class="form-control"
+             placeholder="••••••••" autocomplete="current-password" required />
+    </div>
+
+    <div class="mb-3" id="confirm-pwd-group" style="display:none;">
+      <label class="form-label" for="auth-password-confirm">Conferma password</label>
+      <input type="password" id="auth-password-confirm" name="password_confirm" class="form-control"
+             placeholder="••••••••" autocomplete="new-password" />
+    </div>
+
+    <button type="submit" id="btn-submit" class="btn-auth mt-2">
+      <span class="btn-text" id="btn-text">Accedi</span>
+      <span class="spinner-border spinner-border-sm ms-2" id="btn-spinner" style="display:none;" role="status"></span>
+    </button>
+  </form>
+
+  <div class="auth-footer" id="auth-footer">
+    FilmViewer Server &bull; Accesso protetto
+  </div>
+</main>
+
+<script src="{{ asset('login.js') }}"></script>
+</body>
+</html>

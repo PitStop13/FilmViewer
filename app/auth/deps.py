@@ -38,6 +38,8 @@ OPEN_MODE_USER = models.User(
     device_id="",
     created_at="",
     last_login_at=None,
+    parental_control="adult",
+    password_hash=None,
 )
 
 # Reachable without a session. Everything not listed here needs one.
@@ -45,6 +47,8 @@ PUBLIC_PATHS = {
     "/login",
     "/favicon.ico",
     "/api/auth/status",
+    "/api/auth/setup",
+    "/api/auth/login",
     "/api/auth/skip",
     # Not a session route: an MCP client has no cookie. app/mcp/server.py
     # authenticates it with its own bearer token and refuses everything else.
@@ -67,7 +71,11 @@ CSRF_RETRY_HEADER = "X-CSRF-Retry"
 
 
 def is_public(path: str) -> bool:
-    return path in PUBLIC_PATHS or path.startswith(PUBLIC_PREFIXES)
+    return (
+        path in PUBLIC_PATHS
+        or path in ("/api/auth/login", "/api/auth/setup")
+        or path.startswith(PUBLIC_PREFIXES)
+    )
 
 
 def client_ip(request: Request) -> str | None:
@@ -103,6 +111,15 @@ class AuthMiddleware:
         scope["state"]["user"] = None
         scope["state"]["csrf_token"] = None
 
+        if is_public(path):
+            raw_token = request.cookies.get(sessions.SESSION_COOKIE)
+            if raw_token:
+                resolved = sessions.resolve_session(raw_token)
+                if resolved is not None:
+                    scope["state"]["user"], scope["state"]["csrf_token"] = resolved
+            await self.app(scope, receive, send)
+            return
+
         raw_token = request.cookies.get(sessions.SESSION_COOKIE)
         resolved = sessions.resolve_session(raw_token) if raw_token else None
         if resolved is not None:
@@ -119,12 +136,7 @@ class AuthMiddleware:
             scope["state"]["csrf_token"] = None
             await self.app(scope, receive, send)
             return
-
-        if is_public(path):
-            await self.app(scope, receive, send)
-            return
-
-        if resolved is None:
+        else:
             await self._unauthenticated(request, send, scope, receive)
             return
 
@@ -143,7 +155,8 @@ class AuthMiddleware:
 
     @staticmethod
     async def _unauthenticated(request: Request, send, scope, receive):
-        wants_html = "text/html" in request.headers.get("accept", "")
+        accept = request.headers.get("accept", "")
+        wants_html = "text/html" in accept or "*/*" in accept or not accept
         if not request.url.path.startswith("/api/") and wants_html:
             await RedirectResponse("/login", status_code=302)(scope, receive, send)
             return

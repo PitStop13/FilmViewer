@@ -1,7 +1,7 @@
 import logging
 from typing import Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 
 from app import continue_watching as cw_service
@@ -46,13 +46,20 @@ class DeletePayload(BaseModel):
 
 
 @router.get("")
-async def get_continue_watching(limit: int = Query(default=30, ge=1, le=100)):
-    items = cw_service.get_continue_watching_list(limit=limit)
+async def get_continue_watching(
+    request: Request,
+    limit: int = Query(default=30, ge=1, le=100),
+):
+    user = getattr(request.state, "user", None)
+    user_id = user.id if user else 0
+    items = cw_service.get_continue_watching_list(user_id=user_id, limit=limit)
     return {"items": items}
 
 
 @router.post("/progress")
-async def save_playback_progress(payload: ProgressPayload):
+async def save_playback_progress(payload: ProgressPayload, request: Request):
+    user = getattr(request.state, "user", None)
+    user_id = user.id if user else 0
     try:
         res = cw_service.save_progress(
             content_type=payload.content_type,
@@ -66,6 +73,7 @@ async def save_playback_progress(payload: ProgressPayload):
             episode_number=payload.episode_number,
             season_number=payload.season_number,
             episode_title=payload.episode_title,
+            user_id=user_id,
         )
         return res
     except Exception as e:
@@ -74,9 +82,11 @@ async def save_playback_progress(payload: ProgressPayload):
 
 
 @router.post("/delete")
-async def delete_continue_watching(payload: DeletePayload):
+async def delete_continue_watching(payload: DeletePayload, request: Request):
+    user = getattr(request.state, "user", None)
+    user_id = user.id if user else 0
     try:
-        cw_service.delete_item(payload.content_type, payload.content_id)
+        cw_service.delete_item(payload.content_type, payload.content_id, user_id=user_id)
         return {"status": "ok", "deleted": True}
     except Exception as e:
         logger.exception("Error deleting continue watching record")
@@ -84,10 +94,13 @@ async def delete_continue_watching(payload: DeletePayload):
 
 
 @router.delete("/{content_type}/{content_id}")
-async def delete_continue_watching_param(content_type: str, content_id: str):
+async def delete_continue_watching_param(content_type: str, content_id: str, request: Request):
+    user = getattr(request.state, "user", None)
+    user_id = user.id if user else 0
     try:
-        cw_service.delete_item(content_type, content_id)
+        cw_service.delete_item(content_type, content_id, user_id=user_id)
         return {"status": "ok", "deleted": True}
     except Exception as e:
         logger.exception("Error deleting continue watching record")
         raise HTTPException(status_code=500, detail=str(e))
+

@@ -79,6 +79,7 @@ const api = {
   put(path, body)     { return api.request('PUT', path, { body }); },
   patch(path, body)   { return api.request('PATCH', path, { body }); },
   del(path, body)     { return api.request('DELETE', path, { body }); },
+  delete(path, body)  { return api.request('DELETE', path, { body }); },
 };
 
 

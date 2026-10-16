@@ -29,8 +29,8 @@ ALL_PERMISSIONS = (
 )
 
 # What a freshly imported user gets when no explicit set is given: they can ask
-# for content and browse what is already there, nothing else.
-DEFAULT_PERMISSIONS = Permission.REQUEST | Permission.VIEW_LIBRARY
+# for content, nothing else.
+DEFAULT_PERMISSIONS = Permission.REQUEST
 
 
 def has(value: int, *required: Permission, mode: str = "and") -> bool:

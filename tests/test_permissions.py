@@ -236,6 +236,8 @@ def test_public_allowlist_stays_small():
         "/login",
         "/favicon.ico",
         "/api/auth/status",
+        "/api/auth/setup",
+        "/api/auth/login",
         "/api/auth/skip",
         "/mcp",
     }

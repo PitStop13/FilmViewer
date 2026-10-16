@@ -50,6 +50,7 @@ def _own_database(tmp_path):
     """
     db.configure(tmp_path / "test.db")
     db.run_migrations()
+    enable_open_mode()
 
 
 @pytest.fixture(autouse=True)
@@ -95,6 +96,7 @@ def client(tmp_path, monkeypatch):
     """
     db.configure(tmp_path / "test.db")
     db.run_migrations()
+    enable_open_mode()
 
     from app.main import app
 

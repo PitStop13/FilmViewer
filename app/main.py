@@ -15,6 +15,7 @@ from app import __version__, config, db, downloads_hooks, downloads_notify, libr
 from app.auth import models as auth_models
 from app.auth import router as auth_router
 from app.auth import session as auth_session
+from app.auth import users_router
 from app.auth.deps import AuthMiddleware
 from app.core import domain_recovery
 from app.jobs import job_manager
@@ -130,8 +131,12 @@ async def lifespan(app: FastAPI):
     job_manager.set_schedule_store(store)
     job_manager.load_scheduled_from_store()
     job_manager.set_loop(asyncio.get_event_loop())
-    # Started last: a new episode found by the poller becomes an approval, which
-    # submits a job, so the job manager has to be fully wired first.
+    # If no users have been set up yet, ensure auth_mode is 'local' so the
+    # administrator setup screen is presented on first access.
+    if not auth_models.setup_done():
+        auth_models.set_setting(auth_models.SETTING_AUTH_MODE, "local")
+        logger.info("No local admin found; set auth_mode to local to display initial setup screen.")
+
     poller_task = asyncio.create_task(watch_poller.watch_poller_loop())
     # Independent of the poller: this one watches the source itself rather than
     # anything in it, and both sleep before their first pass so the lifespan
@@ -178,6 +183,7 @@ app.include_router(files.router)
 app.include_router(images.router)
 app.include_router(stream.router)
 app.include_router(continue_watching.router)
+app.include_router(users_router.router)
 
 
 @app.get("/", response_class=HTMLResponse)
@@ -185,7 +191,15 @@ def index(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
 
 
-@app.get("/login")
+@app.get("/login", response_class=HTMLResponse)
 def login_page(request: Request):
-    """Public; redirects directly to home as login is not required."""
-    return RedirectResponse("/", status_code=302)
+    """Login and initial setup page."""
+    if auth_models.runtime_open_mode():
+        return RedirectResponse("/", status_code=302)
+    user = getattr(request.state, "user", None)
+    if user is not None and user.id != 0:
+        return RedirectResponse("/", status_code=302)
+    return templates.TemplateResponse(request=request, name="login.html")
+
+
+

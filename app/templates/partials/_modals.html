@@ -279,7 +279,7 @@
 
       <div class="modal-body p-4">
         <div class="d-flex gap-3 mb-4">
-          <div class="cw-modal-poster-wrap flex-shrink-0" style="width:115px; border-radius:10px; overflow:hidden; aspect-ratio:2/3; background:var(--bg-raised); box-shadow:0 8px 24px rgba(0,0,0,0.5);">
+          <div class="cw-modal-poster-wrap flex-shrink-0" data-action="cw:modal-goto-title" style="width:115px; border-radius:10px; overflow:hidden; aspect-ratio:2/3; background:var(--bg-raised); box-shadow:0 8px 24px rgba(0,0,0,0.5); cursor:pointer;" title="Vai alla scheda del film">
             <img id="cw-modal-poster" src="" alt="" style="width:100%; height:100%; object-fit:cover;">
           </div>
           <div class="flex-grow-1 min-w-0 d-flex flex-column justify-content-center">
@@ -287,7 +287,7 @@
               <span class="badge" id="cw-modal-type-badge">Film</span>
               <span class="badge bg-dark border border-secondary text-muted" id="cw-modal-time-badge"></span>
             </div>
-            <h3 class="text-white fw-bold mb-1 text-truncate" id="cw-modal-title" style="font-size:1.25rem;"></h3>
+            <h3 class="text-white fw-bold mb-1 text-truncate" id="cw-modal-title" data-action="cw:modal-goto-title" style="font-size:1.25rem; cursor:pointer;" title="Vai alla scheda del film"></h3>
             <p class="text-muted small mb-2 text-truncate" id="cw-modal-subtitle" style="display:none;"></p>
             
             <!-- Progress indicator -->
@@ -329,4 +329,57 @@
     </div>
   </div>
 </div>
+
+<!-- ── User Modal (Create / Edit) ─────────────────────────────────── -->
+<div class="modal modal-blur fade" id="user-modal" tabindex="-1" style="display:none" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="user-modal-title"><i class="ti ti-user me-2"></i>Nuovo Utente</h5>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <input type="hidden" id="user-modal-id" value="">
+
+        <div class="mb-3">
+          <label class="form-label" for="user-modal-username">Nome Utente</label>
+          <input type="text" id="user-modal-username" class="form-control" placeholder="es. marco" autocomplete="off" required>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-label" for="user-modal-password" id="user-modal-password-label">Password</label>
+          <input type="password" id="user-modal-password" class="form-control" placeholder="••••••••" autocomplete="new-password">
+          <div class="form-text" id="user-modal-password-hint">Minimo 4 caratteri.</div>
+        </div>
+
+        <div class="mb-3">
+          <label class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="user-modal-is-admin">
+            <span class="form-check-label fw-semibold">Amministratore (Scarica film & Gestione)</span>
+          </label>
+          <div class="form-text">Gli amministratori possono scaricare direttamente film e serie, gestire impostazioni e utenti. Gli utenti standard possono solo guardare in streaming.</div>
+        </div>
+
+
+        <div class="mb-3" id="user-modal-enabled-group" style="display:none;">
+          <label class="form-check form-switch">
+            <input class="form-check-input" type="checkbox" id="user-modal-enabled" checked>
+            <span class="form-check-label fw-semibold">Account Attivo</span>
+          </label>
+          <div class="form-text">Se disattivato, l'utente non potrà accedere al sistema.</div>
+        </div>
+
+        <div id="user-modal-feedback" class="form-text text-danger mt-2" style="display:none;"></div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">Annulla</button>
+        <button type="button" class="btn btn-primary" id="user-modal-submit" data-action="user:submit">
+          <span id="user-modal-submit-text">Salva</span>
+          <span class="spinner-border spinner-border-sm ms-2" id="user-modal-spinner" style="display:none;" role="status"></span>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 

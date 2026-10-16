@@ -69,9 +69,21 @@ async function initAuth() {
   _authEnabled = _me.auth_enabled !== false;
 
   const initials = (_me.user.username || '?').slice(0, 2).toUpperCase();
-  document.getElementById('user-initials').textContent = initials;
-  document.getElementById('user-name').textContent = _me.user.username;
-  document.getElementById('user-role').textContent = _roleLabel();
+  const roleText = _roleLabel();
+
+  const userInitialsEl = document.getElementById('user-initials');
+  if (userInitialsEl) userInitialsEl.textContent = initials;
+  const userNameEl = document.getElementById('user-name');
+  if (userNameEl) userNameEl.textContent = _me.user.username;
+  const userRoleEl = document.getElementById('user-role');
+  if (userRoleEl) userRoleEl.textContent = roleText;
+
+  const sbName = document.getElementById('sb-user-name');
+  if (sbName) sbName.textContent = _me.user.username;
+  const sbProfile = document.getElementById('sb-user-profile');
+  if (sbProfile) sbProfile.textContent = roleText;
+  const sbAvatar = document.getElementById('sb-user-avatar');
+  if (sbAvatar) sbAvatar.textContent = initials;
 
   const version = document.getElementById('app-version');
   if (version) version.textContent = _me.version ? `v${_me.version}` : '';
@@ -107,11 +119,8 @@ async function initAuth() {
 }
 
 function _roleLabel() {
-  if (can('MANAGE_SETTINGS')) return 'Amministratore';
-  if (can('MANAGE_REQUESTS')) return 'Approvatore';
-  if (can('DOWNLOAD')) return 'Download diretto';
-  if (can('REQUEST')) return 'Richieste';
-  return 'Sola lettura';
+  if (can('MANAGE_SETTINGS') || can('DOWNLOAD')) return 'Amministratore';
+  return 'Utente';
 }
 
 async function logout() {

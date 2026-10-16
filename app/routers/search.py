@@ -5,8 +5,9 @@ import time
 from collections import OrderedDict
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from app.auth import models
 from app.auth.deps import require
 from app.auth.permissions import Permission
 from app.config import configured_domain
@@ -64,6 +65,7 @@ def _domain() -> str:
 
 @router.get("")
 async def search(
+    request: Request,
     q: str = Query(default="", max_length=200),
     source: Source = Query(default="streamingcommunity"),
     page: int = Query(default=1, ge=1, le=50),
@@ -81,22 +83,25 @@ async def search(
     cache_key = (domain, clean_q, page, media_type, sort if not clean_q else "")
     cached = get_cached_search(cache_key)
     if cached is not None:
-        return cached
+        results = cached
+    else:
+        try:
+            if not clean_q:
+                results = await asyncio.to_thread(
+                    browse_archive, domain, page=page, media_type=media_type, sort=sort)
+            else:
+                results = await asyncio.to_thread(
+                    core_search, clean_q, domain, page=page, media_type=media_type)
+            store_cached_search(cache_key, results)
+        except HTTPException:
+            raise
+        except Exception as e:
+            logger.exception("Search error")
+            raise HTTPException(status_code=502, detail=str(e))
 
-    try:
-        if not clean_q:
-            results = await asyncio.to_thread(
-                browse_archive, domain, page=page, media_type=media_type, sort=sort)
-        else:
-            results = await asyncio.to_thread(
-                core_search, clean_q, domain, page=page, media_type=media_type)
-        store_cached_search(cache_key, results)
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.exception("Search error")
-        raise HTTPException(status_code=502, detail=str(e))
     return results
+
+
 
 
 @router.get("/languages/{title_id}")

@@ -6,16 +6,23 @@ actually offers — both arrive from a POST body otherwise.
 """
 
 import asyncio
+import json
 import logging
 import os
+from pathlib import Path
 import re
+import shutil
 import sqlite3
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request as HttpRequest
+from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field, field_validator
 
+from app import db
 from app.auth.deps import current_user, require
 from app.auth.permissions import Permission
+from app.config import VIDEOS_DIR, DATA_FILE
+from app.core import container
 from app.requests import models, notify, resolver, service
 
 logger = logging.getLogger(__name__)
@@ -669,6 +676,147 @@ def cancel_request(request_id: int, http_request: HttpRequest):
     if not ok:
         raise HTTPException(status_code=status_code, detail=error)
     return _public(request)
+
+
+def _delete_file_and_empty_parents(file_path: str):
+    """Delete a video file and prune empty parent folders up to library root."""
+    try:
+        p = Path(file_path).resolve()
+        if not p.exists():
+            return
+        if p.is_file():
+            p.unlink()
+            logger.info("Deleted file on disk: %s", p)
+        elif p.is_dir():
+            shutil.rmtree(p)
+            logger.info("Deleted directory on disk: %s", p)
+            return
+
+        stop_paths = {VIDEOS_DIR.resolve()}
+        try:
+            with open(DATA_FILE) as f:
+                data = json.load(f)
+                for lib in data.get("libraries", []):
+                    if lib.get("path"):
+                        stop_paths.add(Path(lib["path"]).resolve())
+        except Exception:
+            pass
+
+        parent = p.parent
+        while parent and parent not in stop_paths:
+            if not any(parent.is_relative_to(sp) for sp in stop_paths):
+                break
+            try:
+                if not any(parent.iterdir()):
+                    parent.rmdir()
+                    logger.info("Pruned empty parent directory: %s", parent)
+                    parent = parent.parent
+                else:
+                    break
+            except Exception:
+                break
+    except Exception as exc:
+        logger.warning("Could not delete file %s: %s", file_path, exc)
+
+
+def _dismiss_one(request_id: int, user) -> tuple[bool, str | None]:
+    request = models.get(request_id)
+    if request is None:
+        return False, "Richiesta non trovata"
+
+    is_subscriber = user.id in models.subscribers(request_id)
+    if not user.has(Permission.MANAGE_REQUESTS) and not is_subscriber:
+        return False, "Richiesta non trovata"
+
+    # 1. Cancel active job if any
+    if request.job_id:
+        from app.jobs import job_manager
+        try:
+            job_manager.cancel(request.job_id)
+        except Exception:
+            pass
+
+    # 2. Find and delete physical file on disk
+    file_path = request.output_path
+    if not file_path or not os.path.exists(file_path):
+        try:
+            file_path = resolver.existing_file(request)
+        except Exception:
+            pass
+
+    if file_path and os.path.exists(file_path):
+        _delete_file_and_empty_parents(file_path)
+
+    # 3. Clean continue watching for this content
+    try:
+        c_type = "movie" if request.media_type == "film" else "tv"
+        db.execute(
+            "DELETE FROM continue_watching WHERE (content_type IN (?, ?) AND content_id = ?)",
+            (request.media_type, c_type, str(request.external_id)),
+        )
+    except Exception as e:
+        logger.warning("Could not clean continue watching: %s", e)
+
+    # 4. Remove from jf_request_subscriber and jf_request
+    models.remove_subscriber(request_id, user.id)
+    remaining = models.subscribers(request_id)
+    if not remaining or user.has(Permission.MANAGE_REQUESTS):
+        models.delete_request(request_id)
+
+    return True, None
+
+
+@router.post("/{request_id}/dismiss", dependencies=CAN_SEE_OWN)
+def dismiss_request(request_id: int, http_request: HttpRequest):
+    """Delete a downloaded request, removing it and its file on disk from everywhere."""
+    user = current_user(http_request)
+    ok, error = _dismiss_one(request_id, user)
+    if not ok:
+        raise HTTPException(status_code=404, detail=error)
+    return {"ok": True, "id": request_id}
+
+
+@router.post("/dismiss-batch", dependencies=CAN_SEE_OWN)
+def dismiss_batch(body: BatchIdsRequest, http_request: HttpRequest):
+    """Batch delete requests and their files on disk."""
+    user = current_user(http_request)
+    results = []
+    for request_id in body.ids:
+        ok, error = _dismiss_one(request_id, user)
+        results.append({"id": request_id, "ok": ok, **({"error": error} if not ok else {})})
+    return {"results": results}
+
+
+@router.get("/{request_id}/stream", dependencies=CAN_SEE_OWN)
+def stream_request_file(request_id: int, http_request: HttpRequest):
+    """Stream the downloaded file for a request directly to the requester or approver."""
+    user = current_user(http_request)
+    request = models.get(request_id)
+    if request is None:
+        raise HTTPException(status_code=404, detail="Richiesta non trovata")
+
+    is_subscriber = user.id in models.subscribers(request_id)
+    if not user.has(Permission.MANAGE_REQUESTS) and not is_subscriber:
+        raise HTTPException(status_code=404, detail="Richiesta non trovata")
+
+    file_path = None
+    if request.output_path and os.path.exists(request.output_path):
+        file_path = request.output_path
+    else:
+        try:
+            file_path = resolver.existing_file(request)
+        except Exception:
+            pass
+
+    if not file_path or not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File video non trovato su disco")
+
+    target = Path(file_path)
+    return FileResponse(
+        path=str(target),
+        media_type=container.mime_for(target),
+        headers={"Content-Disposition": "inline"},
+    )
 
 
 # ── Notifications ──────────────────────────────────────────────────────────────

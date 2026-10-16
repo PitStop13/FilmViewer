@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>Un'interfaccia web per esplorare, guardare e scaricare film e serie TV per uso personale.</b><br/>
-  Supporta riproduzione diretta in streaming, download con ripresa automatica (resume) e organizzazione della libreria multimediale.
+  Supporta riproduzione diretta in streaming, salvataggio della posizione di visione ("Continua a guardare"), download con ripresa automatica (resume), gestione multi-utenza e organizzazione della libreria multimediale.
 </p>
 
 <p align="center">
@@ -16,11 +16,13 @@
 
 ## 📌 Panoramica
 
-FilmViewer è un'applicazione web leggera pensata per uso personale e domestico tra amici. Offre:
-- **Catalogo & Ricerca:** Esplorazione rapida di film e serie TV con locandine e schede informative.
-- **Web Player Integrato:** Streaming immediato ad alta risoluzione nel browser.
+FilmViewer è un'applicazione web leggera pensata per uso personale e domestico tra amici e familiari. Offre:
+- **Catalogo & Home:** Esplorazione rapida di film e serie TV con locandine, schede informative e dettagli completi.
+- **Continua a Guardare:** Salvataggio automatico del progresso di visione ogni 5 secondi. Riprendi da dove eri rimasto, ricomincia da capo o rimuovi i contenuti già visti direttamente dalla Home.
+- **Web Player Integrato:** Streaming immediato ad alta risoluzione nel browser con supporto al multi-streaming contemporaneo su più dispositivi.
+- **Sistema Multi-utenza & Ruoli:** Autenticazione sicura locale (password con hash bcrypt). Gli amministratori possono creare e gestire account per amici e parenti (ruolo Admin con pieni poteri e ruolo Utente Base con streaming e gestione autonoma delle proprie richieste).
 - **Download con Ripresa (Resume):** Download multi-thread con FFmpeg e recupero istantaneo dei segmenti interrotti.
-- **Accesso Immediato:** Nessuna configurazione complessa di account o server esterni: apri l'interfaccia e cerca subito i tuoi contenuti.
+- **Gestione Richieste & Pulizia Automatica:** Gestione autonoma dei download da "Le mie richieste". L'eliminazione di un film scaricato rimuove fisicamente il file dal disco e ripulisce le cartelle vuote.
 
 <p align="center">
   <img src="docs/home.png" alt="Schermata Principale" width="85%"/>
@@ -167,15 +169,22 @@ Apri il browser su: 👉 **`http://localhost:9876`**
 
 ## 🎯 Configurazione al Primo Avvio
 
-La prima volta che ti colleghi a **`http://<IP-SERVER>:9876`** (o `http://localhost:9876` da locale):
+Quando accedi per la prima volta a **`http://<IP-SERVER>:9876`** (o `http://localhost:9876` in locale):
 
-1. **Cartella video (Percorso di download):**
+1. **Creazione Account Amministratore:**
+   - Alla prima apertura verrà mostrata la schermata di configurazione iniziale per creare il tuo account **Admin**.
+   - Inserisci un nome utente e una password sicura. Questo account avrà pieni permessi di gestione.
+   - Una volta completato il setup, potrai effettuare il login.
+
+2. **Gestione Utenti (Multi-utenza):**
+   - Dall'account amministratore, entra in **Impostazioni → Utenti** per creare ulteriori profili per amici o familiari.
+   - Puoi assegnare a ciascun utente il ruolo di **Amministratore** o di **Utente Base**.
+   - Gli utenti base possono effettuare l'accesso contemporaneo, vedere i contenuti in streaming, salvare il proprio stato in "Continua a guardare" e gestire i propri download senza toccare i file di sistema o le impostazioni globali.
+
+3. **Cartella video (Percorso di download):**
    > ⚠️ **IMPORTANTE SE USI DOCKER O CASAOS:**  
    > Nel campo del percorso video **lascia o inserisci esattamente `/app/videos`** (il valore predefinito).  
    > **NON inserire percorsi dell'host come `/DATA/...` o `C:\...`**: l'applicazione viene eseguita all'interno di un container Docker che riconosce unicamente il percorso interno `/app/videos`. Questo percorso è già collegato in automatico tramite i volumi alla tua cartella reale sul disco/NAS. Se modifichi `/app/videos` con un percorso dell'host, il container non potrà accedervi e i download restituiranno errore.
-
-2. **Accesso immediato:**
-   - L'applicazione si avvia direttamente in modalità libera senza richiedere credenziali o server esterni.
 
 ---
 

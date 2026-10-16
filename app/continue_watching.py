@@ -18,14 +18,31 @@ def make_id(content_type: str, content_id: str) -> str:
     return f"{c_type}:{str(content_id).strip()}"
 
 
+def make_db_id(content_type: str, content_id: str, user_id: int = 0) -> str:
+    return f"u{user_id}:{make_id(content_type, content_id)}"
+
+
 def _row_to_dict(row) -> dict:
     duration = float(row["duration_seconds"] or 0)
     position = float(row["position_seconds"] or 0)
     percentage = int(min(100, max(0, round((position / duration) * 100)))) if duration > 0 else 0
     remaining_sec = max(0, int(duration - position)) if duration > 0 else 0
 
+    user_id = 0
+    try:
+        user_id = int(row["user_id"] or 0)
+    except (IndexError, KeyError, ValueError):
+        pass
+
+    c_type = (row["content_type"] or "").strip().lower()
+    if c_type in ("movie", "film"):
+        c_type = "movie"
+    elif c_type in ("tv", "series"):
+        c_type = "tv"
+
     return {
-        "id": row["id"],
+        "id": f"{c_type}:{str(row['content_id']).strip()}",
+        "user_id": user_id,
         "content_type": row["content_type"],
         "content_id": row["content_id"],
         "slug": row["slug"] or "",
@@ -43,25 +60,33 @@ def _row_to_dict(row) -> dict:
     }
 
 
-def get_continue_watching_list(limit: int = 50) -> list[dict]:
+def get_continue_watching_list(user_id: int = 0, limit: int = 50) -> list[dict]:
     rows = db.query(
-        "SELECT * FROM continue_watching ORDER BY updated_at DESC LIMIT ?",
-        (limit,),
+        "SELECT * FROM continue_watching WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?",
+        (user_id, limit),
     )
     return [_row_to_dict(r) for r in rows]
 
 
-def get_item(content_type: str, content_id: str) -> Optional[dict]:
-    item_id = make_id(content_type, content_id)
-    row = db.query_one("SELECT * FROM continue_watching WHERE id = ?", (item_id,))
+def get_item(content_type: str, content_id: str, user_id: int = 0) -> Optional[dict]:
+    db_id = make_db_id(content_type, content_id, user_id)
+    legacy_id = make_id(content_type, content_id)
+    row = db.query_one(
+        "SELECT * FROM continue_watching WHERE id = ? OR (id = ? AND user_id = ?)",
+        (db_id, legacy_id, user_id),
+    )
     return _row_to_dict(row) if row else None
 
 
-def delete_item(content_type: str, content_id: str) -> bool:
-    item_id = make_id(content_type, content_id)
+def delete_item(content_type: str, content_id: str, user_id: int = 0) -> bool:
+    db_id = make_db_id(content_type, content_id, user_id)
+    legacy_id = make_id(content_type, content_id)
     with db.tx() as conn:
-        conn.execute("DELETE FROM continue_watching WHERE id = ?", (item_id,))
-    logger.info("Deleted continue watching record for %s", item_id)
+        conn.execute(
+            "DELETE FROM continue_watching WHERE id = ? OR (id = ? AND user_id = ?)",
+            (db_id, legacy_id, user_id),
+        )
+    logger.info("Deleted continue watching record for %s (user_id=%d)", db_id, user_id)
     return True
 
 
@@ -77,6 +102,7 @@ def save_progress(
     episode_number: Optional[int] = None,
     season_number: Optional[int] = None,
     episode_title: Optional[str] = None,
+    user_id: int = 0,
 ) -> dict:
     c_type = (content_type or "").strip().lower()
     if c_type in ("movie", "film"):
@@ -84,20 +110,21 @@ def save_progress(
     elif c_type in ("tv", "series"):
         c_type = "tv"
 
-    item_id = make_id(c_type, content_id)
+    db_id = make_db_id(c_type, content_id, user_id)
+    public_id = make_id(c_type, content_id)
     pos = max(0.0, float(position_seconds or 0))
     dur = max(0.0, float(duration_seconds or 0))
 
     # Finished condition: if >= 95% watched or fewer than 20 seconds remaining (with at least 1 min duration)
     if dur > 60 and (pos / dur >= 0.95 or (dur - pos) <= 20):
-        delete_item(c_type, content_id)
+        delete_item(c_type, content_id, user_id)
         return {"status": "finished", "deleted": True}
 
     now = datetime.now(timezone.utc).isoformat()
 
     # If poster is not supplied, keep previous poster if existing
     if not poster:
-        existing = db.query_one("SELECT poster FROM continue_watching WHERE id = ?", (item_id,))
+        existing = db.query_one("SELECT poster FROM continue_watching WHERE id = ?", (db_id,))
         if existing and existing["poster"]:
             poster = existing["poster"]
 
@@ -105,11 +132,12 @@ def save_progress(
         conn.execute(
             """
             INSERT INTO continue_watching (
-                id, content_type, content_id, slug, title, poster,
+                id, user_id, content_type, content_id, slug, title, poster,
                 episode_id, episode_number, season_number, episode_title,
                 position_seconds, duration_seconds, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO UPDATE SET
+                user_id = excluded.user_id,
                 content_type = excluded.content_type,
                 content_id = excluded.content_id,
                 slug = CASE WHEN excluded.slug != '' THEN excluded.slug ELSE continue_watching.slug END,
@@ -124,7 +152,8 @@ def save_progress(
                 updated_at = excluded.updated_at
             """,
             (
-                item_id,
+                db_id,
+                user_id,
                 c_type,
                 str(content_id),
                 slug or "",
@@ -139,4 +168,5 @@ def save_progress(
                 now,
             ),
         )
-    return {"status": "saved", "id": item_id}
+    return {"status": "saved", "id": public_id}
+

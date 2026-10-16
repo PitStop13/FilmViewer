@@ -42,6 +42,9 @@
         <li class="nav-item">
           <a class="nav-link" href="#" data-settings-tab="hook">Hook</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-settings-tab="utenti">Utenti</a>
+        </li>
       </ul>
 
       <div class="settings-pane" data-settings-pane="sorgente">
@@ -434,6 +437,42 @@
           <div id="hooks-feedback" class="form-text"></div>
         </div>
       </div>
+      </div>
+
+      <div class="settings-pane" data-settings-pane="utenti" style="display:none">
+        <!-- ── Gestione Utenti ───────────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="d-flex align-items-center justify-content-between mb-3">
+            <div>
+              <p class="settings-section-label mb-0">Gestione Utenti</p>
+              <p class="settings-section-hint mb-0">
+                Gestisci gli account utenti del server. Solo gli amministratori hanno il permesso di scaricare contenuti.
+              </p>
+            </div>
+            <button type="button" class="btn btn-primary btn-sm" data-action="user:openCreate" id="btn-create-user">
+              <i class="ti ti-user-plus me-1"></i>Nuovo utente
+            </button>
+          </div>
+
+          <div id="users-feedback" class="form-text mb-2"></div>
+
+          <div class="table-responsive">
+            <table class="table table-vcenter table-hover card-table">
+              <thead>
+                <tr>
+                  <th>Utente</th>
+                  <th>Ruolo</th>
+                  <th>Stato</th>
+                  <th>Ultimo Accesso</th>
+                  <th class="w-1 text-end">Azioni</th>
+                </tr>
+              </thead>
+              <tbody id="users-table-body">
+                <tr><td colspan="5" class="text-center text-muted py-3">Caricamento utenti in corso...</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
   </div>
 </div>

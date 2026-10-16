@@ -13,6 +13,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel
 import requests
 
+from app.auth import models
 from app.auth.deps import require
 from app.auth.permissions import Permission
 from app.config import configured_domain
@@ -119,15 +120,18 @@ class StreamPrepareRequest(BaseModel):
     slug: Optional[str] = ""
     episode_id: Optional[str] = None
     episode_number: Optional[str] = None
+    age: Optional[str] = None
 
 
 @router.get("/watch-info")
 async def get_watch_info(
+    request: Request,
     content_type: str = Query(..., alias="content_type"),
     id: str = Query(...),
     slug: str = Query(""),
     episode_id: Optional[str] = Query(None),
     episode_number: Optional[str] = Query(None),
+    age: Optional[str] = Query(None),
 ):
     """Provide direct watch URL and embed player URL for online streaming."""
     c_type = (content_type or "").lower().strip()
@@ -165,9 +169,11 @@ async def get_watch_info(
 
 
 @router.post("/prepare")
-async def prepare_stream(req: StreamPrepareRequest):
+async def prepare_stream(req: StreamPrepareRequest, request: Request):
     c_type = (req.content_type or "").lower().strip()
+
     domain = _sc_domain()
+
 
     def _resolve():
         if c_type in ("movie", "film"):

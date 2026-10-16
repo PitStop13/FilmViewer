@@ -528,6 +528,15 @@ _V11_CONTINUE_WATCHING = [
 ]
 
 
+_V12_LOCAL_AUTH_AND_PROFILES = [
+    "ALTER TABLE jf_user ADD COLUMN password_hash TEXT",
+    "ALTER TABLE jf_user ADD COLUMN parental_control TEXT NOT NULL DEFAULT 'adult'",
+    "ALTER TABLE continue_watching ADD COLUMN user_id INTEGER NOT NULL DEFAULT 0",
+    "CREATE INDEX IF NOT EXISTS idx_continue_watching_user ON continue_watching(user_id, updated_at DESC)",
+    "DELETE FROM jf_setting WHERE key = 'auth_mode' AND (SELECT COUNT(*) FROM jf_user WHERE password_hash IS NOT NULL) = 0",
+]
+
+
 Migration = list[str] | Callable[[sqlite3.Connection, bool], None]
 
 MIGRATIONS: list[Migration] = [
@@ -542,6 +551,7 @@ MIGRATIONS: list[Migration] = [
     _V9_FOLLOWER_LANGUAGES,
     _V10_LIBRARY_FOLDERS,
     _V11_CONTINUE_WATCHING,
+    _V12_LOCAL_AUTH_AND_PROFILES,
 ]
 
 

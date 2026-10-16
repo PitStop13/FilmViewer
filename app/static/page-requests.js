@@ -398,6 +398,37 @@ async function confirmDeny() {
 
 async function _cancelIds(ids, page) {
   if (!ids.length) return;
+  if (page === 'mine') {
+    const activeIds = [];
+    const finishedIds = [];
+    ids.forEach(id => {
+      const r = _myRequests.find(x => x.id === id);
+      if (r && MINE_ACTIVE_STATUSES.includes(r.status)) activeIds.push(id);
+      else finishedIds.push(id);
+    });
+
+    const msg = finishedIds.length
+      ? `Eliminare ${ids.length} richiest${ids.length === 1 ? 'a' : 'e'}? I file video scaricati verranno cancellati dal disco.`
+      : `Annullare ${ids.length} richiest${ids.length === 1 ? 'a' : 'e'}?`;
+    if (!await scConfirm(msg)) return;
+
+    try {
+      if (activeIds.length) {
+        await api.post('/api/requests/cancel-batch', { ids: activeIds });
+      }
+      if (finishedIds.length) {
+        await api.post('/api/requests/dismiss-batch', { ids: finishedIds });
+      }
+      showToast('Richieste e file eliminati con successo', 'success');
+    } catch (e) {
+      showToast(errText(e), 'danger');
+      return;
+    }
+    ids.forEach(id => _selected[page].delete(id));
+    await loadMyRequests();
+    return;
+  }
+
   if (!await scConfirm(`Annullare ${ids.length} richiest${ids.length === 1 ? 'a' : 'e'}?`)) return;
   let data;
   try {
@@ -500,17 +531,37 @@ function _matchesMineFilter(status, filter) {
 
 function renderMineRow(r, compact = false) {
   const cancellable = MINE_ACTIVE_STATUSES.includes(r.status);
-  const checkboxHtml = cancellable
-    ? `<input type="checkbox" class="req-check" ${_selected.mine.has(r.id) ? 'checked' : ''}
-             data-action="req:toggle" data-page="mine" data-id="${r.id}">`
-    : '<span class="req-check-spacer"></span>';
+  const isAvailable = r.status === 'completed' || r.status === 'available';
+  const checkboxHtml = `<input type="checkbox" class="req-check" ${_selected.mine.has(r.id) ? 'checked' : ''}
+             data-action="req:toggle" data-page="mine" data-id="${r.id}">`;
   const title = compact ? episodeLabel(r) : requestTitle(r);
+
+  const playBtn = isAvailable ? `
+    <button class="btn btn-sm btn-success" data-action="mine:play" data-id="${r.id}" title="Guarda video">
+      <i class="ti ti-player-play-filled me-1"></i>Guarda
+    </button>` : '';
+
+  const detailsBtn = `
+    <button class="btn btn-sm btn-outline-secondary" data-action="mine:details" data-id="${r.id}" title="Apri scheda del titolo">
+      <i class="ti ti-info-circle me-1"></i>Scheda
+    </button>`;
+
+  const actionBtn = cancellable ? `
+    <button class="btn btn-sm btn-outline-secondary" data-action="mine:withdraw" data-id="${r.id}" title="Annulla richiesta">
+      <i class="ti ti-x me-1"></i>Annulla
+    </button>` : `
+    <button class="btn btn-sm btn-outline-danger" data-action="mine:dismiss" data-id="${r.id}" title="Elimina definitivamente film e file dal disco">
+      <i class="ti ti-trash me-1"></i>Elimina
+    </button>`;
+
   return `
     <div class="req-row">
       ${checkboxHtml}
-      ${compact ? '' : requestPoster(r)}
+      ${compact ? '' : `<div style="cursor:pointer" data-action="mine:details" data-id="${r.id}" title="Apri scheda">${requestPoster(r)}</div>`}
       <div class="req-main">
-        <div class="req-title">${escapeHtml(title)}${!compact && r.year ? ` <span class="text-muted">(${escapeHtml(r.year)})</span>` : ''}</div>
+        <div class="req-title" style="cursor:pointer" data-action="mine:details" data-id="${r.id}" title="Apri scheda">
+          ${escapeHtml(title)}${!compact && r.year ? ` <span class="text-muted">(${escapeHtml(r.year)})</span>` : ''}
+        </div>
         <div class="req-meta"><i class="ti ti-calendar"></i> ${fmtDate(r.created_at)}</div>
         ${trackBadges(r)}
         ${r.denial_reason ? `<div class="req-denied"><i class="ti ti-x me-1"></i>Motivo: ${escapeHtml(r.denial_reason)}</div>` : ''}
@@ -518,9 +569,10 @@ function renderMineRow(r, compact = false) {
       </div>
       <div class="req-side">
         ${statusBadge(r.status)}
-        <div class="req-actions">
-          ${cancellable ? `<button class="btn btn-sm btn-outline-secondary" data-action="mine:withdraw" data-id="${r.id}">
-            <i class="ti ti-trash me-1"></i>Annulla</button>` : ''}
+        <div class="req-actions d-flex gap-1 align-items-center">
+          ${playBtn}
+          ${detailsBtn}
+          ${actionBtn}
         </div>
       </div>
     </div>`;
@@ -530,13 +582,13 @@ function renderMineGroup(g) {
   if (!g.grouped) return renderMineRow(g.items[0]);
 
   const expanded = groupIsExpanded(g);
-  const cancellableIds = g.items.filter(r => MINE_ACTIVE_STATUSES.includes(r.status)).map(r => r.id);
-  const allSelected = cancellableIds.length > 0 && cancellableIds.every(id => _selected.mine.has(id));
-  const someSelected = !allSelected && cancellableIds.some(id => _selected.mine.has(id));
-  const headerCheckbox = cancellableIds.length
+  const itemIds = g.items.map(r => r.id);
+  const allSelected = itemIds.length > 0 && itemIds.every(id => _selected.mine.has(id));
+  const someSelected = !allSelected && itemIds.some(id => _selected.mine.has(id));
+  const headerCheckbox = itemIds.length
     ? `<input type="checkbox" class="req-check" ${allSelected ? 'checked' : ''}
              ${someSelected ? 'data-indeterminate="1"' : ''}
-             data-action="req:toggleGroupSel" data-page="mine" data-ids="${cancellableIds.join(',')}">`
+             data-action="req:toggleGroupSel" data-page="mine" data-ids="${itemIds.join(',')}">`
     : '<span class="req-check-spacer"></span>';
 
   return `
@@ -598,6 +650,71 @@ async function withdrawRequest(id) {
   await _cancelIds([id], 'mine');
 }
 
+function openMineDetails(id) {
+  const r = _myRequests.find(x => x.id === id);
+  if (!r) return;
+  const kind = r.media_type === 'film' ? 'movie' : 'tv';
+  if (typeof _tpSeed !== 'undefined') {
+    _tpSeed = {
+      id: r.external_id,
+      type: kind,
+      slug: r.slug || '',
+      name: r.title,
+      poster: r.poster,
+      year: r.year,
+    };
+  }
+  navigate('detail', [kind, r.external_id, r.slug || '']);
+}
+
+async function playMineRequest(id) {
+  const r = _myRequests.find(x => x.id === id);
+  if (!r) return;
+
+  const title = requestTitle(r);
+  const streamUrl = `/api/requests/${r.id}/stream`;
+
+  const titleEl = document.getElementById('player-modal-title');
+  if (titleEl) titleEl.textContent = title;
+  const video = document.getElementById('video-player');
+  if (video) {
+    video.src = streamUrl;
+    video.load();
+    const playPromise = video.play();
+    if (playPromise !== undefined) {
+      playPromise.catch(err => {
+        console.warn('Direct file playback failed, falling back to online stream player:', err);
+        hideModal('player-modal');
+        if (typeof openStreamPlayer === 'function') {
+          openStreamPlayer({
+            type: r.media_type === 'film' ? 'movie' : 'tv',
+            id: r.external_id,
+            slug: r.slug || '',
+            title: r.title,
+            poster: r.poster,
+            episodeNumber: r.episode_number ? parseInt(r.episode_number) : undefined,
+            seasonNumber: r.season ? parseInt(r.season) : undefined,
+          });
+        }
+      });
+    }
+  }
+  showModal('player-modal');
+}
+
+async function dismissMineRequest(id) {
+  const r = _myRequests.find(x => x.id === id);
+  const title = r ? requestTitle(r) : 'questo titolo';
+  if (!await scConfirm(`Eliminare definitivamente «${title}»? Il file video verrà cancellato dal disco.`)) return;
+  try {
+    await api.post(`/api/requests/${id}/dismiss`);
+    showToast('Film e file eliminati con successo', 'info');
+    await loadMyRequests();
+  } catch (e) {
+    showToast(errText(e, 'Errore eliminazione film'), 'danger');
+  }
+}
+
 
 // ── Delegated handlers ───────────────────────────────────────────────────────
 //
@@ -617,6 +734,9 @@ registerActions({
   'mine:reload':         () => loadMyRequests(),
   'mine:filter':         d => setMineFilter(d.filter),
   'mine:withdraw':       d => withdrawRequest(Number(d.id)),
+  'mine:play':           d => playMineRequest(Number(d.id)),
+  'mine:details':        d => openMineDetails(Number(d.id)),
+  'mine:dismiss':        d => dismissMineRequest(Number(d.id)),
   'req:toggle':          d => toggleSelected(d.page, Number(d.id)),
   'req:toggleGroupSel':  d => toggleGroupSelected(d.page, _ids(d)),
   'req:toggleGroup':     d => toggleGroup(d.key),

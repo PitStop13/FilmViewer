@@ -529,6 +529,22 @@ async function deleteContinueWatching(cwId) {
   }
 }
 
+function gotoCwTitle() {
+  if (!_currentCwModalItem) return;
+  const item = _currentCwModalItem;
+  hideModal('continue-watching-modal');
+  const kind = item.content_type === 'movie' ? 'movie' : 'tv';
+  _tpSeed = {
+    id: item.content_id,
+    type: kind,
+    slug: item.slug || '',
+    name: item.title,
+    poster: item.poster,
+    cw: item,
+  };
+  navigate('detail', [kind, item.content_id, item.slug || '']);
+}
+
 function _setStartPageVisible(on) {
   const shelves = document.getElementById('home-shelves');
   const results = document.getElementById('search-results');
@@ -957,6 +973,7 @@ registerActions({
   'search:open':            d => openTitle(Number(d.idx)),
   'cw:open-details':        d => openContinueWatchingDetails(d.cwId),
   'cw:quick-resume':        (d, el, e) => { if (e) e.stopPropagation(); resumeContinueWatching(d.cwId); },
+  'cw:modal-goto-title':    () => gotoCwTitle(),
   'cw:modal-resume':        () => { if (_currentCwModalItem) resumeContinueWatching(_currentCwModalItem.id); },
   'cw:modal-restart':       () => { if (_currentCwModalItem) restartContinueWatching(_currentCwModalItem.id); },
   'cw:modal-delete':        () => { if (_currentCwModalItem) deleteContinueWatching(_currentCwModalItem.id); },

@@ -39,6 +39,7 @@ const _SETTINGS_TAB_LOADERS = {
   download: () => Promise.all([loadPerfSettings(), loadOutputSettings()]),
   notifiche: () => loadNotificationChannels(),
   hook: () => loadHooks(),
+  utenti: () => loadUsersList(),
 };
 
 // Two panes read the same endpoint. Shared per modal-open so switching between
@@ -54,7 +55,7 @@ function _loadAppSettings() {
 
 // Tabs whose panes only talk to MANAGE_SETTINGS endpoints: without it they would
 // render as empty panes fed by 403s.
-const _SETTINGS_TABS_NEED_MANAGE = ['sorgente', 'librerie', 'associazioni', 'nomi', 'download', 'notifiche', 'hook'];
+const _SETTINGS_TABS_NEED_MANAGE = ['sorgente', 'librerie', 'associazioni', 'nomi', 'download', 'notifiche', 'hook', 'utenti'];
 
 let _settingsTab = 'sorgente';
 const _settingsLoaded = new Set();
@@ -814,6 +815,242 @@ async function _copyWithToast(text, what) {
 }
 
 
+// ── User Management ──────────────────────────────────────────────────────────
+
+let _allUsers = [];
+
+async function loadUsersList() {
+  const tbody = document.getElementById('users-table-body');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="6" class="text-center text-muted py-3"><span class="spinner-border spinner-border-sm me-2"></span>Caricamento utenti...</td></tr>';
+  _feedback('users-feedback');
+
+  try {
+    const res = await api.get('/api/users');
+    _allUsers = Array.isArray(res) ? res : [];
+    renderUsersList();
+  } catch (err) {
+    _feedback('users-feedback', err.message || 'Errore nel caricamento degli utenti', 'danger');
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center text-danger py-3">Impossibile caricare gli utenti</td></tr>';
+  }
+}
+
+function renderUsersList() {
+  const tbody = document.getElementById('users-table-body');
+  if (!tbody) return;
+  if (!_allUsers.length) {
+    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-muted py-4">Nessun utente trovato</td></tr>';
+    return;
+  }
+
+  tbody.innerHTML = _allUsers.map(u => {
+    const isMe = (_me && _me.user && _me.user.id === u.id);
+    const roleBadge = u.is_admin
+      ? '<span class="badge bg-purple-lt"><i class="ti ti-shield-check me-1"></i>Admin (Scarica)</span>'
+      : '<span class="badge bg-secondary-lt"><i class="ti ti-eye me-1"></i>Utente (Solo Streaming)</span>';
+    const statusBadge = u.enabled
+      ? '<span class="badge bg-success-lt">Attivo</span>'
+      : '<span class="badge bg-danger-lt">Disattivato</span>';
+
+    const lastLogin = u.last_login_at
+      ? new Date(u.last_login_at).toLocaleString('it-IT', { dateStyle: 'short', timeStyle: 'short' })
+      : '<span class="text-muted">Mai</span>';
+
+    return `
+      <tr>
+        <td>
+          <div class="d-flex align-items-center gap-2">
+            <span class="avatar avatar-xs bg-dark text-white rounded">
+              ${escapeHtml(u.username.slice(0, 2).toUpperCase())}
+            </span>
+            <span class="fw-semibold">${escapeHtml(u.username)}</span>
+            ${isMe ? '<span class="badge bg-blue-lt ms-1">Tu</span>' : ''}
+          </div>
+        </td>
+        <td>${roleBadge}</td>
+        <td>${statusBadge}</td>
+        <td><small class="text-muted">${lastLogin}</small></td>
+        <td class="text-end">
+          <div class="btn-group btn-group-sm">
+            <button class="btn btn-outline-secondary" data-action="user:edit" data-id="${u.id}" title="Modifica">
+              <i class="ti ti-edit"></i>
+            </button>
+            ${!isMe ? `
+              <button class="btn btn-outline-danger" data-action="user:delete" data-id="${u.id}" data-username="${escapeHtml(u.username)}" title="Elimina">
+                <i class="ti ti-trash"></i>
+              </button>
+            ` : ''}
+          </div>
+        </td>
+      </tr>
+    `;
+  }).join('');
+}
+
+function openCreateUserModal() {
+  const modalEl = document.getElementById('user-modal');
+  if (!modalEl) return;
+  document.getElementById('user-modal-title').innerHTML = '<i class="ti ti-user-plus me-2"></i>Nuovo Utente';
+  document.getElementById('user-modal-id').value = '';
+  document.getElementById('user-modal-username').value = '';
+  document.getElementById('user-modal-username').disabled = false;
+  document.getElementById('user-modal-password').value = '';
+  document.getElementById('user-modal-password').required = true;
+  document.getElementById('user-modal-password-label').textContent = 'Password';
+  document.getElementById('user-modal-password-hint').textContent = 'Minimo 4 caratteri.';
+  document.getElementById('user-modal-is-admin').checked = false;
+  document.getElementById('user-modal-enabled-group').style.display = 'none';
+  document.getElementById('user-modal-enabled').checked = true;
+
+  const fb = document.getElementById('user-modal-feedback');
+  if (fb) {
+    fb.style.display = 'none';
+    fb.textContent = '';
+  }
+
+  showModal('user-modal');
+}
+
+async function openEditUserModal(userId) {
+  const targetId = Number(userId);
+  let user = _allUsers.find(u => Number(u.id) === targetId);
+
+  // If not in local cache, try to fetch or fallback to current user
+  if (!user && _me && _me.user && Number(_me.user.id) === targetId) {
+    user = _me.user;
+  }
+  if (!user) {
+    try {
+      const res = await api.get('/api/users');
+      _allUsers = Array.isArray(res) ? res : [];
+      user = _allUsers.find(u => Number(u.id) === targetId);
+    } catch (e) {}
+  }
+  if (!user) return;
+
+  const modalEl = document.getElementById('user-modal');
+  if (!modalEl) return;
+  document.getElementById('user-modal-title').innerHTML = `<i class="ti ti-user-edit me-2"></i>Modifica: ${escapeHtml(user.username)}`;
+  document.getElementById('user-modal-id').value = user.id;
+  document.getElementById('user-modal-username').value = user.username;
+  document.getElementById('user-modal-username').disabled = false;
+  document.getElementById('user-modal-password').value = '';
+  document.getElementById('user-modal-password').required = false;
+  document.getElementById('user-modal-password-label').textContent = 'Nuova Password (opzionale)';
+  document.getElementById('user-modal-password-hint').textContent = 'Lascia vuoto per mantenere la password attuale.';
+  document.getElementById('user-modal-is-admin').checked = !!user.is_admin;
+  document.getElementById('user-modal-enabled-group').style.display = 'block';
+  document.getElementById('user-modal-enabled').checked = user.enabled !== false;
+
+  const fb = document.getElementById('user-modal-feedback');
+  if (fb) {
+    fb.style.display = 'none';
+    fb.textContent = '';
+  }
+
+  showModal('user-modal');
+}
+
+async function submitUserModal() {
+  const modalEl = document.getElementById('user-modal');
+  const fb = document.getElementById('user-modal-feedback');
+  const submitBtn = document.getElementById('user-modal-submit');
+  const spinner = document.getElementById('user-modal-spinner');
+
+  const userId = document.getElementById('user-modal-id').value;
+  const username = (document.getElementById('user-modal-username').value || '').trim();
+  const password = (document.getElementById('user-modal-password').value || '').trim();
+  const isAdmin = document.getElementById('user-modal-is-admin').checked;
+  const enabled = document.getElementById('user-modal-enabled').checked;
+
+  if (fb) {
+    fb.style.display = 'none';
+    fb.textContent = '';
+  }
+
+  if (!username) {
+    if (fb) {
+      fb.textContent = 'Inserisci il nome utente.';
+      fb.style.display = 'block';
+    }
+    return;
+  }
+
+  if (!userId && (!password || password.length < 4)) {
+    if (fb) {
+      fb.textContent = 'La password deve contenere almeno 4 caratteri.';
+      fb.style.display = 'block';
+    }
+    return;
+  }
+  if (userId && password && password.length < 4) {
+    if (fb) {
+      fb.textContent = 'La password deve contenere almeno 4 caratteri.';
+      fb.style.display = 'block';
+    }
+    return;
+  }
+
+  if (submitBtn) submitBtn.disabled = true;
+  if (spinner) spinner.style.display = 'inline-block';
+
+  try {
+    if (!userId) {
+      await api.post('/api/users', {
+        username,
+        password,
+        parental_control: 'adult',
+        is_admin: isAdmin,
+      });
+      showToast(`Utente '${username}' creato con successo`, 'success');
+    } else {
+      const payload = {
+        username,
+        parental_control: 'adult',
+        is_admin: isAdmin,
+        enabled,
+      };
+      if (password) payload.password = password;
+
+      await api.put(`/api/users/${userId}`, payload);
+      showToast(`Utente '${username}' aggiornato`, 'success');
+    }
+
+
+    hideModal('user-modal');
+    await loadUsersList();
+
+    // If updating current logged in user, refresh identity and UI
+    if (_me && _me.user && Number(userId) === Number(_me.user.id)) {
+      if (typeof _refreshIdentity === 'function') await _refreshIdentity();
+      if (typeof initAuth === 'function') await initAuth();
+    }
+  } catch (err) {
+    if (fb) {
+      fb.textContent = err.message || 'Errore durante il salvataggio';
+      fb.style.display = 'block';
+    }
+  } finally {
+    if (submitBtn) submitBtn.disabled = false;
+    if (spinner) spinner.style.display = 'none';
+  }
+}
+
+async function confirmDeleteUser(userId, username) {
+  if (!confirm(`Sei sicuro di voler eliminare l'account di '${username}'?\nVerranno eliminati anche i suoi progressi di visione.`)) {
+    return;
+  }
+
+  try {
+    await api.del(`/api/users/${userId}`);
+    showToast(`Utente '${username}' eliminato`, 'info');
+    await loadUsersList();
+  } catch (err) {
+    showToast(err.message || 'Impossibile eliminare l\'utente', 'danger');
+  }
+}
+
+
 // ── Delegated handlers ───────────────────────────────────────────────────────
 
 registerActions({
@@ -841,6 +1078,10 @@ registerActions({
   'cfg:hookEnabled':      (d, el) => toggleHook(Number(d.id), el.checked),
   'cfg:testHook':         d => testHook(Number(d.id)),
   'cfg:deleteHook':       d => deleteHook(Number(d.id)),
+  'user:openCreate':      () => openCreateUserModal(),
+  'user:submit':          () => submitUserModal(),
+  'user:edit':            d => openEditUserModal(Number(d.id)),
+  'user:delete':          d => confirmDeleteUser(Number(d.id), d.username),
 });
 
 

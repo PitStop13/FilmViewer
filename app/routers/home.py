@@ -2,8 +2,9 @@ import asyncio
 import logging
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
+from app.auth import models
 from app.auth.deps import require
 from app.auth.permissions import Permission
 from app.config import configured_domain
@@ -22,6 +23,7 @@ Source = Literal["streamingcommunity"]
 
 @router.get("")
 async def home(
+    request: Request,
     source: Source = Query(default="streamingcommunity"),
     category: str = Query(default=None),
 ):
@@ -42,3 +44,5 @@ async def home(
         raise HTTPException(status_code=502, detail=str(e))
 
     return {"source": source, "shelves": result}
+
+
