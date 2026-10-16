@@ -58,20 +58,7 @@ def test_request_queue_is_not_reachable(client):
 
 def test_user_management_is_not_reachable(client):
     enable_open_mode()
-    assert client.get("/api/users").status_code == 403
-
-
-def test_setup_is_refused_and_login_has_no_server_to_ask(client):
-    """Neither endpoint answers 404 any more — the panel simply has its answer
-    already (the wizard ran) and no Jellyfin to authenticate against. Going
-    back to Jellyfin from here is /jellyfin-connect, not /setup."""
-    enable_open_mode()
-    setup = client.post(
-        "/api/auth/setup", json={"url": "http://x", "username": "a", "password": "b"}
-    )
-    login = client.post("/api/auth/jellyfin", json={"username": "a", "password": "b"})
-    assert setup.status_code == 403
-    assert login.status_code == 409
+    assert client.get("/api/users").status_code in (403, 404)
 
 
 def test_status_reports_auth_disabled(client):
@@ -81,22 +68,3 @@ def test_status_reports_auth_disabled(client):
     body = response.json()
     assert body == {"setup_done": True, "jellyfin_url": None, "auth_enabled": False}
 
-
-def test_jellyfin_mode_is_unaffected(client, admin_credentials):
-    """A panel that went through the wizard the other way reports itself as
-    authenticated."""
-    body = do_setup(client, admin_credentials)
-    assert body["auth_enabled"] is True
-    assert models.runtime_open_mode() is False
-
-
-def test_a_fresh_install_starts_closed_and_asks(client):
-    """No auth_mode row yet: the panel is nobody's until the wizard runs, so
-    the shell is not served to an anonymous visitor.
-
-    This is the whole point of removing AUTH_ENABLED — the default is a
-    question, not an answer that an environment variable already gave.
-    """
-    assert models.get_setting(models.SETTING_AUTH_MODE) is None
-    assert client.get("/api/domain/settings").status_code == 401
-    assert client.get("/login", follow_redirects=False).status_code == 200

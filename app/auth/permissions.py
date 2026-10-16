@@ -14,8 +14,7 @@ class Permission(IntFlag):
     DOWNLOAD = 1 << 0          # start a download directly, bypassing the request queue
     REQUEST = 1 << 1           # create requests
     MANAGE_REQUESTS = 1 << 2   # see the queue, approve, deny, fix
-    MANAGE_USERS = 1 << 3      # import Jellyfin users, assign permissions, enable/disable
-    MANAGE_SETTINGS = 1 << 4   # source domain, libraries, performance, Jellyfin connection
+    MANAGE_SETTINGS = 1 << 4   # source domain, libraries, performance
     MANAGE_FILES = 1 << 5      # move, rename, delete in the file manager
     VIEW_LIBRARY = 1 << 6      # browse and stream the library
 
@@ -24,7 +23,6 @@ ALL_PERMISSIONS = (
     Permission.DOWNLOAD
     | Permission.REQUEST
     | Permission.MANAGE_REQUESTS
-    | Permission.MANAGE_USERS
     | Permission.MANAGE_SETTINGS
     | Permission.MANAGE_FILES
     | Permission.VIEW_LIBRARY

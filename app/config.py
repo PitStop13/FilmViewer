@@ -60,17 +60,8 @@ def _resolve_samesite(raw_value: str, secure: bool) -> str:
 COOKIE_SAMESITE = _resolve_samesite(os.getenv("COOKIE_SAMESITE", "lax"), COOKIE_SECURE)
 
 # Trust X-Forwarded-For / X-Real-IP for the client address. Only enable when the
-# panel sits behind a reverse proxy you control — otherwise the header is
-# attacker-controlled and would poison the IP reported to Jellyfin.
+# panel sits behind a reverse proxy you control.
 TRUST_PROXY_HEADERS = os.getenv("TRUST_PROXY_HEADERS", "0") == "1"
-
-# Whether the panel asks for a Jellyfin login is not configured here, and there
-# is no environment variable for it. It is chosen once, by a human, in the setup
-# wizard — "Collega a Jellyfin" (POST /api/auth/setup) or "Continua senza
-# Jellyfin" (POST /api/auth/skip) — and stored in the database as the
-# ``auth_mode`` setting. Open mode can be left later from Settings
-# (POST /api/auth/jellyfin-connect), without a restart. See
-# app.auth.models.SETTING_AUTH_MODE / runtime_open_mode().
 #
 # ``AUTH_ENABLED`` used to decide this at deploy time. It was removed because
 # it could not be reconciled with the wizard: set to 0 it did not merely
@@ -91,9 +82,6 @@ SETTINGS_DEFAULTS = {
     # its own. See app.core.domain_recovery.
     "domain_auto_apply": False,
     "domain_check_interval_minutes": 360,
-    # Ask Jellyfin to scan when a download lands, instead of waiting for its
-    # own schedule. Inert unless Jellyfin is connected.
-    "jellyfin_refresh_on_download": False,
     # The container every download is written into, and whether subtitles are
     # muxed in or left beside the video as .vtt. The vocabulary and the
     # fallbacks live in app.core.container, which is the only thing that reads

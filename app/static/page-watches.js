@@ -283,7 +283,7 @@ function _renderFollowButton(kind, following, busy = false) {
   const target = _followTarget(kind);
   const btn = document.getElementById(target.btnId);
   if (!btn) return;
-  // Available with or without Jellyfin: an ownerless watch downloads directly,
+  // An ownerless watch downloads directly,
   // the way everything else does when the panel runs without accounts.
   if (!target.followable || !(can('REQUEST') || can('DOWNLOAD'))) {
     btn.style.display = 'none';

@@ -1,5 +1,6 @@
 """In-app notifications, and who is allowed to see or decide which request."""
 
+from app.auth import models as auth_models
 from app.auth.permissions import ALL_PERMISSIONS, Permission
 from app.requests import notify
 from tests.conftest import do_setup, make_user, session_for
@@ -74,11 +75,11 @@ def test_an_admin_without_manage_requests_never_sees_the_queue(
     do_setup(client, admin_credentials)
     settings_admin = make_user(
         "settings-admin", "jf-settings-admin-id",
-        int(Permission.MANAGE_SETTINGS | Permission.MANAGE_USERS | Permission.MANAGE_FILES),
+        int(Permission.MANAGE_SETTINGS | Permission.MANAGE_FILES),
     )
     _login(client, settings_admin)
 
-    assert client.get("/api/users").status_code == 200
+    assert client.get("/api/domain/settings").status_code == 200
     assert client.get("/api/requests").status_code == 403
 
 
@@ -181,6 +182,7 @@ def test_marking_read_only_touches_your_own_notifications(
 def test_notifications_need_a_session(client, admin_credentials):
     do_setup(client, admin_credentials)
     client.cookies.clear()
+    auth_models.set_setting(auth_models.SETTING_AUTH_MODE, "managed")
     assert client.get("/api/notifications").status_code == 401
 
 
@@ -275,4 +277,5 @@ def test_clearing_the_bell_leaves_other_users_alone(
 def test_deleting_needs_a_session(client, admin_credentials):
     do_setup(client, admin_credentials)
     client.cookies.clear()
+    auth_models.set_setting(auth_models.SETTING_AUTH_MODE, "managed")
     assert client.post("/api/notifications/delete", json={}).status_code == 401

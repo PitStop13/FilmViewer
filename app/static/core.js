@@ -10,7 +10,7 @@
 
 let _me = null;           // { user, csrf_token, auth_enabled }
 let _csrf = '';
-let _authEnabled = true;  // false when the panel runs without Jellyfin (auth_mode=open)
+let _authEnabled = false; // false in open mode (no authentication required)
 
 function can(permission) {
   return !!_me && _me.user.permission_names.includes(permission);
@@ -99,8 +99,7 @@ async function initAuth() {
   document.querySelectorAll('[data-hide-perm]').forEach(el => {
     if (el.dataset.hidePerm.split('|').some(can)) el.style.display = 'none';
   });
-  // Without Jellyfin there is no identity or request queue to show, even for
-  // the one permission (DOWNLOAD) that would otherwise leave them visible.
+  // Without authentication there is no identity or request queue to show
   if (!_authEnabled) {
     document.querySelectorAll('[data-requires-auth]').forEach(el => { el.style.display = 'none'; });
   }
@@ -108,7 +107,7 @@ async function initAuth() {
 }
 
 function _roleLabel() {
-  if (can('MANAGE_USERS') || can('MANAGE_SETTINGS')) return 'Amministratore';
+  if (can('MANAGE_SETTINGS')) return 'Amministratore';
   if (can('MANAGE_REQUESTS')) return 'Approvatore';
   if (can('DOWNLOAD')) return 'Download diretto';
   if (can('REQUEST')) return 'Richieste';

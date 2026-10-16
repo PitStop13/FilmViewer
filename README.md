@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>Un'interfaccia web per esplorare, guardare e scaricare film e serie TV per uso personale.</b><br/>
-  Supporta riproduzione diretta in streaming, download con ripresa automatica (resume) e organizzazione per media center (Jellyfin/Plex).
+  Supporta riproduzione diretta in streaming, download con ripresa automatica (resume) e organizzazione della libreria multimediale.
 </p>
 
 <p align="center">
@@ -20,7 +20,7 @@ FilmViewer è un'applicazione web leggera pensata per uso personale e domestico 
 - **Catalogo & Ricerca:** Esplorazione rapida di film e serie TV con locandine e schede informative.
 - **Web Player Integrato:** Streaming immediato ad alta risoluzione nel browser.
 - **Download con Ripresa (Resume):** Download multi-thread con FFmpeg e recupero istantaneo dei segmenti interrotti.
-- **Integrazione Jellyfin opzionale:** Modalità libera con un click ("Continua senza Jellyfin") oppure accesso con server Jellyfin.
+- **Accesso Immediato:** Nessuna configurazione complessa di account o server esterni: apri l'interfaccia e cerca subito i tuoi contenuti.
 
 <p align="center">
   <img src="docs/home.png" alt="Schermata Principale" width="85%"/>
@@ -174,9 +174,8 @@ La prima volta che ti colleghi a **`http://<IP-SERVER>:9876`** (o `http://localh
    > Nel campo del percorso video **lascia o inserisci esattamente `/app/videos`** (il valore predefinito).  
    > **NON inserire percorsi dell'host come `/DATA/...` o `C:\...`**: l'applicazione viene eseguita all'interno di un container Docker che riconosce unicamente il percorso interno `/app/videos`. Questo percorso è già collegato in automatico tramite i volumi alla tua cartella reale sul disco/NAS. Se modifichi `/app/videos` con un percorso dell'host, il container non potrà accedervi e i download restituiranno errore.
 
-2. **Accesso iniziale:**
-   - Clicca **"Continua senza Jellyfin"** per usare immediatamente l'applicazione in modalità libera, senza bisogno di server multimediali.
-   - Oppure inserisci URL e credenziali del tuo server Jellyfin se desideri collegarlo per gestire profili o la sincronizzazione della libreria.
+2. **Accesso immediato:**
+   - L'applicazione si avvia direttamente in modalità libera senza richiedere credenziali o server esterni.
 
 ---
 

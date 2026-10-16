@@ -10,9 +10,8 @@ which is what keeps "the agent" from becoming a back door around the
 permission model — and it is the only honest answer to "who asked for this?"
 when a request lands in the queue.
 
-In open mode there are no accounts, so the agent is the same implicit user as
-a browser. A token minted in open mode does not survive a switch to Jellyfin:
-it has no owner there, and is refused until someone regenerates it.
+In open mode there are no individual accounts, so the agent acts as the same
+implicit panel user as a browser.
 """
 
 import hashlib

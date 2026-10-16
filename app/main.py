@@ -15,7 +15,6 @@ from app import __version__, config, db, downloads_hooks, downloads_notify, libr
 from app.auth import models as auth_models
 from app.auth import router as auth_router
 from app.auth import session as auth_session
-from app.auth import users_router
 from app.auth.deps import AuthMiddleware
 from app.core import domain_recovery
 from app.jobs import job_manager
@@ -158,7 +157,6 @@ templates = Jinja2Templates(directory=str(BASE_DIR / "templates"))
 templates.env.globals["asset"] = asset
 
 app.include_router(auth_router.router)
-app.include_router(users_router.router)
 app.include_router(requests_router.router)
 app.include_router(requests_router.notifications_router)
 app.include_router(domain.router)
@@ -185,11 +183,7 @@ def index(request: Request):
     return templates.TemplateResponse(request=request, name="index.html")
 
 
-@app.get("/login", response_class=HTMLResponse)
+@app.get("/login")
 def login_page(request: Request):
-    """Login and first-run setup. Public; redirects away once signed in."""
-    if auth_models.runtime_open_mode() or (
-        getattr(request.state, "user", None) is not None and auth_models.setup_done()
-    ):
-        return RedirectResponse("/", status_code=302)
-    return templates.TemplateResponse(request=request, name="login.html")
+    """Public; redirects directly to home as login is not required."""
+    return RedirectResponse("/", status_code=302)

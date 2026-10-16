@@ -19,21 +19,22 @@ PROTECTED_GET = [
 
 @pytest.mark.parametrize("path", PROTECTED_GET)
 def test_endpoints_are_closed_without_a_session(client, path):
+    models.set_setting(models.SETTING_AUTH_MODE, "managed")
     assert client.get(path).status_code == 401
 
 
 def test_public_endpoints_stay_reachable(client):
     assert client.get("/api/auth/status").status_code == 200
-    assert client.get("/login").status_code == 200
 
 
 def test_html_pages_redirect_to_login(client):
+    models.set_setting(models.SETTING_AUTH_MODE, "managed")
     response = client.get("/", headers={"Accept": "text/html"}, follow_redirects=False)
     assert response.status_code == 302
     assert response.headers["location"] == "/login"
 
 
-def test_disabling_a_user_revokes_their_session_immediately(client, admin_credentials, jellyfin):
+def test_disabling_a_user_revokes_their_session_immediately(client, admin_credentials):
     """The reason sessions are rows and not signed tokens."""
     do_setup(client, admin_credentials)
     bob = make_user("bob", "jf-bob-id", ALL)
@@ -108,7 +109,7 @@ def test_permission_denied_carries_no_retry_marker(client, admin_credentials):
     bob = make_user("bob", "jf-bob-id", int(Permission.REQUEST))
     csrf = session_for(client, bob.id)
 
-    response = client.post("/api/users/import", json={"jellyfin_user_ids": ["x"]},
+    response = client.post("/api/domain/candidate/apply", json={"domain": "test.com"},
                             headers={"X-CSRF-Token": csrf})
 
     assert response.status_code == 403

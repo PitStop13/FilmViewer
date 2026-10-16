@@ -12,7 +12,6 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import db
-from app.auth import jellyfin as jf
 from app.auth import models, permissions, ratelimit, session as sessions
 
 
@@ -75,166 +74,15 @@ def _no_auto_retry(monkeypatch):
     monkeypatch.setattr(jobs, "AUTO_RETRIES", 0)
 
 
-# ── Fake Jellyfin server ───────────────────────────────────────────────────────
-
-class FakeResponse:
-    def __init__(self, status_code: int, payload=None):
-        self.status_code = status_code
-        self._payload = payload
-        self.ok = 200 <= status_code < 300
-
-    def json(self):
-        if self._payload is None:
-            raise ValueError("no json body")
-        return self._payload
-
-    @property
-    def text(self):
-        return json.dumps(self._payload) if self._payload is not None else ""
 
 
-class FakeJellyfin:
-    """Stands in for a Jellyfin server at the requests.request level."""
 
-    def __init__(self):
-        self.users: dict[str, dict] = {}
-        self.passwords: dict[str, str] = {}
-        self.api_keys: list[dict] = []
-        self.calls: list[dict] = []
-        self.issued_tokens: set[str] = set()
-        self.revoked_tokens: set[str] = set()
-        self.token_owner: dict[str, str] = {}  # token → username
-        # When True the server rejects any request carrying X-Forwarded-For,
-        # which is what Jellyfin does when the panel is not a known proxy.
-        self.reject_forwarded_ip = False
-        self.reachable = True
-        self._token_seq = 0
 
-    def add_user(self, name: str, password: str = "pw", admin: bool = False, user_id: str = None):
-        user = {
-            "Id": user_id or f"jf-{name}-id",
-            "Name": name,
-            "ServerId": "server-1",
-            "Policy": {"IsAdministrator": admin, "IsDisabled": False},
-        }
-        self.users[name] = user
-        self.passwords[name] = password
-        return user
-
-    def rename_user(self, old: str, new: str):
-        user = self.users.pop(old)
-        user["Name"] = new
-        self.users[new] = user
-        self.passwords[new] = self.passwords.pop(old)
-
-    def device_ids_seen(self, path: str = "/Users/AuthenticateByName") -> list[str]:
-        return [c["device_id"] for c in self.calls if c["path"] == path]
-
-    # ── requests.request replacement ──────────────────────────────────────────
-
-    def __call__(self, method, url, json=None, headers=None, timeout=None):
-        if not self.reachable:
-            import requests as _requests
-            raise _requests.ConnectionError("connection refused")
-
-        headers = headers or {}
-        parsed = urlparse(url)
-        path = parsed.path
-        auth = headers.get("Authorization", "")
-        device_id = ""
-        token = ""
-        for part in auth.replace("MediaBrowser ", "").split(", "):
-            key, _, value = part.partition("=")
-            value = value.strip('"')
-            if key == "DeviceId":
-                device_id = value
-            elif key == "Token":
-                token = value
-
-        self.calls.append({
-            "method": method,
-            "path": path,
-            "query": parse_qs(parsed.query),
-            "device_id": device_id,
-            "token": token,
-            "forwarded_for": headers.get("X-Forwarded-For"),
-            "json": json,
-        })
-
-        if self.reject_forwarded_ip and "X-Forwarded-For" in headers:
-            return FakeResponse(400, {"Error": "unknown proxy"})
-
-        return self._route(method, path, parsed, json, token)
-
-    def _route(self, method, path, parsed, body, token):
-        if path == "/System/Info/Public":
-            return FakeResponse(200, {"ServerName": "fake", "Version": "10.9.0", "Id": "server-1"})
-
-        if path == "/Users/AuthenticateByName" and method == "POST":
-            name = (body or {}).get("Username")
-            user = self.users.get(name)
-            if user is None or self.passwords.get(name) != (body or {}).get("Pw"):
-                return FakeResponse(401, {"Error": "invalid"})
-            self._token_seq += 1
-            access = f"token-{self._token_seq}"
-            self.issued_tokens.add(access)
-            self.token_owner[access] = name
-            return FakeResponse(200, {"User": user, "AccessToken": access, "ServerId": "server-1"})
-
-        if path == "/Sessions/Logout" and method == "POST":
-            self.revoked_tokens.add(token)
-            return FakeResponse(204)
-
-        if path == "/Users/Me":
-            if not self._valid(token):
-                return FakeResponse(401, {"Error": "bad token"})
-            owner = self.token_owner.get(token)
-            user = self.users.get(owner) if owner else None
-            if user is None:
-                return FakeResponse(401, {"Error": "bad token"})
-            return FakeResponse(200, user)
-
-        if path == "/System/Info":
-            if not self._valid(token):
-                return FakeResponse(401, {"Error": "bad token"})
-            return FakeResponse(200, {"ServerName": "fake", "Id": "server-1"})
-
-        if path == "/Users" and method == "GET":
-            if not self._valid(token):
-                return FakeResponse(401, {"Error": "bad token"})
-            return FakeResponse(200, list(self.users.values()))
-
-        if path == "/Auth/Keys" and method == "POST":
-            if not self._valid(token):
-                return FakeResponse(401, {"Error": "bad token"})
-            app_name = parse_qs(parsed.query).get("App", ["?"])[0]
-            self.api_keys.append({"AppName": app_name, "AccessToken": f"apikey-{len(self.api_keys) + 1}"})
-            return FakeResponse(204)
-
-        if path == "/Auth/Keys" and method == "GET":
-            if not self._valid(token):
-                return FakeResponse(401, {"Error": "bad token"})
-            return FakeResponse(200, {"Items": list(self.api_keys)})
-
-        return FakeResponse(404, {"Error": f"no route {method} {path}"})
-
-    def _valid(self, token: str) -> bool:
-        if not token:
-            return False
-        if token in self.revoked_tokens:
-            return False
-        return token in self.issued_tokens or any(
-            k["AccessToken"] == token for k in self.api_keys
-        )
 
 
 # ── Fixtures ───────────────────────────────────────────────────────────────────
 
-@pytest.fixture
-def jellyfin(monkeypatch):
-    fake = FakeJellyfin()
-    monkeypatch.setattr(jf.requests, "request", fake)
-    return fake
+
 
 
 @pytest.fixture
@@ -361,16 +209,15 @@ def source(monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def admin_credentials(jellyfin):
-    jellyfin.add_user("admin", "adminpw", admin=True)
-    return {"url": "http://jellyfin.local:8096", "username": "admin", "password": "adminpw"}
+def admin_credentials():
+    return {"url": "http://localhost:8000", "username": "admin", "password": "adminpw"}
 
 
-def do_setup(client, credentials) -> dict:
-    """Run the first-run bootstrap and return the JSON payload."""
-    response = client.post("/api/auth/setup", json=credentials)
-    assert response.status_code == 200, response.text
-    return response.json()
+def do_setup(client, credentials=None) -> dict:
+    """Creates an admin user, sets a session cookie, and returns payload."""
+    user = make_user("admin", "admin-id", ALL)
+    csrf = session_for(client, user.id)
+    return {"user": user.to_public(), "csrf_token": csrf, "auth_enabled": True}
 
 
 def enable_open_mode():

@@ -585,12 +585,10 @@
       margin-top: 2px;
     }
 
-    /* Every settings section owns its own save action: two of them (verifying a
-       domain, connecting to Jellyfin) have side effects beyond writing a value,
-       so a single modal-wide save button would be a lie.
-
-       Sections are grouped into tabs, one per pane, so this divider only draws
-       when a pane holds more than one section. */
+    /* Every settings section owns its own save action.
+ 
+        Sections are grouped into tabs, one per pane, so this divider only draws
+        when a pane holds more than one section. */
     .settings-section + .settings-section {
       border-top: 1px solid var(--border);
       padding-top: 20px;

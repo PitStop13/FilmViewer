@@ -59,18 +59,23 @@ def test_lax_without_secure_does_not_warn(caplog):
 # ── Wired into the actual session cookie ────────────────────────────────────────
 
 def test_default_router_behaviour_sets_samesite_lax(client, admin_credentials):
-    response = client.post("/api/auth/setup", json=admin_credentials)
-    assert "samesite=lax" in response.headers.get("set-cookie", "").lower()
+    from fastapi import Response
+    from app.auth import router
+    resp = Response()
+    router._set_session_cookie(resp, "token123")
+    assert "samesite=lax" in resp.headers.get("set-cookie", "").lower()
 
 
 def test_router_honours_a_configured_samesite_none(client, admin_credentials, monkeypatch):
+    from fastapi import Response
     from app.auth import router
 
     monkeypatch.setattr(router, "COOKIE_SAMESITE", "none")
     monkeypatch.setattr(router, "COOKIE_SECURE", True)
 
-    response = client.post("/api/auth/setup", json=admin_credentials)
+    resp = Response()
+    router._set_session_cookie(resp, "token123")
 
-    cookie_header = response.headers.get("set-cookie", "").lower()
+    cookie_header = resp.headers.get("set-cookie", "").lower()
     assert "samesite=none" in cookie_header
     assert "secure" in cookie_header

@@ -3,10 +3,7 @@
 Shaped after the notification-channel router, which solves the same problem: a
 list of outbound targets, each with an event filter and a test button.
 
-The test endpoint returns a status code and nothing else. A hook may legitimately
-point at a private address — reaching Jellyfin on the LAN is the entire use case
-— so handing the response body back to whoever pressed the button would turn
-this into a way of reading services they cannot otherwise reach.
+The test endpoint returns a status code and nothing else.
 """
 
 import asyncio
@@ -111,26 +108,10 @@ def _public(hook: dict) -> dict:
     return {**hook, "url_masked": f"{parsed.scheme}://{parsed.hostname or '…'}/…{tail}"}
 
 
-def _jellyfin_connected() -> bool:
-    """Whether the library refresh has credentials to use.
-
-    Read from jf_setting rather than inferred from the auth mode: an
-    installation that skipped the login wizard and connected Jellyfin later has
-    both, and asking the auth status would report it as unconnected.
-    """
-    from app.auth import models as auth_models
-
-    return bool(
-        (auth_models.get_setting(auth_models.SETTING_JELLYFIN_URL) or "").strip()
-        and (auth_models.get_setting(auth_models.SETTING_JELLYFIN_API_KEY) or "").strip()
-    )
-
-
 @router.get("", dependencies=CAN_MANAGE)
 def list_hooks():
     return {
         "hooks": [_public(h) for h in downloads_hooks.list_hooks()],
-        "jellyfin_connected": _jellyfin_connected(),
     }
 
 

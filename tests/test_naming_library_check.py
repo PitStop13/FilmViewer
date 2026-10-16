@@ -121,12 +121,12 @@ def test_a_hostile_template_cannot_escape_the_library():
     result = paths.film_path("/lib", "X", None, templates=hostile)
 
     assert result.startswith("/lib" + os.sep)
-    assert os.path.normpath(result).startswith("/lib" + os.sep)
+    assert os.path.normpath(result).startswith(os.path.normpath("/lib") + os.sep)
 
 
 def test_a_hostile_title_cannot_escape_the_library():
     result = paths.film_path("/lib", "../../etc/passwd", None)
-    assert os.path.normpath(result).startswith("/lib" + os.sep)
+    assert os.path.normpath(result).startswith(os.path.normpath("/lib") + os.sep)
 
 
 # ── The library check ─────────────────────────────────────────────────────────

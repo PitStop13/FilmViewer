@@ -28,8 +28,8 @@ def get_mcp_status():
         "enabled": bool(get_settings().get("mcp_enabled")),
         "path": PATH,
         "has_token": mcp_auth.has_token(),
-        # None with a token present means the owner is gone or disabled, or the
-        # token predates the switch to Jellyfin: it is refused until regenerated.
+        # None with a token present means the owner is gone or disabled:
+        # it is refused until regenerated.
         "owner": _owner_name(),
     }
 

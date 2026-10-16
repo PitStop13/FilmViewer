@@ -4,14 +4,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-A self-hosted FastAPI web panel that searches and downloads films, TV series and anime from
-StreamingCommunity and AnimeUnity into a Jellyfin library. It handles M3U8 parsing, AES-CBC segment
+A self-hosted FastAPI web panel that searches and downloads films and TV series from
+StreamingCommunity into a media library. It handles M3U8 parsing, AES-CBC segment
 decryption, parallel downloading and FFmpeg merging.
 
-Access can be authenticated against a Jellyfin server; there is no local password store.
-Authentication is **opt-in, and the choice is made once in the setup wizard**, not by an
-environment variable: "Collega a Jellyfin" or "Continua senza Jellyfin", stored as the `auth_mode`
-setting in `panel.db`. Until it is answered the panel serves nothing but the wizard.
+The panel runs in open mode with direct access and no login required.
 
 ## Running the Project
 
@@ -65,12 +62,11 @@ request before any route runs.
   and stream resolution (`resolve_stream`, `fetch_key_from_playlist`,
   `_FALLBACK_PROVIDERS`)
 
-**`app/auth/`** — Jellyfin SSO, permissions, users
-- `jellyfin.py` — HTTP client (MediaBrowser header, stable DeviceId, X-Forwarded-For with retry)
+**`app/auth/`** — Session, permissions, open mode
 - `session.py` — server-side sessions (opaque token, SHA-256 stored)
 - `permissions.py` — independent `IntFlag` permissions
 - `deps.py` — `AuthMiddleware`, public allowlist, `require(...)`
-- `router.py` / `users_router.py` — setup, login, user import and management
+- `router.py` — status, session and current user
 
 **`app/requests/`** — the request queue
 - `models.py` — records, content key, allowed transitions
@@ -93,7 +89,7 @@ request before any route runs.
 
 **`app/`** — `jobs.py` (thread pool, `DownloadSlots`, SSE broadcast), `downloads_notify.py` (notifications
 for downloads that skipped the queue, one summary per season/series), `downloads_hooks.py`
-(post-download webhooks and the Jellyfin library refresh), `library.py` (the registry of which
+(post-download webhooks), `library.py` (the registry of which
 folder holds which title; endpoints in `routers/library.py`, UI in `static/library.js`), `schedule.py`, `db.py`,
 `config.py`, `progress.py`, `writable.py` (the boot check that temp, config and libraries can be
 written), `routers/`, `templates/`, `static/`

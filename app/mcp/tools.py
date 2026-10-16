@@ -47,7 +47,7 @@ mcp_server = MCPServer(
     version=__version__,
     instructions=(
         "Search StreamingCommunity (films, TV series), start downloads into "
-        "the Jellyfin library, follow series for new episodes, and work the "
+        "the media library, follow series for new episodes, and work the "
         "request queue. Search first: download and follow tools need the id, slug "
         "and title exactly as search returns them. Every action runs as the panel user "
         "who generated the MCP token, with that user's permissions."

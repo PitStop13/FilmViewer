@@ -391,11 +391,4 @@ def test_saving_the_format_leaves_the_other_settings_alone(client, admin):
     assert config.get_settings()["max_concurrent_downloads"] == before
 
 
-def test_the_jellyfin_refresh_switch_actually_persists(client, admin):
-    """It was in the defaults, read by downloads_hooks and PUT by the settings
-    page, but missing from SettingsUpdate — so pydantic dropped it and the
-    switch reported success while saving nothing."""
-    res = client.put("/api/domain/settings", headers=_csrf(admin),
-                     json={"jellyfin_refresh_on_download": True})
-    assert res.status_code == 200
-    assert config.get_settings()["jellyfin_refresh_on_download"] is True
+

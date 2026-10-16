@@ -360,7 +360,7 @@
       display: flex; align-items: center; justify-content: center;
       font-size: 11px; font-weight: 700; flex-shrink: 0;
     }
-    /* The name can be any length Jellyfin allows, so the text block is what
+    /* The name can be long, so the text block is what
        shrinks - never the logout button beside it. */
     .user-chip-text { min-width: 0; }
     .user-chip-name, .user-chip-role {

@@ -8,7 +8,6 @@ from datetime import datetime, timezone
 
 from app import db
 from app.auth import permissions as perms
-from app.auth.jellyfin import device_id_for
 
 logger = logging.getLogger(__name__)
 
@@ -17,22 +16,18 @@ def now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
+def device_id_for(username: str) -> str:
+    import base64
+    return base64.b64encode(f"SCPanel_{username}".encode()).decode()
+
+
 # ── Settings ───────────────────────────────────────────────────────────────────
 
-SETTING_JELLYFIN_URL = "jellyfin_url"
-SETTING_JELLYFIN_API_KEY = "jellyfin_api_key"
-SETTING_JELLYFIN_SERVER_ID = "jellyfin_server_id"
-SETTING_ALLOW_NEW_LOGIN = "allow_new_jellyfin_login"
 SETTING_DEFAULT_PERMISSIONS = "default_permissions"
-
-# Explicit auth mode chosen at setup time, and the only thing that decides
-# whether the panel asks for a login. Unset = wizard still pending, "open" =
-# admin chose to skip Jellyfin, "jellyfin" = connected. Reverting
-# "jellyfin" -> "open" is intentionally not supported.
 SETTING_AUTH_MODE = "auth_mode"
 
 _SETTING_DEFAULTS = {
-    SETTING_ALLOW_NEW_LOGIN: "0",  # off by default: users are imported explicitly
+    SETTING_AUTH_MODE: "open",
     SETTING_DEFAULT_PERMISSIONS: str(int(perms.DEFAULT_PERMISSIONS)),
 }
 
@@ -52,10 +47,6 @@ def set_setting(key: str, value: str, conn: sqlite3.Connection | None = None):
     )
 
 
-def allow_new_jellyfin_login() -> bool:
-    return get_setting(SETTING_ALLOW_NEW_LOGIN) == "1"
-
-
 def default_permissions() -> int:
     try:
         return perms.sanitize(int(get_setting(SETTING_DEFAULT_PERMISSIONS)))
@@ -63,29 +54,12 @@ def default_permissions() -> int:
         return int(perms.DEFAULT_PERMISSIONS)
 
 
-def jellyfin_config() -> tuple[str | None, str | None]:
-    """(base_url, service_api_key) — both None until setup has run."""
-    return get_setting(SETTING_JELLYFIN_URL), get_setting(SETTING_JELLYFIN_API_KEY)
-
-
 def setup_done() -> bool:
-    """True once the panel is configured: either Jellyfin is connected, or the
-    admin explicitly chose to skip it.
-
-    The Jellyfin check is unconditional (not gated on SETTING_AUTH_MODE being
-    "jellyfin") so installs that ran /setup before this flag existed are not
-    sent back to the wizard: they have jellyfin_url + a jf_user row but no
-    auth_mode key at all.
-    """
-    if get_setting(SETTING_AUTH_MODE) == "open":
-        return True
-    row = db.query_one("SELECT COUNT(*) AS n FROM jf_user")
-    return bool(row["n"]) and get_setting(SETTING_JELLYFIN_URL) is not None
+    return True
 
 
 def runtime_open_mode() -> bool:
-    """True once an admin has explicitly skipped Jellyfin from the setup wizard."""
-    return get_setting(SETTING_AUTH_MODE) == "open"
+    return get_setting(SETTING_AUTH_MODE, "open") == "open"
 
 
 # ── Users ──────────────────────────────────────────────────────────────────────

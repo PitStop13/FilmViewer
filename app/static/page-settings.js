@@ -37,9 +37,8 @@ const _SETTINGS_TAB_LOADERS = {
   // Both read the same endpoint, and _loadAppSettings() shares the promise, so
   // this is still one fetch.
   download: () => Promise.all([loadPerfSettings(), loadOutputSettings()]),
-  accesso: () => loadJellyfinSettings(),
   notifiche: () => loadNotificationChannels(),
-  hook: () => Promise.all([loadJellyfinRefresh(), loadHooks()]),
+  hook: () => loadHooks(),
 };
 
 // Two panes read the same endpoint. Shared per modal-open so switching between
@@ -343,57 +342,7 @@ async function testNotificationChannel(id) {
   }
 }
 
-// ── Jellyfin connection ──────────────────────────────────────────────────────
 
-async function loadJellyfinSettings() {
-  try {
-    const data = await api.get('/api/auth/status');
-    const connected = !!data.jellyfin_url;
-    document.getElementById('jf-not-connected').style.display = connected ? 'none' : '';
-    document.getElementById('jf-connected').style.display = connected ? '' : 'none';
-    if (connected) {
-      document.getElementById('jf-connected-url').textContent = data.jellyfin_url;
-      document.getElementById('jf-reconfigure-wrap').style.display = can('MANAGE_USERS') ? '' : 'none';
-    }
-  } catch (e) { console.error('loadJellyfinSettings:', e); }
-}
-
-function toggleJellyfinReconfigure() {
-  const form = document.getElementById('jf-reconfigure-form');
-  form.style.display = form.style.display === 'none' ? '' : 'none';
-}
-
-async function connectJellyfin(reconfigure) {
-  const prefix = reconfigure ? 'jf-reconf-' : 'jf-';
-  const btn = document.getElementById(reconfigure ? 'jf-reconnect-btn' : 'jf-connect-btn');
-  const fbId = reconfigure ? 'jf-reconnect-feedback' : 'jf-connect-feedback';
-  const url = document.getElementById(prefix + 'url').value.trim();
-  const username = document.getElementById(prefix + 'username').value.trim();
-  const password = document.getElementById(prefix + 'password').value;
-  if (!url || !username) {
-    _feedback(fbId, 'Compila URL e utente amministratore.', 'danger');
-    return;
-  }
-
-  btn.disabled = true;
-  _feedback(fbId, 'Connessione...');
-  try {
-    try {
-      await api.post('/api/auth/jellyfin-connect', { url, username, password });
-    } catch (e) {
-      _feedback(fbId, errText(e, 'Collegamento fallito.'), 'danger');
-      btn.disabled = false;
-      return;
-    }
-    // A full reload re-runs initAuth() against the now-real permission set,
-    // which is simpler than patching _me and the nav in place.
-    _feedback(fbId, 'Collegato. Ricaricamento...', 'success');
-    window.location.reload();
-  } catch (e) {
-    _feedback(fbId, 'Errore di rete.', 'danger');
-    btn.disabled = false;
-  }
-}
 
 async function loadPerfSettings() {
   const data = await _loadAppSettings();
@@ -559,46 +508,10 @@ const HOOK_EVENT_LABELS = {
   cancelled: 'Annullato',
 };
 
-async function loadJellyfinRefresh() {
-  const data = await _loadAppSettings();
-  if (!data) return;
-  document.getElementById('jf-refresh-on-download').checked =
-    !!data.jellyfin_refresh_on_download;
-
-}
-
-// Set from the hooks payload, which reports whether the refresh has credentials
-// to use. Inferring it from the auth status would report an installation that
-// skipped the wizard and connected Jellyfin later as unconnected.
-function renderJellyfinRefreshAvailability(connected) {
-  const toggle = document.getElementById('jf-refresh-on-download');
-  if (!toggle) return;
-  toggle.disabled = !connected;
-  document.getElementById('jf-refresh-status').textContent = connected
-    ? ''
-    : 'Jellyfin non è collegato: collegalo da Accesso e utenti perché questa opzione abbia effetto.';
-}
-
-async function saveJellyfinRefresh() {
-  const btn = document.getElementById('save-jf-refresh-btn');
-  btn.disabled = true;
-  _feedback('jf-refresh-feedback', 'Salvataggio...');
-  try {
-    await api.put('/api/domain/settings', {
-      jellyfin_refresh_on_download:
-        document.getElementById('jf-refresh-on-download').checked,
-    });
-    _feedback('jf-refresh-feedback', 'Salvato.', 'success');
-    showToast('Impostazione salvata', 'success');
-  } catch (e) { _feedback('jf-refresh-feedback', errText(e, 'Errore salvataggio.'), 'danger'); }
-  finally { btn.disabled = false; }
-}
-
 async function loadHooks() {
   try {
     const data = await api.get('/api/download-hooks');
     _hooks = data.hooks || [];
-    renderJellyfinRefreshAvailability(!!data.jellyfin_connected);
     renderHooksList();
   } catch (e) { /* the list simply stays as it was */ }
 }
@@ -915,9 +828,6 @@ registerActions({
   'cfg:resetNaming':      () => resetNamingTemplates(),
   'cfg:savePerf':         () => savePerfSettings(),
   'cfg:saveOutput':       () => saveOutputSettings(),
-  'cfg:jfConnect':        d => connectJellyfin(d.reconfigure === '1'),
-  'cfg:jfReconfigure':    () => toggleJellyfinReconfigure(),
-  'cfg:saveJfRefresh':    () => saveJellyfinRefresh(),
   'cfg:saveChannel':      () => saveNotificationChannel(),
   'cfg:toggleChannelForm': () => toggleNotificationChannelForm(),
   'cfg:channelPicker':    d => toggleChannelEvents(Number(d.id)),

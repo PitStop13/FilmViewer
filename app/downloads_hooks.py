@@ -1,25 +1,7 @@
 """Telling something else that a download finished.
-
-Two things, deliberately kept apart:
-
-**The Jellyfin refresh.** A one-switch version of the only reason most people
-would want a hook at all: the file is in the library, and Jellyfin does not know
-until its next scan. It uses the URL and API key already stored for
-authentication, so there is nothing to configure.
-
+ 
 **Webhooks.** A URL, a method, optional headers and a body template, fired when
 a download reaches a terminal state.
-
-There is no shell hook and there will not be one. Open mode grants
-MANAGE_SETTINGS to every anonymous visitor (``app/auth/deps.py``), so a command
-column here would be remote code execution for anyone who can reach the panel.
-
-A webhook is still an outbound request to an address a settings manager chose,
-and pointing it at ``192.168.x`` is the *point* — that is where Jellyfin lives.
-The mitigation is therefore not to restrict the address but to make the request
-blind: the response body is never returned to the caller and never logged, only
-its status code. Whoever configures a hook learns whether it worked, not what
-the other end said.
 """
 
 import json
@@ -183,31 +165,6 @@ def fire(hook: dict, tokens: dict) -> tuple[bool, int | None]:
     return response.ok, response.status_code
 
 
-def refresh_jellyfin_library() -> tuple[bool, int | None]:
-    """Ask Jellyfin to scan, using the credentials already stored for login."""
-    from app.auth import models as auth_models
-
-    url = (auth_models.get_setting(auth_models.SETTING_JELLYFIN_URL) or "").strip()
-    api_key = (auth_models.get_setting(auth_models.SETTING_JELLYFIN_API_KEY) or "").strip()
-    if not url or not api_key:
-        logger.info("Library refresh skipped: Jellyfin is not connected")
-        return False, None
-
-    try:
-        response = requests.post(
-            f"{url.rstrip('/')}/Library/Refresh",
-            headers={"X-Emby-Token": api_key},
-            timeout=_TIMEOUT,
-        )
-    except Exception as exc:
-        logger.warning("Jellyfin library refresh failed: %s", type(exc).__name__)
-        return False, None
-
-    if not response.ok:
-        logger.warning("Jellyfin library refresh returned HTTP %d", response.status_code)
-    return response.ok, response.status_code
-
-
 # ── The listener ──────────────────────────────────────────────────────────────
 
 def _notify_failure(hook_name: str, status: int | None) -> None:
@@ -238,9 +195,6 @@ def on_job_finished(job) -> None:
     if status not in HOOK_EVENTS:
         return
 
-    if status == "done":
-        _maybe_refresh_jellyfin()
-
     tokens = job_tokens(job)
     for hook in list_enabled_for_event(status):
         try:
@@ -250,14 +204,6 @@ def on_job_finished(job) -> None:
             ok, code = False, None
         if not ok:
             _notify_failure(hook.get("name") or "senza nome", code)
-
-
-def _maybe_refresh_jellyfin() -> None:
-    from app.config import get_settings
-
-    if not get_settings().get("jellyfin_refresh_on_download"):
-        return
-    refresh_jellyfin_library()
 
 
 def register_hook_listener():

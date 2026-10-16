@@ -20,9 +20,7 @@ from app.config import TRUST_PROXY_HEADERS
 
 logger = logging.getLogger(__name__)
 
-# Granted to every request in open mode: the surface the panel exposed before
-# Jellyfin SSO existed. REQUEST/MANAGE_REQUESTS/MANAGE_USERS are deliberately
-# excluded — a queue and a user list have no meaning without accounts.
+# Granted to every request in open mode: the standard operational permissions.
 OPEN_MODE_PERMISSIONS = int(
     Permission.DOWNLOAD
     | Permission.MANAGE_SETTINGS
@@ -47,10 +45,7 @@ PUBLIC_PATHS = {
     "/login",
     "/favicon.ico",
     "/api/auth/status",
-    "/api/auth/setup",
     "/api/auth/skip",
-    "/api/auth/jellyfin",
-    "/api/auth/jellyfin-token",
     # Not a session route: an MCP client has no cookie. app/mcp/server.py
     # authenticates it with its own bearer token and refuses everything else.
     "/mcp",
@@ -58,9 +53,7 @@ PUBLIC_PATHS = {
 PUBLIC_PREFIXES = ("/static/",)
 
 # API routes that need a session but no particular permission — they only ever
-# expose the caller's own identity. Listed explicitly so that a new endpoint
-# without a permission guard fails tests/test_permissions.py instead of quietly
-# being reachable by everyone. Nothing may be added here casually.
+# expose the caller's own identity.
 SESSION_ONLY_PATHS = {
     "/api/auth/me",
     "/api/auth/logout",
@@ -69,11 +62,7 @@ SESSION_ONLY_PATHS = {
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
 
 # Set on a CSRF-rejection response so the frontend can tell it apart from an
-# ordinary 403 (permission denied) without parsing the message text. A stale
-# token — a tab left open across a newer login elsewhere, which rotates the
-# session cookie every tab shares but leaves each tab's own in-memory token
-# behind — is safe to recover from automatically; a real permission denial is
-# not something a token refresh would ever fix, and must not be retried.
+# ordinary 403 (permission denied) without parsing the message text.
 CSRF_RETRY_HEADER = "X-CSRF-Retry"
 
 
@@ -82,10 +71,10 @@ def is_public(path: str) -> bool:
 
 
 def client_ip(request: Request) -> str | None:
-    """Best-effort real client address, for Jellyfin's session log.
+    """Best-effort real client address.
 
     Proxy headers are only trusted when TRUST_PROXY_HEADERS is set: otherwise
-    any client could spoof the address the panel reports to Jellyfin.
+    any client could spoof the address.
     """
     if TRUST_PROXY_HEADERS:
         forwarded = request.headers.get("x-forwarded-for")
@@ -109,18 +98,6 @@ class AuthMiddleware:
             return
 
         scope["state"] = scope.get("state", {})
-
-        if models.runtime_open_mode():
-            # No Jellyfin server: an admin chose "Continua senza Jellyfin" in
-            # the setup wizard, so every request is the same implicit user. No
-            # cookie is ever set, so there is no session to ride — the CSRF
-            # check below exists to protect that cookie and does not apply
-            # here.
-            scope["state"]["user"] = OPEN_MODE_USER
-            scope["state"]["csrf_token"] = None
-            await self.app(scope, receive, send)
-            return
-
         request = Request(scope, receive=receive)
         path = request.url.path
         scope["state"]["user"] = None
@@ -132,6 +109,16 @@ class AuthMiddleware:
             user, csrf_token = resolved
             scope["state"]["user"] = user
             scope["state"]["csrf_token"] = csrf_token
+        elif raw_token:
+            # An invalid or expired session cookie was provided
+            await self._unauthenticated(request, send, scope, receive)
+            return
+        elif models.runtime_open_mode():
+            # No session cookie and in open mode: treat as implicit open mode user
+            scope["state"]["user"] = OPEN_MODE_USER
+            scope["state"]["csrf_token"] = None
+            await self.app(scope, receive, send)
+            return
 
         if is_public(path):
             await self.app(scope, receive, send)

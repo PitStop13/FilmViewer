@@ -71,7 +71,6 @@ CASES = [
     ((Permission.VIEW_LIBRARY,), "GET", "/api/files", None),
     ((Permission.MANAGE_REQUESTS, Permission.DOWNLOAD), "POST",
      "/api/download/does-not-exist/fire", None),
-    ((Permission.MANAGE_USERS,), "GET", "/api/users", None),
     ((Permission.REQUEST,), "POST", "/api/requests/season",
      {"external_id": "1", "title": "x", "slug": "x", "season": 1}),
     ((Permission.MANAGE_SETTINGS,), "GET", "/api/mcp/status", None),
@@ -136,7 +135,7 @@ def test_permissions_are_independent_not_hierarchical(client, admin_credentials)
     """An administrator of settings and users need not see the request queue."""
     do_setup(client, admin_credentials)
     client.cookies.clear()
-    _, csrf = _as(client, Permission.MANAGE_SETTINGS | Permission.MANAGE_USERS)
+    _, csrf = _as(client, Permission.MANAGE_SETTINGS | Permission.MANAGE_FILES)
 
     assert client.get("/api/domain/settings").status_code == 200
     assert client.post(
@@ -192,7 +191,7 @@ def test_the_route_sweep_actually_sees_the_routers():
     """Guard against the sweep below passing because it found nothing to check."""
     paths = {path for path, _, _ in _all_routes()}
     assert "/api/download/film" in paths
-    assert "/api/users" in paths
+    assert "/api/requests" in paths
     assert len([p for p in paths if p.startswith("/api/")]) > 20
 
 
@@ -237,12 +236,7 @@ def test_public_allowlist_stays_small():
         "/login",
         "/favicon.ico",
         "/api/auth/status",
-        "/api/auth/setup",
         "/api/auth/skip",
-        "/api/auth/jellyfin-token",
-        "/api/auth/jellyfin",
-        # Bearer-token authenticated by app/mcp/server.py; tests/test_mcp.py
-        # pins that it refuses everything without that token.
         "/mcp",
     }
     assert SESSION_ONLY_PATHS == {"/api/auth/me", "/api/auth/logout"}

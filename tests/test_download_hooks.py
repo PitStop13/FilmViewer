@@ -191,47 +191,6 @@ def test_the_outbound_call_has_a_timeout(client, hook, sent):
     assert sent[0].get("timeout") is not None
 
 
-# ── Jellyfin refresh ──────────────────────────────────────────────────────────
-
-def test_the_refresh_is_off_by_default(client, monkeypatch):
-    called = []
-    monkeypatch.setattr(downloads_hooks, "refresh_jellyfin_library",
-                        lambda: called.append(True) or (True, 200))
-
-    downloads_hooks.on_job_finished(_job())
-    assert called == []
-
-
-def test_the_refresh_runs_only_on_success(client, monkeypatch):
-    from app import config
-
-    config.save_settings({**config.get_settings(), "jellyfin_refresh_on_download": True})
-    called = []
-    monkeypatch.setattr(downloads_hooks, "refresh_jellyfin_library",
-                        lambda: called.append(True) or (True, 200))
-
-    downloads_hooks.on_job_finished(_job(status="error", error="boom"))
-    assert called == []
-
-    downloads_hooks.on_job_finished(_job(status="done"))
-    assert called == [True]
-
-
-def test_the_refresh_is_inert_without_jellyfin(client, sent):
-    """Open mode with no Jellyfin has no URL and no key: nothing to call."""
-    assert downloads_hooks.refresh_jellyfin_library() == (False, None)
-    assert sent == []
-
-
-def test_the_refresh_uses_the_stored_credentials(client, sent):
-    auth_models.set_setting(auth_models.SETTING_JELLYFIN_URL, "http://jf.local:8096/")
-    auth_models.set_setting(auth_models.SETTING_JELLYFIN_API_KEY, "abc123")
-
-    downloads_hooks.refresh_jellyfin_library()
-
-    assert sent[0]["url"] == "http://jf.local:8096/Library/Refresh"
-    assert sent[0]["headers"]["X-Emby-Token"] == "abc123"
-
 
 # ── Endpoints ─────────────────────────────────────────────────────────────────
 
