@@ -151,7 +151,12 @@ registerActions({
   // highlight already reads, so the two cannot disagree about which link is
   // which. Through navigate(), not showPage(), so a click leaves an address
   // behind and Back works between sections.
-  'nav':            d => navigate(d.page),
+  'nav': d => {
+    if (d.page === 'search' && typeof resetSearchHome === 'function') {
+      resetSearchHome();
+    }
+    navigate(d.page);
+  },
 });
 
 // ── Navigation ─────────────────────────────────────────────────────────────────
@@ -187,10 +192,10 @@ function showPage(page, params = null) {
     if (el) el.style.display = p === page ? '' : 'none';
   });
   document.getElementById('page-title').textContent = {
-    search:'Cerca', downloads:'Download', files:'File',
+    search:'Home', downloads:'Download', files:'File',
     requests:'Coda richieste', 'my-requests':'Le mie richieste',
     watches:'Serie seguite', users:'Utenti', detail:'', settings:'Impostazioni',
-  }[page] ?? 'Cerca';
+  }[page] ?? 'Home';
   document.querySelectorAll('.nav-link[data-page]').forEach(el =>
     el.classList.toggle('active', el.dataset.page === page));
   // Set before the loaders, so anything they call that writes the address —

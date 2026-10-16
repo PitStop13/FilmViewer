@@ -545,14 +545,35 @@ function _setStartPageVisible(on) {
   if (on) _setMoreVisible(false);
 }
 
-// What happens on arriving at the search page, from the nav or from a link.
-//
-// With an empty box it is the start page. With a query it is that query's
-// results — but only when there are none on screen, so coming back to the tab
-// after a look at Download does not silently re-run the search you already
-// have.
+function resetSearchHome() {
+  const input = document.getElementById('search-input');
+  if (input) input.value = '';
+  _searchResults = [];
+  _searchPage = 1;
+  _searchExhausted = false;
+  _kindFilter = '';
+  _dubOnly = false;
+  const res = document.getElementById('search-results');
+  if (res) res.innerHTML = '';
+  renderSearchFilters();
+  showStartPage();
+  if (typeof syncHash === 'function') syncHash('search');
+}
+window.resetSearchHome = resetSearchHome;
+
+// What happens on arriving at the search/home page, from the nav or from a link.
 function searchPageEnter() {
   const input = document.getElementById('search-input');
+  const route = typeof parseHash === 'function' ? parseHash() : null;
+  const hasQueryInUrl = Boolean(route && route.page === 'search' && route.params && route.params.q && route.params.q.trim());
+
+  if (!hasQueryInUrl && input && input.value) {
+    input.value = '';
+    _searchResults = [];
+    const res = document.getElementById('search-results');
+    if (res) res.innerHTML = '';
+  }
+
   if (!input || !input.value.trim()) { showStartPage(); return; }
   if (!_searchResults.length) doSearch();
   else _setStartPageVisible(false);
