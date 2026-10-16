@@ -506,6 +506,27 @@ _V10_LIBRARY_FOLDERS = [
     "CREATE INDEX idx_library_folder_title ON library_folder(source, media_type, external_id)",
 ]
 
+_V11_CONTINUE_WATCHING = [
+    """
+    CREATE TABLE continue_watching (
+        id               TEXT PRIMARY KEY,
+        content_type     TEXT NOT NULL,
+        content_id       TEXT NOT NULL,
+        slug             TEXT NOT NULL DEFAULT '',
+        title            TEXT NOT NULL,
+        poster           TEXT,
+        episode_id       TEXT,
+        episode_number   INTEGER,
+        season_number    INTEGER,
+        episode_title    TEXT,
+        position_seconds REAL NOT NULL DEFAULT 0,
+        duration_seconds REAL NOT NULL DEFAULT 0,
+        updated_at       TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX idx_continue_watching_updated ON continue_watching(updated_at DESC)",
+]
+
 
 Migration = list[str] | Callable[[sqlite3.Connection, bool], None]
 
@@ -520,6 +541,7 @@ MIGRATIONS: list[Migration] = [
     _v8_carry_over_open_mode,
     _V9_FOLLOWER_LANGUAGES,
     _V10_LIBRARY_FOLDERS,
+    _V11_CONTINUE_WATCHING,
 ]
 
 

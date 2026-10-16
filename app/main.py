@@ -26,6 +26,7 @@ from app.mcp import server as mcp_http
 from app.routers import (
     domain, search, home, tv, downloads, progress, files, images, notification_channels,
     metadata as metadata_router, download_hooks, library as library_router, mcp as mcp_router, stream,
+    continue_watching,
 )
 
 logging.basicConfig(
@@ -176,6 +177,7 @@ app.include_router(progress.router)
 app.include_router(files.router)
 app.include_router(images.router)
 app.include_router(stream.router)
+app.include_router(continue_watching.router)
 
 
 @app.get("/", response_class=HTMLResponse)

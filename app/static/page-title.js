@@ -733,8 +733,63 @@ async function downloadWholeSeries() {
 // ── Stream player ────────────────────────────────────────────────────────────
 
 let _streamHls = null;
+let _streamProgressTimer = null;
+let _currentStreamTracking = null;
+
+function _stopProgressTracking() {
+  if (_streamProgressTimer) {
+    clearInterval(_streamProgressTimer);
+    _streamProgressTimer = null;
+  }
+}
+
+function _savePlaybackProgress(isFinish = false) {
+  if (!_currentStreamTracking) return;
+  const videoEl = document.getElementById('stream-video-player');
+  if (!videoEl) return;
+
+  const cur = videoEl.currentTime;
+  const dur = videoEl.duration;
+
+  if (!dur || isNaN(dur) || dur <= 0 || !isFinite(dur)) return;
+  if (isNaN(cur) || cur < 2) return;
+
+  const finished = isFinish || videoEl.ended || (cur / dur >= 0.95) || ((dur - cur) <= 20);
+  const cType = _currentStreamTracking.type;
+  const cId = String(_currentStreamTracking.id);
+
+  if (finished) {
+    api.post('/api/continue-watching/delete', {
+      content_type: cType,
+      content_id: cId,
+    }).then(() => {
+      if (typeof refreshContinueWatching === 'function') refreshContinueWatching();
+    }).catch(() => {});
+    return;
+  }
+
+  api.post('/api/continue-watching/progress', {
+    content_type: cType,
+    content_id: cId,
+    slug: _currentStreamTracking.slug || '',
+    title: _currentStreamTracking.title || '',
+    poster: _currentStreamTracking.poster || null,
+    episode_id: _currentStreamTracking.episodeId ? String(_currentStreamTracking.episodeId) : null,
+    episode_number: _currentStreamTracking.episodeNumber != null ? parseInt(_currentStreamTracking.episodeNumber) : null,
+    season_number: _currentStreamTracking.seasonNumber != null ? parseInt(_currentStreamTracking.seasonNumber) : null,
+    episode_title: _currentStreamTracking.episodeTitle || null,
+    position_seconds: Math.floor(cur),
+    duration_seconds: Math.floor(dur),
+  }).then(() => {
+    if (typeof refreshContinueWatching === 'function') refreshContinueWatching();
+  }).catch(() => {});
+}
 
 function _cleanupStreamPlayer() {
+  _stopProgressTracking();
+  _savePlaybackProgress(false);
+  _currentStreamTracking = null;
+
   if (_streamHls) {
     try { _streamHls.destroy(); } catch (_) {}
     _streamHls = null;
@@ -747,6 +802,9 @@ function _cleanupStreamPlayer() {
       video.load();
     } catch (_) {}
   }
+  if (typeof refreshContinueWatching === 'function') {
+    setTimeout(refreshContinueWatching, 300);
+  }
 }
 
 async function openStreamPlayer(opts) {
@@ -754,6 +812,7 @@ async function openStreamPlayer(opts) {
   if (!modalEl) return;
 
   _cleanupStreamPlayer();
+  _currentStreamTracking = { ...opts };
 
   const titleEl = document.getElementById('stream-player-modal-title');
   const subEl = document.getElementById('stream-player-modal-sub');
@@ -770,7 +829,7 @@ async function openStreamPlayer(opts) {
   const qualityLabel = document.getElementById('stream-player-quality-label');
 
   if (titleEl) titleEl.textContent = opts.title || 'Streaming';
-  if (subEl) subEl.textContent = opts.type === 'movie' ? 'Film' : 'Episodio';
+  if (subEl) subEl.textContent = opts.type === 'movie' ? 'Film' : (opts.episodeTitle || 'Episodio');
   if (loadingEl) loadingEl.style.display = 'block';
   if (errorEl) errorEl.style.display = 'none';
   if (videoEl) videoEl.style.display = 'none';
@@ -795,21 +854,31 @@ async function openStreamPlayer(opts) {
     if (loadingEl) loadingEl.style.display = 'none';
     if (videoEl) videoEl.style.display = 'block';
 
+    videoEl.onended = () => _savePlaybackProgress(true);
+    videoEl.onpause = () => _savePlaybackProgress(false);
+
     if (window.Hls && Hls.isSupported()) {
-      const hls = new Hls({
+      const hlsConfig = {
         xhrSetup: (xhr) => {
           xhr.withCredentials = true;
         },
         maxBufferLength: 30,
         maxMaxBufferLength: 60,
         enableWorker: true,
-      });
+      };
+      if (opts.startTime && opts.startTime > 0) {
+        hlsConfig.startPosition = opts.startTime;
+      }
+      const hls = new Hls(hlsConfig);
 
       _streamHls = hls;
       hls.loadSource(masterUrl);
       hls.attachMedia(videoEl);
 
       hls.on(Hls.Events.MANIFEST_PARSED, (event, data) => {
+        if (opts.startTime && opts.startTime > 0) {
+          try { videoEl.currentTime = opts.startTime; } catch (_) {}
+        }
         // Quality selector
         if (qualityContainer && qualityMenu && hls.levels && hls.levels.length > 1) {
           qualityContainer.style.display = 'block';
@@ -864,6 +933,12 @@ async function openStreamPlayer(opts) {
         }
 
         videoEl.play().catch(() => {});
+        _stopProgressTracking();
+        _streamProgressTimer = setInterval(() => {
+          if (videoEl && !videoEl.paused && !videoEl.ended) {
+            _savePlaybackProgress(false);
+          }
+        }, 5000);
       });
 
       hls.on(Hls.Events.ERROR, (event, data) => {
@@ -890,7 +965,16 @@ async function openStreamPlayer(opts) {
     } else if (videoEl.canPlayType('application/vnd.apple.mpegurl')) {
       videoEl.src = masterUrl;
       videoEl.addEventListener('loadedmetadata', () => {
+        if (opts.startTime && opts.startTime > 0) {
+          try { videoEl.currentTime = opts.startTime; } catch (_) {}
+        }
         videoEl.play().catch(() => {});
+        _stopProgressTracking();
+        _streamProgressTimer = setInterval(() => {
+          if (videoEl && !videoEl.paused && !videoEl.ended) {
+            _savePlaybackProgress(false);
+          }
+        }, 5000);
       }, { once: true });
     } else {
       throw new Error("Il tuo browser non supporta la riproduzione HLS.");
@@ -923,6 +1007,7 @@ async function tpWatchMovie() {
     id: _tp.id,
     slug: _tp.slug,
     title: _tp.name,
+    poster: _tp.poster,
   });
 }
 
@@ -937,7 +1022,10 @@ async function tpWatchEpisode(index) {
     slug: _tp.slug,
     episodeId: ep.id,
     episodeNumber: epNum,
-    title: `${_tp.name} — ${epName}`,
+    seasonNumber: _tp.season || 1,
+    episodeTitle: epName,
+    title: _tp.name,
+    poster: _tp.poster,
   });
 }
 

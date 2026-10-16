@@ -305,17 +305,243 @@ async function loadMoreResults() {
 let _homeAbort = null;
 const _homeCache = {};   // source -> shelves, for a switch back and forth
 
+// ── Continua a guardare (Continue Watching) ──────────────────────────────────
+
+let _continueWatchingItems = [];
+let _currentCwModalItem = null;
+
+function formatCwTime(seconds) {
+  const s = Math.round(seconds || 0);
+  if (s < 60) return '< 1 min';
+  const mins = Math.floor(s / 60);
+  if (mins < 60) return `${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  const remMins = mins % 60;
+  return remMins > 0 ? `${hrs}h ${remMins}m` : `${hrs}h`;
+}
+
+async function loadContinueWatching() {
+  const section = document.getElementById('continue-watching-section');
+  if (!section) return;
+  try {
+    const res = await api.get('/api/continue-watching');
+    _continueWatchingItems = res.items || [];
+    renderContinueWatchingRail();
+  } catch (err) {
+    console.warn('Error loading continue watching:', err);
+  }
+}
+
+function refreshContinueWatching() {
+  loadContinueWatching();
+}
+window.refreshContinueWatching = refreshContinueWatching;
+
+function renderContinueWatchingRail() {
+  const section = document.getElementById('continue-watching-section');
+  const rail = document.getElementById('continue-watching-rail');
+  const badge = document.getElementById('cw-count-badge');
+  if (!section || !rail) return;
+
+  const isSearchEmpty = !document.getElementById('search-input')?.value?.trim();
+  if (!_continueWatchingItems.length || !isSearchEmpty) {
+    section.style.display = 'none';
+    rail.innerHTML = '';
+    return;
+  }
+
+  section.style.display = '';
+  if (badge) {
+    badge.textContent = `${_continueWatchingItems.length}`;
+    badge.style.display = 'inline-block';
+  }
+
+  rail.innerHTML = '';
+  _continueWatchingItems.forEach((item) => {
+    const col = document.createElement('div');
+    col.className = 'shelf-item cw-item';
+    col.dataset.cwId = item.id;
+
+    const pUrl = item.poster ? posterUrl(item) : '';
+    const remStr = `${formatCwTime(item.remaining_seconds)} rimasti`;
+    const pct = Math.min(100, Math.max(0, item.percentage || 0));
+
+    let typeBadgeLabel = 'Film';
+    let typeBadgeCls = 'bg-blue';
+    if (item.content_type === 'tv') {
+      typeBadgeLabel = item.season_number ? `S${item.season_number}:E${item.episode_number || 1}` : 'Serie TV';
+      typeBadgeCls = 'bg-green';
+    }
+
+    col.innerHTML = `
+      <div class="result-card cw-card" data-action="cw:open-details" data-cw-id="${escapeHtml(item.id)}" title="${escapeHtml(item.title)}">
+        <div class="poster-wrap">
+          ${pUrl ? `<img src="${encodeURI(pUrl)}" alt="${escapeHtml(item.title)}" loading="lazy">` : `<div class="poster-noimg"><i class="ti ti-movie"></i></div>`}
+          <div class="poster-overlay"></div>
+          <div class="cw-badge-top">
+            <span class="badge ${typeBadgeCls}">${typeBadgeLabel}</span>
+          </div>
+          <div class="cw-quick-play" title="Continua a guardare subito" data-action="cw:quick-resume" data-cw-id="${escapeHtml(item.id)}">
+            <i class="ti ti-player-play-filled"></i>
+          </div>
+          <div class="cw-progress-bar-wrap">
+            <div class="cw-progress-bar" style="width: ${pct}%"></div>
+          </div>
+        </div>
+        <div class="card-meta">
+          <div class="card-title-text">${escapeHtml(item.title)}</div>
+          <div class="d-flex align-items-center justify-content-between" style="font-size:11px; color:var(--text-dim);">
+            <span>${remStr}</span>
+            <span class="text-success fw-bold">${pct}%</span>
+          </div>
+          ${item.content_type === 'tv' && item.episode_title ? `
+            <div class="text-truncate mt-1" style="font-size:11px; color:var(--text-muted);" title="${escapeHtml(item.episode_title)}">
+              ${escapeHtml(item.episode_title)}
+            </div>
+          ` : ''}
+        </div>
+      </div>
+    `;
+
+    rail.appendChild(col);
+  });
+
+  _wireShelfArrows(section);
+}
+
+function openContinueWatchingDetails(cwId) {
+  const item = _continueWatchingItems.find(i => i.id === cwId);
+  if (!item) return;
+  _currentCwModalItem = item;
+
+  const modal = document.getElementById('continue-watching-modal');
+  if (!modal) return;
+
+  const posterEl = document.getElementById('cw-modal-poster');
+  const titleEl = document.getElementById('cw-modal-title');
+  const subtitleEl = document.getElementById('cw-modal-subtitle');
+  const typeBadgeEl = document.getElementById('cw-modal-type-badge');
+  const timeBadgeEl = document.getElementById('cw-modal-time-badge');
+  const progTextEl = document.getElementById('cw-modal-progress-text');
+  const progPctEl = document.getElementById('cw-modal-progress-pct');
+  const progBarEl = document.getElementById('cw-modal-progress-bar');
+
+  const pUrl = item.poster ? posterUrl(item) : '';
+  if (posterEl) {
+    posterEl.src = pUrl || '';
+    posterEl.style.display = pUrl ? 'block' : 'none';
+  }
+
+  if (titleEl) titleEl.textContent = item.title;
+
+  if (item.content_type === 'tv') {
+    if (typeBadgeEl) {
+      typeBadgeEl.textContent = item.season_number ? `Stagione ${item.season_number}` : 'Serie TV';
+      typeBadgeEl.className = 'badge bg-green-lt';
+    }
+    if (subtitleEl) {
+      const epNum = item.episode_number ? `Episodio ${item.episode_number}` : 'Episodio';
+      subtitleEl.textContent = item.episode_title ? `${epNum} — ${item.episode_title}` : epNum;
+      subtitleEl.style.display = 'block';
+    }
+  } else {
+    if (typeBadgeEl) {
+      typeBadgeEl.textContent = 'Film';
+      typeBadgeEl.className = 'badge bg-blue-lt';
+    }
+    if (subtitleEl) subtitleEl.style.display = 'none';
+  }
+
+  const posStr = formatCwTime(item.position_seconds);
+  const durStr = formatCwTime(item.duration_seconds);
+  const remStr = formatCwTime(item.remaining_seconds);
+  const pct = Math.min(100, Math.max(0, item.percentage || 0));
+
+  if (timeBadgeEl) timeBadgeEl.textContent = `${remStr} rimanenti`;
+  if (progTextEl) progTextEl.textContent = `${posStr} di ${durStr}`;
+  if (progPctEl) progPctEl.textContent = `${pct}%`;
+  if (progBarEl) {
+    progBarEl.style.width = `${pct}%`;
+  }
+
+  showModal('continue-watching-modal');
+}
+
+function resumeContinueWatching(cwId) {
+  const item = _continueWatchingItems.find(i => i.id === cwId);
+  if (!item) return;
+
+  hideModal('continue-watching-modal');
+
+  if (typeof openStreamPlayer === 'function') {
+    openStreamPlayer({
+      type: item.content_type,
+      id: item.content_id,
+      slug: item.slug || '',
+      title: item.title,
+      poster: item.poster,
+      episodeId: item.episode_id,
+      episodeNumber: item.episode_number,
+      seasonNumber: item.season_number,
+      episodeTitle: item.episode_title,
+      startTime: item.position_seconds,
+    });
+  }
+}
+
+function restartContinueWatching(cwId) {
+  const item = _continueWatchingItems.find(i => i.id === cwId);
+  if (!item) return;
+
+  hideModal('continue-watching-modal');
+
+  if (typeof openStreamPlayer === 'function') {
+    openStreamPlayer({
+      type: item.content_type,
+      id: item.content_id,
+      slug: item.slug || '',
+      title: item.title,
+      poster: item.poster,
+      episodeId: item.episode_id,
+      episodeNumber: item.episode_number,
+      seasonNumber: item.season_number,
+      episodeTitle: item.episode_title,
+      startTime: 0,
+    });
+  }
+}
+
+async function deleteContinueWatching(cwId) {
+  const item = _continueWatchingItems.find(i => i.id === cwId);
+  if (!item) return;
+
+  hideModal('continue-watching-modal');
+
+  try {
+    await api.post('/api/continue-watching/delete', {
+      content_type: item.content_type,
+      content_id: item.content_id,
+    });
+    _continueWatchingItems = _continueWatchingItems.filter(i => i.id !== cwId);
+    renderContinueWatchingRail();
+  } catch (err) {
+    console.error('Failed to delete continue watching item', err);
+  }
+}
+
 function _setStartPageVisible(on) {
   const shelves = document.getElementById('home-shelves');
   const results = document.getElementById('search-results');
   const hero = document.getElementById('search-hero');
   const filters = document.getElementById('search-filters');
   const categories = document.getElementById('home-categories');
+  const cwSection = document.getElementById('continue-watching-section');
   if (hero) hero.style.display = on ? '' : 'none';
   if (categories) categories.style.display = on ? '' : 'none';
   if (filters) filters.style.display = on ? 'none' : '';
   if (shelves) shelves.style.display = on ? '' : 'none';
   if (results) results.style.display = on ? 'none' : '';
+  if (cwSection) cwSection.style.display = (on && _continueWatchingItems && _continueWatchingItems.length) ? '' : 'none';
   if (on) _setMoreVisible(false);
 }
 
@@ -394,6 +620,7 @@ async function showStartPage() {
   if (!currentDomain) { _setStartPageVisible(false); return; }
 
   _setStartPageVisible(true);
+  loadContinueWatching();
   const cat = _homeCategory || 'all';
   const cacheKey = `sc_${cat}`;
 
@@ -707,6 +934,11 @@ registerActions({
   'search:more':            () => loadMoreResults(),
   'search:kind':            d => setKindFilter(d.kind),
   'search:open':            d => openTitle(Number(d.idx)),
+  'cw:open-details':        d => openContinueWatchingDetails(d.cwId),
+  'cw:quick-resume':        (d, el, e) => { if (e) e.stopPropagation(); resumeContinueWatching(d.cwId); },
+  'cw:modal-resume':        () => { if (_currentCwModalItem) resumeContinueWatching(_currentCwModalItem.id); },
+  'cw:modal-restart':       () => { if (_currentCwModalItem) restartContinueWatching(_currentCwModalItem.id); },
+  'cw:modal-delete':        () => { if (_currentCwModalItem) deleteContinueWatching(_currentCwModalItem.id); },
 });
 
 

@@ -264,3 +264,69 @@
     </div>
   </div>
 </div>
+
+<!-- ── Continue Watching Details Modal ────────────────────────────── -->
+<div class="modal modal-blur fade" id="continue-watching-modal" tabindex="-1" style="display:none" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content" style="background:#0c1322; border:1px solid rgba(255,255,255,0.12); border-radius:18px; overflow:hidden; box-shadow:0 25px 60px -15px rgba(0,0,0,0.85);">
+      <div class="modal-header border-0 py-3 px-4 d-flex align-items-center justify-content-between" style="background:rgba(255,255,255,0.02); border-bottom:1px solid rgba(255,255,255,0.06) !important;">
+        <div class="d-flex align-items-center gap-2">
+          <i class="ti ti-history text-primary fs-2"></i>
+          <h5 class="modal-title m-0 text-white fw-bold">Continua a guardare</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <div class="d-flex gap-3 mb-4">
+          <div class="cw-modal-poster-wrap flex-shrink-0" style="width:115px; border-radius:10px; overflow:hidden; aspect-ratio:2/3; background:var(--bg-raised); box-shadow:0 8px 24px rgba(0,0,0,0.5);">
+            <img id="cw-modal-poster" src="" alt="" style="width:100%; height:100%; object-fit:cover;">
+          </div>
+          <div class="flex-grow-1 min-w-0 d-flex flex-column justify-content-center">
+            <div class="d-flex align-items-center gap-2 mb-1">
+              <span class="badge" id="cw-modal-type-badge">Film</span>
+              <span class="badge bg-dark border border-secondary text-muted" id="cw-modal-time-badge"></span>
+            </div>
+            <h3 class="text-white fw-bold mb-1 text-truncate" id="cw-modal-title" style="font-size:1.25rem;"></h3>
+            <p class="text-muted small mb-2 text-truncate" id="cw-modal-subtitle" style="display:none;"></p>
+            
+            <!-- Progress indicator -->
+            <div class="mt-2">
+              <div class="d-flex justify-content-between align-items-center mb-1" style="font-size:11.5px;">
+                <span class="text-muted" id="cw-modal-progress-text"></span>
+                <span class="text-primary fw-bold" id="cw-modal-progress-pct"></span>
+              </div>
+              <div class="progress" style="height:6px; background:rgba(255,255,255,0.08); border-radius:3px; overflow:hidden;">
+                <div class="progress-bar bg-primary" id="cw-modal-progress-bar" role="progressbar" style="width:0%"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="d-flex flex-column gap-2 pt-2 border-top border-secondary border-opacity-10">
+          <div class="d-flex gap-2">
+            <!-- Tasto Continua a guardare -->
+            <button type="button" class="btn btn-success flex-grow-1 py-2 fw-bold d-flex align-items-center justify-content-center gap-2" id="cw-modal-btn-resume" data-action="cw:modal-resume" style="border-radius:10px;">
+              <i class="ti ti-player-play-filled fs-2"></i>
+              <span>Continua a guardare</span>
+            </button>
+            
+            <!-- Tasto Ricomincia -->
+            <button type="button" class="btn btn-dark border border-secondary flex-grow-1 py-2 d-flex align-items-center justify-content-center gap-2 text-white" id="cw-modal-btn-restart" data-action="cw:modal-restart" style="border-radius:10px;">
+              <i class="ti ti-rotate-2 fs-2"></i>
+              <span>Ricomincia</span>
+            </button>
+          </div>
+
+          <!-- Tasto Elimina / Rimuovi dalla lista -->
+          <button type="button" class="btn btn-outline-danger w-100 py-2 mt-1 d-flex align-items-center justify-content-center gap-2" id="cw-modal-btn-delete" data-action="cw:modal-delete" style="border-radius:10px;">
+            <i class="ti ti-trash fs-2"></i>
+            <span>Rimuovi da Continua a guardare</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+

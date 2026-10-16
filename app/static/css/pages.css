@@ -1366,3 +1366,102 @@
     }
     .settings-page .nav-tabs::-webkit-scrollbar { display: none; }
     .settings-page .nav-tabs .nav-link { white-space: nowrap; }
+
+    /* ═══════════════════════════════════════════════════════
+       CONTINUA A GUARDARE (CONTINUE WATCHING)
+       ═══════════════════════════════════════════════════════ */
+    .continue-watching-section {
+      position: relative;
+      margin-bottom: 2rem;
+    }
+
+    .cw-item {
+      flex: 0 0 160px;
+      width: 160px;
+    }
+    @media (min-width: 992px) {
+      .cw-item { flex-basis: 185px; width: 185px; }
+    }
+
+    .cw-card {
+      position: relative;
+      background: var(--bg-surface) !important;
+      border: 1px solid var(--border-mid) !important;
+      border-radius: var(--radius) !important;
+      overflow: hidden !important;
+      transition: transform .2s ease-out, box-shadow .2s ease-out, border-color .2s ease-out !important;
+    }
+
+    .cw-card:hover {
+      transform: translateY(-5px) scale(1.02) !important;
+      box-shadow: 0 12px 30px rgba(0,0,0,.55) !important;
+      border-color: rgba(46, 213, 115, 0.4) !important;
+    }
+
+    .cw-progress-bar-wrap {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      right: 0;
+      height: 5px;
+      background: rgba(0, 0, 0, 0.7);
+      z-index: 4;
+      overflow: hidden;
+    }
+
+    .cw-progress-bar {
+      height: 100%;
+      background: linear-gradient(90deg, #2ed573, #10b981);
+      box-shadow: 0 0 8px rgba(46, 213, 115, 0.7);
+      border-radius: 0 2px 2px 0;
+      transition: width .3s ease;
+    }
+
+    .cw-badge-top {
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      z-index: 4;
+    }
+
+    .cw-badge-top .badge {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+      padding: 3px 6px;
+      border-radius: 4px;
+      backdrop-filter: blur(4px);
+    }
+
+    .cw-quick-play {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      width: 46px;
+      height: 46px;
+      border-radius: 50%;
+      background: #2ed573;
+      color: #0b1320;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      opacity: 0;
+      transition: all .22s cubic-bezier(.34,1.56,.64,1);
+      box-shadow: 0 6px 20px rgba(0,0,0,.6);
+      z-index: 5;
+      cursor: pointer;
+    }
+
+    .cw-card:hover .cw-quick-play {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .cw-quick-play:hover {
+      transform: translate(-50%, -50%) scale(1.15) !important;
+      background: #39e280;
+      color: #000;
+    }
+

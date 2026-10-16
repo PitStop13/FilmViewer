@@ -99,7 +99,20 @@
               </button>
             </div>
           </div>
-          <div id="search-filters" class="search-filters"></div>
+          <div id="continue-watching-section" class="continue-watching-section mb-4" style="display:none">
+            <div class="shelf-head d-flex align-items-center justify-content-between mb-2">
+              <div class="shelf-title d-flex align-items-center">
+                <i class="ti ti-history text-primary me-2 fs-2"></i>
+                <span>Continua a guardare</span>
+                <span class="badge bg-primary-lt ms-2" id="cw-count-badge" style="font-size:11px; font-weight:600; padding:2px 8px; border-radius:4px; display:none;"></span>
+              </div>
+            </div>
+            <div class="shelf-rail-wrap">
+              <button class="shelf-arrow shelf-arrow-prev" hidden aria-label="Titoli precedenti"><i class="ti ti-chevron-left"></i></button>
+              <div class="shelf-rail" id="continue-watching-rail"></div>
+              <button class="shelf-arrow shelf-arrow-next" hidden aria-label="Titoli successivi"><i class="ti ti-chevron-right"></i></button>
+            </div>
+          </div>
           <div id="home-shelves" style="display:none"></div>
           <div id="search-results" class="row g-3"></div>
           <div id="search-more" class="text-center mt-4" style="display:none">
