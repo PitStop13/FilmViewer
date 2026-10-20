@@ -114,7 +114,7 @@ def _segment_backoff(attempt: int) -> float:
 # The setting is therefore a ceiling to be discovered under, not a target: the
 # limiter starts there, halves what it asks for whenever the source pushes
 # back, and creeps up again while segments are arriving.
-MIN_SEGMENT_ALLOWANCE = 2
+MIN_SEGMENT_ALLOWANCE = 4
 
 # A 503 arrives in milliseconds, so a shrink per response would collapse the
 # allowance on one burst of a hundred replies that all describe the same
@@ -261,21 +261,12 @@ def _retry_after(response) -> float | None:
 
 
 def _new_session(pool_size: int) -> requests.Session:
-    """One session per download, sized to the workers that will share it.
-
-    Every segment used to go through a bare ``requests.get``, which opens a new
-    TCP connection, a new TLS handshake and — the part that actually broke
-    things — a new DNS lookup, for each of a playlist's thousands of segments.
-    A session keeps the connection alive, so the host is resolved once per
-    download instead of once per request.
-
-    The pool is sized explicitly: urllib3's default of ten would leave sixteen
-    workers discarding connections and reopening them, which is the same
-    problem in miniature. Retries stay at zero because ``get_req_ts`` owns that
-    policy, and urllib3's would silently multiply it.
-    """
     session = requests.Session()
-    adapter = HTTPAdapter(pool_connections=pool_size, pool_maxsize=pool_size, max_retries=0)
+    adapter = HTTPAdapter(
+        pool_connections=pool_size,
+        pool_maxsize=pool_size,
+        max_retries=0,
+    )
     session.mount("https://", adapter)
     session.mount("http://", adapter)
     return session
@@ -517,13 +508,14 @@ class M3U8_Segments:
                 # willing to give to someone else.
                 with self._budget:
                     response = self._session.get(
-                        ts_url, headers=self._headers(), timeout=(10, 30)
+                        ts_url, headers=self._headers(), timeout=(5, 12)
                     )
             except Exception as e:
                 # A refused or timed-out connection under load says the same
                 # thing a 503 does, and used to be the one form of pushback the
                 # limiter never heard about.
-                self._budget.penalise()
+                if attempt == 0:
+                    self._budget.penalise()
                 logger.warning("Segment exception (attempt %d/%d): %s",
                                attempt + 1, self.max_retry, e)
             else:
@@ -535,7 +527,8 @@ class M3U8_Segments:
                 if response.status_code not in RETRIABLE_SEGMENT_STATUS:
                     # A verdict, not congestion: nothing to back off from.
                     return None
-                self._budget.penalise()
+                if attempt == 0:
+                    self._budget.penalise()
                 asked_for = _retry_after(response)
             if attempt < self.max_retry - 1:
                 # Waiting is pointless once the source has been written off, but
@@ -629,7 +622,7 @@ class M3U8_Segments:
         self._saved_count = 0
         self._failure_streak = 0
         self._abort.clear()
-        bar_factory = self.progress_factory or (lambda **kw: tqdm(**kw))
+        bar_factory = self.progress_factory or (lambda **kw: tqdm(**{k: v for k, v in kw.items() if k != "phase"}))
         progress_counter = bar_factory(total=len(self.segments), unit="seg", desc="Downloading", phase=self.phase)
         self._bar = progress_counter
 

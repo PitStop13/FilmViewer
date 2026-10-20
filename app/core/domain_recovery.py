@@ -259,6 +259,26 @@ def apply_candidate(host: str) -> str:
     # The shelves and the artwork are the old domain's until they are dropped.
     home.clear_cache("streamingcommunity")
     metadata.clear_cache()
+    try:
+        from app.core.film import clear_film_languages_cache
+        clear_film_languages_cache()
+    except Exception:
+        pass
+    try:
+        from app.core.tv import clear_tv_languages_cache
+        clear_tv_languages_cache()
+    except Exception:
+        pass
+    try:
+        from app.routers.images import clear_image_cache
+        clear_image_cache()
+    except Exception:
+        pass
+    try:
+        from app.core.dns_cache import clear_dns_cache
+        clear_dns_cache()
+    except Exception:
+        pass
     clear_pending()
     logger.info("Source domain set to %s (version %s)", host, version)
     return version

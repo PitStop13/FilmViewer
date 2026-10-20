@@ -420,3 +420,20 @@ def test_a_too_frequent_check_interval_is_refused(client, admin):
         "domain_check_interval_minutes": 5,
     })
     assert res.status_code == 400
+
+
+def test_applying_candidate_clears_track_and_image_caches(monkeypatch):
+    from app.core import film, tv
+    from app.routers import images
+
+    film._FILM_LANG_CACHE[("old.site", 1)] = (9999999999.0, {"audio": ["ita"]})
+    tv._TV_LANG_CACHE[("old.site", 1, "slug")] = (9999999999.0, {"audio": ["ita"]})
+    images._image_cache[("old.site", "img.jpg")] = (b"123", "image/jpeg")
+
+    monkeypatch.setattr(domain_recovery, "is_plausible", lambda host: (True, ""))
+    monkeypatch.setattr(domain_recovery, "get_domain_version", lambda host: "v10")
+    domain_recovery.apply_candidate("streamingcommunityz.rodeo")
+
+    assert ("old.site", 1) not in film._FILM_LANG_CACHE
+    assert ("old.site", 1, "slug") not in tv._TV_LANG_CACHE
+    assert ("old.site", "img.jpg") not in images._image_cache

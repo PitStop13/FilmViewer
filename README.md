@@ -3,12 +3,13 @@
 </p>
 
 <p align="center">
-  <b>Un'interfaccia web per esplorare, guardare e scaricare film e serie TV per uso personale.</b><br/>
-  Supporta riproduzione diretta in streaming, salvataggio della posizione di visione ("Continua a guardare"), download con ripresa automatica (resume), gestione multi-utenza e organizzazione della libreria multimediale.
+  <b>Un'interfaccia web moderna, veloce e intuitiva per esplorare, guardare e scaricare film e serie TV per uso personale.</b><br/>
+  Streaming player HLS integrato, catalogo dinamico con algoritmo di raccomandazione, auto-recovery del dominio, download ultra-rapido con ripresa (resume), "Continua a guardare" per utente e gestione multi-utenza.
 </p>
 
 <p align="center">
-  <a href="#-guida-allinstallazione"><img src="https://img.shields.io/badge/Installazione-CasaOS_%7C_Windows_%7C_macOS-brightgreen?style=flat-square" alt="Install"/></a>
+  <a href="#-guida-allinstallazione"><img src="https://img.shields.io/badge/Installazione-CasaOS_%7C_Windows_%7C_macOS_%7C_Linux-brightgreen?style=flat-square" alt="Install"/></a>
+  <a href="#-funzionalità-principali"><img src="https://img.shields.io/badge/Funzionalità-Streaming_%2B_Download_%2B_AutoDomain-orange?style=flat-square" alt="Features"/></a>
   <a href="#-crediti-e-disclaimer"><img src="https://img.shields.io/badge/Licenza-MIT_%7C_Non--Commercial-blue?style=flat-square" alt="License"/></a>
 </p>
 
@@ -16,17 +17,53 @@
 
 ## 📌 Panoramica
 
-FilmViewer è un'applicazione web leggera pensata per uso personale e domestico tra amici e familiari. Offre:
-- **Catalogo & Home:** Esplorazione rapida di film e serie TV con locandine, schede informative e dettagli completi.
-- **Continua a Guardare:** Salvataggio automatico del progresso di visione ogni 5 secondi. Riprendi da dove eri rimasto, ricomincia da capo o rimuovi i contenuti già visti direttamente dalla Home.
-- **Web Player Integrato:** Streaming immediato ad alta risoluzione nel browser con supporto al multi-streaming contemporaneo su più dispositivi.
-- **Sistema Multi-utenza & Ruoli:** Autenticazione sicura locale (password con hash bcrypt). Gli amministratori possono creare e gestire account per amici e parenti (ruolo Admin con pieni poteri e ruolo Utente Base con streaming e gestione autonoma delle proprie richieste).
-- **Download con Ripresa (Resume):** Download multi-thread con FFmpeg e recupero istantaneo dei segmenti interrotti.
-- **Gestione Richieste & Pulizia Automatica:** Gestione autonoma dei download da "Le mie richieste". L'eliminazione di un film scaricato rimuove fisicamente il file dal disco e ripulisce le cartelle vuote.
+FilmViewer è un'applicazione web pensata per la fruizione domestica e privata tra amici e familiari. Combina le funzionalità di un catalogo multimediale in stile Netflix con un player streaming HLS ad alta risoluzione, un potente motore di download e la completa indipendenza dai cambi di dominio delle sorgenti.
 
 <p align="center">
-  <img src="docs/home.png" alt="Schermata Principale" width="85%"/>
+  <img src="docs/home.png" alt="Schermata Principale" width="88%"/>
 </p>
+
+---
+
+## ✨ Funzionalità Principali
+
+### 🌐 Auto-Recovery e Rotazione Automatica del Dominio
+- **Sempre Funzionante:** Le sorgenti online cambiano periodicamente estensione o indirizzo. FilmViewer integra un sistema di monitoraggio continuo (*Domain Health Check*) che interroga resolver DNS alternativi (Cloudflare, Google, OpenDNS).
+- **Aggiornamento a Caldo (`domain_auto_apply`):** Se il dominio attivo non risponde, l'applicazione individua autonomamente il nuovo dominio valido e aggiorna la configurazione all'istante senza bisogno di riavvii o interventi manuali.
+
+### 🎬 Catalogo Dinamico & Algoritmo di Raccomandazione
+- **Home Page Viva e Rinnovata:** La schermata principale non è mai statica. Oltre alla Top 10 della settimana e del mese, i cataloghi di film e serie TV si rinnovano regolarmente proponendo titoli variegati dall'archivio.
+- **"Perché hai guardato...":** Algoritmo di raccomandazione personalizzato basato sulla reale cronologia di visione dell'utente. Se completi o guardi con interesse un film o una serie, la Home ti suggerirà automaticamente opere correlate e simili.
+- **Rendering Istantaneo (Stale-While-Revalidate):** Grazie al caching intelligente e alla pre-risoluzione asincrona, la navigazione nella Home è immediata (0 ms di latenza percepita).
+
+### ▶️ Web Player HLS Integrato
+- **Streaming Diretto nel Browser:** Guarda film e serie TV con un click senza dover prima scaricare il file.
+- **Risoluzione Automatica Episodi Serie TV:** Per le serie TV, il player riprende automaticamente l'ultimo episodio guardato oppure avvia l'episodio 1 di default.
+- **Multi-Qualità & Multi-Traccia Audio:** Selettore dinamico della risoluzione video (Auto, 1080p, 720p, 480p) e cambio al volo della lingua audio (italiano, lingua originale, ecc.).
+- **Scorciatoie da Tastiera Avanzate:**
+  - `Spazio`: Play / Pausa.
+  - `Freccia Destra` / `Freccia Sinistra`: Salto rapido di 10 secondi avanti/indietro.
+  - `F`: Schermo intero reale HTML5 Fullscreen.
+
+### ⏱️ Continua a Guardare & Cronologia Personale
+- **Sincronizzazione in Tempo Reale:** Posizione di visione salvata ogni 5 secondi nel database SQLite locale, isolata per ciascun utente.
+- **Controlli Flessibili:** Dalla Home o dalla scheda del titolo puoi riprendere la visione esattamente dal minuto in cui eri rimasto (con badge del tempo residuo), ricominciare dall'inizio oppure eliminare il contenuto dalla lista.
+
+### ⚡ Engine di Download Ultra-Rapido ad Alta Concorrenza
+- **AdaptiveLimiter ad Alte Prestazioni:** Motore multi-thread parallelo con rilevamento della tolleranza del CDN. I timeout di lettura sono ottimizzati per evitare qualsiasi blocco della banda anche in caso di connessioni ballerine.
+- **Resume Automatico:** Se un download viene interrotto o la connessione salta, la ripresa riscarica solo i segmenti mancanti senza ripartire da zero.
+- **Tracce Audio & Sottotitoli:** Possibilità di selezionare le lingue audio desiderate e scaricare i sottotitoli incorporati nel contenitore video (.mkv/.mp4) o estratti come file `.vtt`.
+- **Muxing con FFmpeg:** Unione dei flussi video/audio a livello di pacchetti continui e pulizia automatica dei file temporanei.
+
+### 🚀 DNS Cache In-Memory
+- **Zero Latenza di Risoluzione:** Cache interna DNS (`TTL 300s`) che previene le perdite di pacchetti UDP e i tipici timeout di 8 secondi riscontrati negli ambienti containerizzati Docker su Windows e Linux.
+
+### 👥 Multi-utenza & Gestione Richieste
+- **Profili Sicuri:** Autenticazione protetta con crittografia bcrypt per password.
+- **Ruoli & Permessi:**
+  - **Admin:** Pieno controllo su impostazioni, configurazione di rete, gestione utenti e approvazione globale.
+  - **Utente Base:** Accesso indipendente allo streaming, catalogo, continua a guardare e gestione autonoma dei propri download.
+- **Pulizia Disco Automatica:** L'eliminazione di un film o di una serie dalla sezione richieste rimuove fisicamente i file dal disco rigido e ripulisce le cartelle vuote.
 
 ---
 
@@ -34,12 +71,10 @@ FilmViewer è un'applicazione web leggera pensata per uso personale e domestico 
 
 ### 🏠 CasaOS (Home Server / NAS)
 
-Puoi installare FilmViewer su CasaOS in due modi: direttamente dall'interfaccia grafica (consigliato) oppure via terminale.
-
 #### Metodo 1: Dall'interfaccia web di CasaOS (Consigliato)
 
-1. Nella dashboard principale di CasaOS, clicca sul pulsante **"+"** (in alto a destra nella sezione App) e seleziona **"Installa un'applicazione personalizzata"** (*Install a customized app*).
-2. In alto a destra della finestra popup, clicca sul pulsante **"Importa"** (icona del codice `</>` o icona file accanto alla `X`).
+1. Nella dashboard di CasaOS, clicca sul pulsante **"+"** (in alto a destra nella sezione App) e seleziona **"Installa un'applicazione personalizzata"** (*Install a customized app*).
+2. In alto a destra della finestra, clicca sull'icona **"Importa"** (`</>` o icona file).
 3. Incolla il seguente codice Docker Compose completo:
 
 ```yaml
@@ -51,9 +86,9 @@ services:
     ports:
       - "9876:9876"
     volumes:
-      # Cartella host sul tuo server per salvare i film/serie (modifica se usi un altro percorso)
+      # Cartella sul tuo NAS/Server dove memorizzare i download video
       - /DATA/Storage/nas/Download-Film:/app/videos
-      # Configurazione, database utenti e cronologia persistenti
+      # Cartella per configurazione, database utenti e stato persistente
       - /DATA/AppData/FilmViewer/config:/app/config
     environment:
       - HOST=0.0.0.0
@@ -86,7 +121,7 @@ x-casaos:
   main: filmviewer
   description:
     en_us: Web interface to stream and download movies and TV series for personal use.
-    it_it: Interfaccia web per guardare e scaricare film e serie TV con ripresa automatica dei download.
+    it_it: Interfaccia web per guardare e scaricare film e serie TV con player integrato e resume.
   tagline:
     en_us: Streaming & Downloader
     it_it: Streaming & Downloader
@@ -100,30 +135,24 @@ x-casaos:
   port_map: "9876"
 ```
 
-4. Clicca su **"Invia"** (*Submit*). Grazie ai metadati `x-casaos`, tutti i campi (Nome, Icona, Porta Web, Volumi ed Environment) saranno precompilati in automatico!
-   - **Logo / Icona:** se compili a mano o vuoi cambiare l'icona, incolla questo URL nel campo Icona:  
-     `https://raw.githubusercontent.com/PitStop13/FilmViewer/main/docs/logo.png`
-   - **Cartella video Host:** assicurati che il percorso dell'host montato su `/app/videos` (es. `/DATA/Media/FilmViewer/videos` o `/DATA/Media/Movies`) sia quello dove vuoi archiviare i file.
-5. Clicca su **"Installa"** e attendi il completamento del download dell'immagine.
-6. L'applicazione sarà subito accessibile cliccando sull'icona di FilmViewer nella dashboard o all'indirizzo: 👉 **`http://<IP-DEL-TUO-SERVER>:9876`**
+4. Clicca su **"Invia"** (*Submit*). I parametri principali risulteranno già precompilati.
+5. Clicca su **"Installa"** e attendi il completamento.
+6. Apri FilmViewer cliccando sulla sua icona o su: 👉 **`http://<IP-DEL-TUO-SERVER>:9876`**
 
 #### Metodo 2: Da Terminale (o SSH)
-
-Se preferisci usare la riga di comando o compilare il codice sorgente direttamente:
 ```bash
 cd /DATA/AppData
 git clone https://github.com/PitStop13/FilmViewer.git
 cd FilmViewer
 docker compose up -d --build
 ```
-L'applicazione sarà raggiungibile su: 👉 **`http://<IP-DEL-TUO-SERVER>:9876`**
 
 ---
 
 ### 🪟 Windows (10 / 11)
 
 #### Opzione 1: Con Docker Desktop (Consigliato)
-1. Apri **PowerShell** o **Terminale** e clona la repo:
+1. Apri **PowerShell** e clona il repository:
    ```powershell
    git clone https://github.com/PitStop13/FilmViewer.git
    cd FilmViewer
@@ -134,9 +163,9 @@ L'applicazione sarà raggiungibile su: 👉 **`http://<IP-DEL-TUO-SERVER>:9876`*
    ```
 3. Apri il browser su: 👉 **`http://localhost:9876`**
 
-#### Opzione 2: Con Python (Senza Docker)
-1. Installa **Python 3.11+** e **FFmpeg**.
-2. Esegui nel terminale:
+#### Opzione 2: Senza Docker (Python)
+1. Installa **Python 3.11+** e **FFmpeg** (assicurandoti che `ffmpeg` sia nel PATH di sistema).
+2. Nel terminale esegui:
    ```powershell
    pip install -r requirements.txt
    python main.py
@@ -147,7 +176,7 @@ L'applicazione sarà raggiungibile su: 👉 **`http://<IP-DEL-TUO-SERVER>:9876`*
 
 ### 🍏 macOS (Apple Silicon & Intel)
 
-#### Opzione 1: Con Docker Desktop
+#### Con Docker Desktop
 ```bash
 git clone https://github.com/PitStop13/FilmViewer.git
 cd FilmViewer
@@ -155,7 +184,7 @@ docker compose up -d --build
 ```
 Apri il browser su: 👉 **`http://localhost:9876`**
 
-#### Opzione 2: Senza Docker (Homebrew)
+#### Senza Docker (Homebrew)
 ```bash
 brew install python ffmpeg git
 git clone https://github.com/PitStop13/FilmViewer.git
@@ -167,37 +196,29 @@ Apri il browser su: 👉 **`http://localhost:9876`**
 
 ---
 
-## 🎯 Configurazione al Primo Avvio
-
-Quando accedi per la prima volta a **`http://<IP-SERVER>:9876`** (o `http://localhost:9876` in locale):
+## 🎯 Configurazione e Primo Accesso
 
 1. **Creazione Account Amministratore:**
-   - Alla prima apertura verrà mostrata la schermata di configurazione iniziale per creare il tuo account **Admin**.
-   - Inserisci un nome utente e una password sicura. Questo account avrà pieni permessi di gestione.
-   - Una volta completato il setup, potrai effettuare il login.
-
-2. **Gestione Utenti (Multi-utenza):**
-   - Dall'account amministratore, entra in **Impostazioni → Utenti** per creare ulteriori profili per amici o familiari.
-   - Puoi assegnare a ciascun utente il ruolo di **Amministratore** o di **Utente Base**.
-   - Gli utenti base possono effettuare l'accesso contemporaneo, vedere i contenuti in streaming, salvare il proprio stato in "Continua a guardare" e gestire i propri download senza toccare i file di sistema o le impostazioni globali.
-
-3. **Cartella video (Percorso di download):**
-   > ⚠️ **IMPORTANTE SE USI DOCKER O CASAOS:**  
-   > Nel campo del percorso video **lascia o inserisci esattamente `/app/videos`** (il valore predefinito).  
-   > **NON inserire percorsi dell'host come `/DATA/...` o `C:\...`**: l'applicazione viene eseguita all'interno di un container Docker che riconosce unicamente il percorso interno `/app/videos`. Questo percorso è già collegato in automatico tramite i volumi alla tua cartella reale sul disco/NAS. Se modifichi `/app/videos` con un percorso dell'host, il container non potrà accedervi e i download restituiranno errore.
+   - Alla prima apertura dell'indirizzo `http://localhost:9876` o `http://<IP-SERVER>:9876`, comparirà la schermata di configurazione iniziale per impostare le credenziali dell'account **Admin**.
+2. **Creazione Profili Aggiuntivi:**
+   - Dall'account admin, vai in **Impostazioni → Utenti** per aggiungere account per amici e parenti (ruolo Amministratore o Utente Base).
+3. **Cartella di Download:**
+   > ⚠️ **NOTA SUI VOLUMI DOCKER / CASAOS:**  
+   > Nel campo del percorso video dell'interfaccia lascia o inserisci **`/app/videos`** (valore di default).  
+   > **Non inserire percorsi host come `C:\...` o `/DATA/...`**: il container Docker usa `/app/videos` come mount point interno collegato alla tua cartella reale.
 
 ---
 
 ## 📜 Crediti e Disclaimer
 
-### Crediti & Progetto Originale
+### Crediti
 Questo progetto è basato ed estende il codice di **Edoardo Fiore**, autore del repository open source [StreamingCommunity-downloader](https://github.com/EdoardoFiore/StreamingCommunity-downloader), concesso sotto licenza [MIT](https://github.com/EdoardoFiore/StreamingCommunity-downloader/blob/main/LICENSE).
 
-### Progetto Personale & Non Commerciale
+### Progetto Personale & Senza Fini di Lucro
 - Questo software è sviluppato e mantenuto **esclusivamente per uso personale, privato e senza fini di lucro**.
-- **Non è un prodotto commerciale:** non contiene annunci pubblicitari, non vende nulla e non prevede abbonamenti, donazioni obbligatorie o monetizzazione di alcun genere.
+- Non contiene annunci pubblicitari, non offre servizi a pagamento, non vende nulla e non richiede donazioni.
 
 ### Disclaimer Legale
-Questo software è un client sviluppato a scopo puramente didattico, di studio e di ricerca sui protocolli di streaming HLS e sull'elaborazione multimediale.  
-Il programma **non memorizza, non ospita, non ritrasmette e non distribuisce alcun file multimediale o materiale protetto da copyright**. Tutti i flussi e le informazioni vengono richiesti direttamente dai server pubblicamente accessibili sul web.  
+Questo programma è un client software concepito a scopo didattico, di studio e di ricerca sui protocolli di streaming multimediale HLS.  
+L'applicazione **non memorizza, non ospita, non ritrasmette e non distribuisce alcun file multimediale o materiale protetto da copyright**. Tutte le informazioni e i flussi vengono richiesti direttamente dai server pubblicamente accessibili sul web.  
 L'utente finale è l'unico responsabile dell'utilizzo dello strumento e del rispetto delle normative sul diritto d'autore vigenti nel proprio paese.

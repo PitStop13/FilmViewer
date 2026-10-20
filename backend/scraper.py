@@ -44,33 +44,45 @@ def get_title_details(title_id: int) -> dict:
         return {}
 
 def extract_iframe_url(title_id: int, episode_id: int | None = None) -> str | None:
-    # Get details and extract iframe
-    # The actual implementation depends on StreamingCommunity's current frontend structure
-    # For a simplified proxy, we'll return a stub URL or try to fetch it if possible
     domain = get_current_domain()
     if not domain:
         return None
 
-    url = f"https://{domain}/iframe/{title_id}"
-    if episode_id:
-        url += f"?episode_id={episode_id}"
+    paths = [f"/it/iframe/{title_id}", f"/iframe/{title_id}"]
+    for path in paths:
+        url = f"https://{domain}{path}"
+        if episode_id:
+            url += f"?episode_id={episode_id}"
 
-    try:
-        response = requests.get(url, headers=get_headers(), timeout=10)
-        response.raise_for_status()
+        try:
+            response = requests.get(url, headers=get_headers(), timeout=10)
+            if not response.ok:
+                continue
 
-        # Typically the actual streaming iframe contains an m3u8 playlist URL
-        soup = BeautifulSoup(response.text, "lxml")
+            soup = BeautifulSoup(response.text, "lxml")
+            iframe = soup.find("iframe")
+            if iframe and iframe.get("src"):
+                embed_src = iframe.get("src")
+                try:
+                    req_embed = requests.get(
+                        embed_src,
+                        headers={"user-agent": get_headers()["User-Agent"], "referer": f"https://{domain}/"},
+                        timeout=15,
+                    )
+                    if req_embed.ok:
+                        import re
+                        match = re.search(r'url:\s*["\'](https://[^"\']+playlist[^"\']*)["\']', req_embed.text)
+                        if match:
+                            return match.group(1).replace(r"\/", "/")
+                except Exception:
+                    pass
 
-        # Scrape master m3u8 url from the script tag containing player config
-        for script in soup.find_all("script"):
-            if "master.m3u8" in script.text:
-                import re
-                match = re.search(r'url:\s*"(https://[^"]+\.m3u8[^"]*)"', script.text)
-                if match:
-                    return match.group(1).replace("\\/", "/")
-
-    except Exception as e:
-        logger.error(f"Failed to extract iframe for title {title_id}: {e}")
-        return None
+            for script in soup.find_all("script"):
+                if "playlist" in script.text or "master.m3u8" in script.text:
+                    import re
+                    match = re.search(r'url:\s*["\'](https://[^"\']+)["\']', script.text)
+                    if match:
+                        return match.group(1).replace(r"\/", "/")
+        except Exception as e:
+            logger.error(f"Failed to extract iframe for title {title_id}: {e}")
     return None

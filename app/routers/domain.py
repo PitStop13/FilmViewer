@@ -278,4 +278,19 @@ async def set_domain(body: DomainUpdate):
     _update_data({"domain": domain})
     home.clear_cache("streamingcommunity")
     metadata.clear_cache()
+    try:
+        from app.core.film import clear_film_languages_cache
+        clear_film_languages_cache()
+    except Exception:
+        pass
+    try:
+        from app.core.tv import clear_tv_languages_cache
+        clear_tv_languages_cache()
+    except Exception:
+        pass
+    try:
+        from app.routers.images import clear_image_cache
+        clear_image_cache()
+    except Exception:
+        pass
     return {"domain": domain, "version": version, "valid": True}

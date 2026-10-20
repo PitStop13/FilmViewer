@@ -898,6 +898,20 @@ async function openStreamPlayer(opts) {
     const res = await api.post('/api/stream/prepare', payload);
     const masterUrl = res.master_url;
 
+    if (res.episode_title && subEl) {
+      subEl.textContent = res.episode_title;
+    } else if (res.episode_number && subEl && opts.type !== 'movie') {
+      subEl.textContent = `Episodio ${res.episode_number}`;
+    }
+    if (res.episode_id) opts.episodeId = res.episode_id;
+    if (res.episode_number) opts.episodeNumber = res.episode_number;
+    if (res.episode_title) opts.episodeTitle = res.episode_title;
+    if (_currentStreamTracking) {
+      _currentStreamTracking.episodeId = opts.episodeId;
+      _currentStreamTracking.episodeNumber = opts.episodeNumber;
+      _currentStreamTracking.episodeTitle = opts.episodeTitle;
+    }
+
     if (loadingEl) loadingEl.style.display = 'none';
     if (videoEl) videoEl.style.display = 'block';
 

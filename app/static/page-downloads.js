@@ -95,9 +95,23 @@ function connectGlobalStream() {
 
   es.onerror = () => {
     es.close();
-    document.getElementById('stream-label').textContent='Riconnessione...';
-    document.querySelector('.stream-dot').style.background='#d63939';
-    setTimeout(connectGlobalStream, 3000);
+    const lbl = document.getElementById('stream-label');
+    const dot = document.querySelector('.stream-dot');
+    if (lbl) lbl.textContent = 'Riconnessione...';
+    if (dot) dot.style.background = '#d63939';
+    setTimeout(async () => {
+      try {
+        const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
+        if (res.ok) {
+          const auth = await res.json();
+          if (auth && auth.authenticated) {
+            connectGlobalStream();
+            return;
+          }
+        }
+      } catch {}
+      setTimeout(connectGlobalStream, 10000);
+    }, 5000);
   };
 }
 

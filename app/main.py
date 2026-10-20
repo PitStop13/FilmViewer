@@ -108,6 +108,10 @@ def check_writable_paths() -> None:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # Enable in-memory DNS caching to prevent Docker NAT / WSL2 DNS drops
+    from app.core.dns_cache import enable_dns_cache
+    enable_dns_cache()
+
     # First: a database the process cannot write fails migrations with SQLite's
     # "unable to open database file", which names neither the path nor the uid.
     check_writable_paths()

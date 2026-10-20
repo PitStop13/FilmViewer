@@ -650,7 +650,7 @@ function _shelfSkeletons() {
   return ('<div class="shelf"><div class="shelf-head"><div class="skeleton" style="width:200px; height:24px; border-radius:4px;"></div></div><div class="shelf-rail-wrap"><div class="shelf-rail">' + card.repeat(8) + '</div></div></div>').repeat(3);
 }
 
-async function showStartPage() {
+async function showStartPage(forceRefresh = false) {
   const host = document.getElementById('home-shelves');
   if (!host) return;
   await ensureDomain();
@@ -661,23 +661,56 @@ async function showStartPage() {
   const cat = _homeCategory || 'all';
   const cacheKey = `sc_${cat}`;
 
-  if (_homeCache[cacheKey] && _homeCache[cacheKey].length) {
+  if (forceRefresh) {
+    delete _homeCache[cacheKey];
+  }
+
+  const cached = _homeCache[cacheKey];
+  const cachedShelves = cached && cached.shelves ? cached.shelves : (Array.isArray(cached) ? cached : null);
+  const isFresh = cached && cached.timestamp ? (Date.now() - cached.timestamp < 20 * 60 * 1000) : false;
+
+  // Immediate render if cached: zero wait time for user
+  if (cachedShelves && cachedShelves.length) {
     renderShelves();
-    return;
+    if (!forceRefresh && isFresh) {
+      return;
+    }
   }
 
   if (_homeAbort) _homeAbort.abort();
   _homeAbort = new AbortController();
-  host.innerHTML = _shelfSkeletons();
+
+  // Only show skeletons if we have nothing on screen
+  if (!cachedShelves || !cachedShelves.length) {
+    host.innerHTML = _shelfSkeletons();
+  }
+
   try {
-    const body = await api.get('/api/home', {source: 'streamingcommunity', category: cat}, {signal: _homeAbort.signal});
-    _homeCache[cacheKey] = body.shelves || [];
+    const params = {source: 'streamingcommunity', category: cat};
+    if (forceRefresh) params.refresh = 1;
+    const body = await api.get('/api/home', params, {signal: _homeAbort.signal});
+    _homeCache[cacheKey] = {
+      shelves: body.shelves || [],
+      timestamp: Date.now(),
+    };
     renderShelves();
   } catch (e) {
     if (e.name === 'AbortError') return;
-    host.innerHTML = '<div class="p-4 text-center text-muted">Impossibile caricare i titoli della home. Riprova tra poco.</div>';
+    if (!cachedShelves || !cachedShelves.length) {
+      host.innerHTML = '<div class="p-4 text-center text-muted">Impossibile caricare i titoli della home. Riprova tra poco.</div>';
+    }
   }
 }
+
+function refreshHome() {
+  const btn = document.getElementById('btn-refresh-home');
+  const icon = btn?.querySelector('i');
+  if (icon) icon.classList.add('ti-spin');
+  return showStartPage(true).finally(() => {
+    if (icon) icon.classList.remove('ti-spin');
+  });
+}
+window.refreshHome = refreshHome;
 
 // The start page's own backdrop: a handful of titles the source is showing
 // today, behind the headline. Decoration, so it is drawn from what has
@@ -701,7 +734,8 @@ function renderShelves() {
   const host = document.getElementById('home-shelves');
   const cat = _homeCategory || 'all';
   const cacheKey = `sc_${cat}`;
-  const shelves = _homeCache[cacheKey] || [];
+  const entry = _homeCache[cacheKey];
+  const shelves = entry && entry.shelves ? entry.shelves : (Array.isArray(entry) ? entry : []);
   host.innerHTML = '';
   // One flat array across every rail, reset once here and appended to in order,
   // so openTitle(idx) needs no special case for the start page.
@@ -717,7 +751,9 @@ function renderShelves() {
     section.dataset.shelfCategory = shelf.category || 'all';
 
     let catBadge = '';
-    if (shelf.category === 'movie') {
+    if (shelf.key && shelf.key.startsWith('rec_')) {
+      catBadge = '<span class="badge bg-purple-lt ms-2" style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px"><i class="ti ti-sparkles me-1"></i>Consigliato per te</span>';
+    } else if (shelf.category === 'movie') {
       catBadge = '<span class="badge bg-blue-lt ms-2" style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px">Film</span>';
     } else if (shelf.category === 'tv') {
       catBadge = '<span class="badge bg-green-lt ms-2" style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:4px">Serie TV</span>';
@@ -946,14 +982,23 @@ function renderRequestRibbons() {
 
 registerActions({
   'home:category':         d => setHomeCategory(d.cat),
+  'home:refresh':          () => refreshHome(),
   'home:spotlight-watch':   () => {
     if (!_currentSpotlightItem) return;
+    if (_currentSpotlightItem.type === 'tv') {
+      const cw = (_continueWatchingItems || []).find(i => String(i.content_id) === String(_currentSpotlightItem.id));
+      if (cw) {
+        resumeContinueWatching(cw.id);
+        return;
+      }
+    }
     if (typeof openStreamPlayer === 'function') {
       openStreamPlayer({
         type: _currentSpotlightItem.type,
         id: _currentSpotlightItem.id,
         slug: _currentSpotlightItem.slug,
         title: _currentSpotlightItem.name,
+        poster: _currentSpotlightItem.poster,
       });
     }
   },

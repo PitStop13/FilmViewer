@@ -83,9 +83,9 @@ def with_retry(send, *, what: str, attempts: int = RESOLVE_ATTEMPTS,
 
 
 def _fetch_vixcloud_embed(url_embed, referer=None):
-    """Fetch a vixcloud.co /embed/ HTML page and return its <script> text.
+    """Fetch an embed HTML page and return its <script> text.
 
-    vixcloud.co serves the /embed/ page behind Cloudflare, so a plain
+    Video hosts serve the /embed/ page behind Cloudflare, so a plain
     requests.get intermittently returns a 403 challenge page. Route it through
     the cloudscraper session, which clears the challenge. (Downstream /playlist,
     /storage/enc.key and CDN segment URLs are NOT Cloudflare-gated.)
@@ -98,11 +98,23 @@ def _fetch_vixcloud_embed(url_embed, referer=None):
     req.raise_for_status()
     body = BeautifulSoup(req.text, "lxml").find("body")
     if body is None:
-        raise RuntimeError("Empty embed page body from vixcloud.co")
-    script = body.find("script")
-    if script is None:
+        raise RuntimeError("Empty embed page body")
+    scripts = body.find_all("script")
+    script_text = None
+    for s in scripts:
+        if s.string and "window.video" in s.string:
+            script_text = s.string
+            break
+        elif s.text and "window.video" in s.text:
+            script_text = s.text
+            break
+    if script_text is None:
+        script = body.find("script")
+        if script:
+            script_text = script.text
+    if not script_text:
         raise RuntimeError("Video not available (no script tag found in embed)")
-    return script.text
+    return script_text
 
 
 class MissingAudioTrackError(RuntimeError):
@@ -131,7 +143,23 @@ def _parse_content(embed_content, url_embed):
         raise RuntimeError(f"Cannot find video ID in embed. Snippet: {s[:400]!r}")
     parsed_video = {"id": video_id_m.group(1)}
 
-    qs = parse_qs(urlparse(url_embed).query)
+    parsed_url = urlparse(url_embed) if url_embed else None
+    if parsed_url and parsed_url.netloc:
+        parsed_video["host"] = parsed_url.netloc
+        parsed_video["base_url"] = f"{parsed_url.scheme or 'https'}://{parsed_url.netloc}"
+
+    master_url_m = re.search(r"masterPlaylist\s*=.*?url\s*:\s*['\"]([^'\"]+)['\"]", s, re.DOTALL)
+    if not master_url_m:
+        master_url_m = re.search(r"['\"](https?://[^'\"]+/playlist/\d+)['\"]", s)
+    if master_url_m:
+        raw_master = master_url_m.group(1).replace(r"\/", "/")
+        parsed_video["playlist_url"] = raw_master
+        p_master = urlparse(raw_master)
+        if p_master.netloc:
+            parsed_video["host"] = p_master.netloc
+            parsed_video["base_url"] = f"{p_master.scheme or 'https'}://{p_master.netloc}"
+
+    qs = parse_qs(parsed_url.query if parsed_url else "")
     parsed_video["can_play_fhd"] = bool(qs.get("canPlayFHD"))
     parsed_video["scz"] = bool(qs.get("scz"))
     parsed_video["lang"] = qs.get("lang", ["it"])[0]
@@ -148,8 +176,20 @@ def _parse_content(embed_content, url_embed):
 
 
 def _get_m3u8_key(json_win_video, json_win_param, referer):
-    """Fetch the AES decryption key from vixcloud.co, where it has always lived."""
-    url = "https://vixcloud.co/storage/enc.key"
+    """Fetch the AES decryption key from the embed host storage."""
+    base_url = None
+    if referer:
+        parsed_ref = urlparse(referer)
+        if parsed_ref.netloc:
+            base_url = f"{parsed_ref.scheme or 'https'}://{parsed_ref.netloc}"
+    if not base_url and isinstance(json_win_video, dict):
+        base_url = json_win_video.get("base_url") or (
+            f"https://{json_win_video['host']}" if json_win_video.get("host") else None
+        )
+    if not base_url:
+        base_url = "https://vixcloud.co"
+
+    url = f"{base_url}/storage/enc.key"
     headers = {"user-agent": get_headers(), "referer": referer}
     req = with_retry(lambda: requests.get(url, headers=headers, timeout=15),
                      what="enc.key")
@@ -159,23 +199,35 @@ def _get_m3u8_key(json_win_video, json_win_param, referer):
 
 
 def _get_m3u8_url(json_win_video, json_win_param, add_b1=False):
-    """Build M3U8 playlist URL for vixcloud.co."""
-    base = f"https://vixcloud.co/playlist/{json_win_video['id']}"
+    """Build M3U8 playlist URL for video embed."""
+    base = json_win_video.get("playlist_url") if isinstance(json_win_video, dict) else None
+    if not base:
+        base_url = (
+            json_win_video.get("base_url") or (
+                f"https://{json_win_video['host']}" if json_win_video.get("host") else "https://vixcloud.co"
+            )
+            if isinstance(json_win_video, dict) else "https://vixcloud.co"
+        )
+        base = f"{base_url}/playlist/{json_win_video['id']}"
+
     url = f"{base}?"
     if add_b1:
         url += "b=1&"
     url += f"token={json_win_param['token']}&expires={json_win_param['expires']}"
-    if json_win_video.get("can_play_fhd"):
-        url += "&h=1"
-    if json_win_video.get("scz"):
-        url += "&scz=1"
-    url += f"&lang={json_win_video.get('lang', 'it')}"
+    if isinstance(json_win_video, dict):
+        if json_win_video.get("can_play_fhd"):
+            url += "&h=1"
+        if json_win_video.get("scz"):
+            url += "&scz=1"
+        url += f"&lang={json_win_video.get('lang', 'it')}"
+    else:
+        url += "&lang=it"
     return url
 
 
 # ── Stream resolution ─────────────────────────────────────────────────────────
 #
-# There is one road to a playlist: the source's iframe, then the vixcloud embed
+# There is one road to a playlist: the source's iframe, then the video embed
 # page. When Cloudflare answers that page with a challenge the scraper cannot
 # clear, every download of that title stops.
 #
@@ -194,7 +246,22 @@ def _get_m3u8_url(json_win_video, json_win_param, add_b1=False):
 # Hosts a playlist may name as the source of its AES key. The playlist is
 # published by the stream page, so an unconstrained URI would have the panel
 # fetching whatever that page asked it to.
-_KEY_HOSTS = ("vixcloud.co",)
+_KEY_HOSTS = ("vixcloud.co", "vixcloud.cc")
+_KEY_HOST_RE = re.compile(r"^([a-z0-9-]+\.)*vixcloud\.[a-z]{2,}$", re.I)
+
+
+def _is_allowed_key_host(host: str, master_url: str | None = None) -> bool:
+    """Check if the AES key host is allowed."""
+    host = (host or "").lower()
+    if any(host == allowed or host.endswith("." + allowed) for allowed in _KEY_HOSTS):
+        return True
+    if _KEY_HOST_RE.match(host):
+        return True
+    if master_url:
+        master_host = (urlparse(master_url).hostname or "").lower()
+        if master_host and (host == master_host or host.endswith("." + master_host)):
+            return True
+    return False
 
 # Fallback providers, tried in order when the primary fails. Each takes
 # (tmdb_id, media_type, season, episode) and returns a StreamSource.
@@ -273,9 +340,7 @@ def fetch_key_from_playlist(master_url: str, referer: str) -> str | None:
 
     parsed = urlparse(key_uri)
     host = (parsed.hostname or "").lower()
-    if parsed.scheme != "https" or not any(
-        host == allowed or host.endswith("." + allowed) for allowed in _KEY_HOSTS
-    ):
+    if parsed.scheme != "https" or not _is_allowed_key_host(host, master_url):
         raise RuntimeError(f"Chiave di cifratura su un host non consentito: {host or key_uri}")
 
     headers = {"user-agent": get_headers(), "referer": referer}

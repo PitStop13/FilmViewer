@@ -77,9 +77,7 @@ SETTINGS_DEFAULTS = {
     "series_watch_interval_minutes": 240,
     # Whether to look for a replacement when the source domain stops answering.
     "domain_auto_check_enabled": True,
-    # Whether to adopt the replacement without asking. Off: a domain found on a
-    # page we do not control is proposed to an administrator, never applied on
-    # its own. See app.core.domain_recovery.
+    # Whether to adopt the replacement without asking.
     "domain_auto_apply": False,
     "domain_check_interval_minutes": 360,
     # The container every download is written into, and whether subtitles are

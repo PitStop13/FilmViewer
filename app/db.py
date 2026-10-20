@@ -537,6 +537,43 @@ _V12_LOCAL_AUTH_AND_PROFILES = [
 ]
 
 
+_V13_WATCH_HISTORY = [
+    """
+    CREATE TABLE IF NOT EXISTS watch_history (
+        id                    TEXT PRIMARY KEY,
+        user_id               INTEGER NOT NULL DEFAULT 0,
+        content_type          TEXT NOT NULL,
+        content_id            TEXT NOT NULL,
+        slug                  TEXT NOT NULL DEFAULT '',
+        title                 TEXT NOT NULL,
+        poster                TEXT,
+        last_position_seconds REAL NOT NULL DEFAULT 0,
+        duration_seconds      REAL NOT NULL DEFAULT 0,
+        max_percentage        INTEGER NOT NULL DEFAULT 0,
+        completed             INTEGER NOT NULL DEFAULT 0,
+        episodes_watched      INTEGER NOT NULL DEFAULT 1,
+        last_watched_at       TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_watch_history_user ON watch_history(user_id, last_watched_at DESC)",
+    "CREATE INDEX IF NOT EXISTS idx_watch_history_completed ON watch_history(user_id, completed, last_watched_at DESC)",
+    """
+    INSERT OR IGNORE INTO watch_history (
+        id, user_id, content_type, content_id, slug, title, poster,
+        last_position_seconds, duration_seconds, max_percentage, completed, episodes_watched, last_watched_at
+    )
+    SELECT
+        id, user_id, content_type, content_id, slug, title, poster,
+        position_seconds, duration_seconds,
+        CASE WHEN duration_seconds > 0 THEN CAST(ROUND((position_seconds / duration_seconds) * 100) AS INTEGER) ELSE 0 END,
+        CASE WHEN duration_seconds > 60 AND ((position_seconds / duration_seconds) >= 0.90 OR (duration_seconds - position_seconds) <= 20) THEN 1 ELSE 0 END,
+        1,
+        updated_at
+    FROM continue_watching
+    """,
+]
+
+
 Migration = list[str] | Callable[[sqlite3.Connection, bool], None]
 
 MIGRATIONS: list[Migration] = [
@@ -552,6 +589,7 @@ MIGRATIONS: list[Migration] = [
     _V10_LIBRARY_FOLDERS,
     _V11_CONTINUE_WATCHING,
     _V12_LOCAL_AUTH_AND_PROFILES,
+    _V13_WATCH_HISTORY,
 ]
 
 

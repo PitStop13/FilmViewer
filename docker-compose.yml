@@ -6,6 +6,7 @@ services:
     container_name: filmviewer-panel
     ports:
       - "9876:9876"
+
     volumes:
       # Video library storage directly in your project folder on Windows (./videos)
       - ./videos:/app/videos

@@ -15,6 +15,7 @@ services:
     # user: "1000:1000"
     ports:
       - "8000:8000"
+
     volumes:
       - nfs_storage:/app/videos
       # Users, sessions, requests, notifications, the source domain and the

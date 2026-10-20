@@ -27,10 +27,21 @@ _TV_LANG_LOCK = threading.Lock()
 _TV_LANG_TTL = 2 * 60 * 60  # 2 hours
 _MAX_TV_LANG_ENTRIES = 500
 
+_TV_IFRAME_CACHE: dict[tuple[str, int, int], tuple[float, tuple[str, str]]] = {}
+_TV_IFRAME_LOCK = threading.Lock()
+_TV_IFRAME_TTL = 30 * 60  # 30 minutes
+_MAX_TV_IFRAME_ENTRIES = 500
+
+
+def clear_tv_iframe_cache():
+    with _TV_IFRAME_LOCK:
+        _TV_IFRAME_CACHE.clear()
+
 
 def clear_tv_languages_cache():
     with _TV_LANG_LOCK:
         _TV_LANG_CACHE.clear()
+    clear_tv_iframe_cache()
 
 
 def get_token(id_tv: int, domain: str) -> str:
@@ -131,29 +142,54 @@ def _episode(ep: dict) -> dict:
 
 
 def _get_iframe(tv_id, ep_id, domain, token):
+    key = (domain, int(tv_id), int(ep_id))
+    now = time.time()
+    with _TV_IFRAME_LOCK:
+        if key in _TV_IFRAME_CACHE:
+            exp, val = _TV_IFRAME_CACHE[key]
+            if exp > now:
+                return val
+            _TV_IFRAME_CACHE.pop(key, None)
+
     ua = get_headers()
     params = {"episode_id": ep_id, "next_episode": "1"}
     cookies = {"XSRF-TOKEN": token}
+    req = None
     for path in (f"/it/iframe/{tv_id}", f"/iframe/{tv_id}"):
-        req = requests.get(
-            f"https://{domain}{path}",
-            params=params,
-            cookies=cookies,
-            headers={
-                "referer": f"https://{domain}/it/watch/{tv_id}?e={ep_id}",
-                "user-agent": ua,
-            },
-            timeout=15,
-        )
-        if req.ok:
-            break
+        try:
+            req = requests.get(
+                f"https://{domain}{path}",
+                params=params,
+                cookies=cookies,
+                headers={
+                    "referer": f"https://{domain}/it/watch/{tv_id}?e={ep_id}",
+                    "user-agent": ua,
+                },
+                timeout=15,
+            )
+            if req.ok:
+                break
+        except Exception as e:
+            logger.warning("Episode iframe request failed for %s%s: %s", domain, path, e)
     else:
-        raise RuntimeError(f"Cannot fetch episode iframe: HTTP {req.status_code}")
+        status = req.status_code if req is not None else "failed"
+        raise RuntimeError(f"Cannot fetch episode iframe: HTTP {status}")
 
-    url_embed = BeautifulSoup(req.text, "lxml").find("iframe").get("src")
+    soup = BeautifulSoup(req.text, "lxml")
+    iframe_tag = soup.find("iframe")
+    if not iframe_tag or not iframe_tag.get("src"):
+        raise RuntimeError("No iframe tag found in episode response")
+    url_embed = iframe_tag["src"]
     # vixcloud.co /embed/ is behind Cloudflare — fetch via cloudscraper.
     script_text = _fetch_vixcloud_embed(url_embed, referer=f"https://{domain}/")
-    return script_text, url_embed
+    result = (script_text, url_embed)
+
+    with _TV_IFRAME_LOCK:
+        if len(_TV_IFRAME_CACHE) >= _MAX_TV_IFRAME_ENTRIES:
+            _TV_IFRAME_CACHE.pop(next(iter(_TV_IFRAME_CACHE)), None)
+        _TV_IFRAME_CACHE[key] = (now + _TV_IFRAME_TTL, result)
+
+    return result
 
 
 # Track collection is identical for films, episodes and anime — the same
@@ -181,8 +217,9 @@ def get_tv_languages(tv_id: int, slug: str, domain: str, version: str) -> dict:
     embed_content, url_embed = _get_iframe(tv_id, eps[0]["id"], domain, token)
     json_win_video, json_win_param = _parse_content(embed_content, url_embed)
     m3u8_url = _get_m3u8_url(json_win_video, json_win_param)
+    embed_base = json_win_video.get("base_url") or "https://vixcloud.co"
     referer = (
-        f"https://vixcloud.co/embed/{json_win_video['id']}"
+        f"{embed_base}/embed/{json_win_video['id']}"
         f"?token={json_win_param['token']}&expires={json_win_param['expires']}"
     )
     langs = fetch_master_languages(m3u8_url, referer)
@@ -207,8 +244,9 @@ def get_episode_languages(tv_id: int, ep_id: int, domain: str, token: str) -> di
     embed_content, url_embed = _get_iframe(tv_id, ep_id, domain, token)
     json_win_video, json_win_param = _parse_content(embed_content, url_embed)
     m3u8_url = _get_m3u8_url(json_win_video, json_win_param)
+    embed_base = json_win_video.get("base_url") or "https://vixcloud.co"
     referer = (
-        f"https://vixcloud.co/embed/{json_win_video['id']}"
+        f"{embed_base}/embed/{json_win_video['id']}"
         f"?token={json_win_param['token']}&expires={json_win_param['expires']}"
     )
     return fetch_master_languages(m3u8_url, referer)
@@ -243,8 +281,9 @@ def download_episode(
         json_win_video, json_win_param = _parse_content(embed_content, url_embed)
         logger.info("Video ID: %s token: %.8s... audio lang: %s", json_win_video['id'], json_win_param.get('token', ''), json_win_video.get('lang', 'it'))
 
+        embed_base = json_win_video.get("base_url") or "https://vixcloud.co"
         embed_referer = (
-            f"https://vixcloud.co/embed/{json_win_video['id']}"
+            f"{embed_base}/embed/{json_win_video['id']}"
             f"?token={json_win_param['token']}&title={quote(tv_name)}"
             f"&referer=1&expires={json_win_param['expires']}"
             f"&description=S{season}%3AE{ep['n']}+{quote(ep['name'])}&nextEpisode=1"

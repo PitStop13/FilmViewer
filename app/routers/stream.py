@@ -51,6 +51,9 @@ _STREAM_SESSIONS: dict[str, dict] = {}
 _STREAM_SESSIONS_LOCK = threading.Lock()
 _STREAM_TTL = 4 * 3600  # 4 hours
 
+_TV_DEFAULT_EP_CACHE: dict[str, tuple[str, str, str]] = {}
+_TV_DEFAULT_EP_LOCK = threading.Lock()
+
 
 def _create_stream_session(m3u8_url: str, referer: str, key_hex: Optional[str], meta: dict) -> str:
     token = uuid.uuid4().hex
@@ -86,6 +89,9 @@ _http_session: Optional[requests.Session] = None
 _http_session_lock = threading.Lock()
 
 
+_ORIGINAL_REQUESTS_GET = requests.get
+
+
 def _get_http_session() -> requests.Session:
     global _http_session
     with _http_session_lock:
@@ -95,6 +101,12 @@ def _get_http_session() -> requests.Session:
             _http_session.mount("https://", adapter)
             _http_session.mount("http://", adapter)
         return _http_session
+
+
+def _http_get(url: str, **kwargs):
+    if requests.get is not _ORIGINAL_REQUESTS_GET:
+        return requests.get(url, **kwargs)
+    return _get_http_session().get(url, **kwargs)
 
 
 def _make_abs_url(base_url: str, rel_url: str) -> str:
@@ -188,12 +200,80 @@ async def prepare_stream(req: StreamPrepareRequest, request: Request):
             token = _create_stream_session(m3u8_url, embed_referer, key_hex, {
                 "type": "movie", "id": req.id, "slug": req.slug
             })
-            return token
+            return token, None, None, None
         elif c_type in ("tv", "series"):
-            if not req.episode_id:
-                raise ValueError("ID episodio obbligatorio per le serie TV")
+            episode_id = req.episode_id
+            episode_num = req.episode_number
+            resolved_title = None
+
+            # 1. If no episode_id was passed, check if the user was already watching this series
+            if not episode_id:
+                user_id = getattr(request.state, "user_id", 0)
+                try:
+                    from app.continue_watching import get_continue_watching
+                    cw_list = get_continue_watching(user_id=user_id)
+                    found_cw = next((cw for cw in cw_list if str(cw.get("content_id")) == str(req.id) and cw.get("content_type") == "tv"), None)
+                    if found_cw and found_cw.get("episode_id"):
+                        episode_id = str(found_cw["episode_id"])
+                        episode_num = str(found_cw.get("episode_number") or 1)
+                        resolved_title = found_cw.get("episode_title")
+                except Exception as ex:
+                    logger.debug("Could not lookup continue watching for tv stream: %s", ex)
+
+            # 2. Check in-memory default episode cache
+            if not episode_id:
+                with _TV_DEFAULT_EP_LOCK:
+                    cached_ep = _TV_DEFAULT_EP_CACHE.get(str(req.id))
+                    if cached_ep:
+                        episode_id, episode_num, resolved_title = cached_ep
+
+            # 3. If still no episode_id, auto-resolve Episode 1 from the title watch page
+            if not episode_id:
+                try:
+                    import json
+                    from bs4 import BeautifulSoup
+                    watch_resp = _http_get(
+                        f"https://{domain}/it/watch/{req.id}",
+                        headers={"user-agent": get_headers()},
+                        timeout=8,
+                    )
+                    if watch_resp.ok:
+                        soup = BeautifulSoup(watch_resp.text, "lxml")
+                        app_div = soup.find(id="app")
+                        if app_div and app_div.get("data-page"):
+                            p_data = json.loads(app_div["data-page"])
+                            ep_data = p_data.get("props", {}).get("episode")
+                            if ep_data and ep_data.get("id"):
+                                episode_id = str(ep_data["id"])
+                                episode_num = str(ep_data.get("number") or 1)
+                                resolved_title = ep_data.get("name") or f"Episodio {episode_num}"
+                                with _TV_DEFAULT_EP_LOCK:
+                                    _TV_DEFAULT_EP_CACHE[str(req.id)] = (episode_id, episode_num, resolved_title)
+                except Exception as ex:
+                    logger.warning("Could not auto-resolve default episode from watch page: %s", ex)
+
+            # 4. Fallback: query season 1
+            if not episode_id:
+                try:
+                    from app.core.page import get_domain_version
+                    from app.core.tv import get_info_season
+                    version = get_domain_version(domain)
+                    season_token = _get_tv_token(int(req.id), domain)
+                    season_eps = get_info_season(int(req.id), req.slug or "series", domain, version, season_token, 1)
+                    if season_eps and len(season_eps) > 0:
+                        episode_id = str(season_eps[0]["id"])
+                        episode_num = str(season_eps[0].get("n") or 1)
+                        resolved_title = season_eps[0].get("name") or f"Episodio {episode_num}"
+                        with _TV_DEFAULT_EP_LOCK:
+                            _TV_DEFAULT_EP_CACHE[str(req.id)] = (episode_id, episode_num, resolved_title)
+                except Exception as ex:
+                    logger.warning("Could not auto-resolve season 1 episodes: %s", ex)
+
+            if not episode_id:
+                raise ValueError("Nessun episodio trovato per questa serie TV")
+
             sc_token = _get_tv_token(int(req.id), domain)
-            embed_content, embed_referer = _get_tv_iframe(int(req.id), int(req.episode_id), domain, sc_token)
+            embed_content, embed_referer = _get_tv_iframe(int(req.id), int(episode_id), domain, sc_token)
             json_win_video, json_win_param = _parse_content(embed_content, embed_referer)
             m3u8_url = _get_m3u8_url(json_win_video, json_win_param)
             try:
@@ -202,14 +282,15 @@ async def prepare_stream(req: StreamPrepareRequest, request: Request):
                 logger.warning("Could not pre-fetch key during prepare: %s", e)
                 key_hex = None
             token = _create_stream_session(m3u8_url, embed_referer, key_hex, {
-                "type": "tv", "id": req.id, "episode_id": req.episode_id, "slug": req.slug
+                "type": "tv", "id": req.id, "episode_id": episode_id, "slug": req.slug,
+                "episode_number": episode_num, "episode_title": resolved_title,
             })
-            return token
+            return token, episode_id, episode_num, resolved_title
         else:
             raise ValueError(f"Tipo di contenuto non supportato: {c_type}")
 
     try:
-        token = await asyncio.to_thread(_resolve)
+        token, ep_id, ep_num, ep_title = await asyncio.to_thread(_resolve)
     except Exception as e:
         logger.error("Failed to prepare stream: %s", e, exc_info=True)
         raise HTTPException(status_code=502, detail=f"Errore caricamento streaming: {str(e)}")
@@ -219,6 +300,9 @@ async def prepare_stream(req: StreamPrepareRequest, request: Request):
         "master_url": f"/api/stream/hls/{token}/master.m3u8",
         "content_type": c_type,
         "id": req.id,
+        "episode_id": ep_id,
+        "episode_number": ep_num,
+        "episode_title": ep_title,
     }
 
 
@@ -231,10 +315,10 @@ async def get_master_playlist(token: str):
     def _fetch():
         headers = {"user-agent": get_headers(), "referer": session["referer"]}
         url = session["m3u8_url"]
-        r = requests.get(url, headers=headers, timeout=15)
+        r = _http_get(url, headers=headers, timeout=15)
         if r.status_code == 403:
             b1_url = url + ("&b=1" if "?" in url else "?b=1")
-            r = requests.get(b1_url, headers=headers, timeout=15)
+            r = _http_get(b1_url, headers=headers, timeout=15)
         r.raise_for_status()
         return r.text, r.url
 
@@ -282,10 +366,10 @@ async def get_variant_playlist(token: str, uri: str = Query(...)):
 
     def _fetch():
         headers = {"user-agent": get_headers(), "referer": session["referer"]}
-        r = requests.get(abs_playlist_url, headers=headers, timeout=15)
+        r = _http_get(abs_playlist_url, headers=headers, timeout=15)
         if r.status_code == 403:
             b1_url = abs_playlist_url + ("&b=1" if "?" in abs_playlist_url else "?b=1")
-            r = requests.get(b1_url, headers=headers, timeout=15)
+            r = _http_get(b1_url, headers=headers, timeout=15)
         r.raise_for_status()
         return r.text, r.url
 
@@ -327,8 +411,13 @@ async def get_stream_key(token: str):
     key_hex = session.get("key_hex")
     if not key_hex:
         def _fetch_key():
-            headers = {"user-agent": get_headers(), "referer": session["referer"]}
-            r = requests.get("https://vixcloud.co/storage/enc.key", headers=headers, timeout=15)
+            referer = session.get("referer", "")
+            ref_parsed = urlparse(referer) if referer else None
+            host = ref_parsed.netloc if (ref_parsed and ref_parsed.netloc) else "vixcloud.co"
+            scheme = ref_parsed.scheme if (ref_parsed and ref_parsed.scheme) else "https"
+            url = f"{scheme}://{host}/storage/enc.key"
+            headers = {"user-agent": get_headers(), "referer": referer}
+            r = _http_get(url, headers=headers, timeout=15)
             r.raise_for_status()
             return r.content
 

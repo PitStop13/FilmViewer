@@ -26,26 +26,61 @@ _FILM_LANG_LOCK = threading.Lock()
 _FILM_LANG_TTL = 2 * 60 * 60  # 2 hours
 _MAX_FILM_LANG_ENTRIES = 500
 
+_FILM_IFRAME_CACHE: dict[tuple[str, int], tuple[float, tuple[str, str]]] = {}
+_FILM_IFRAME_LOCK = threading.Lock()
+_FILM_IFRAME_TTL = 30 * 60  # 30 minutes
+_MAX_FILM_IFRAME_ENTRIES = 500
+
+
+def clear_film_iframe_cache():
+    with _FILM_IFRAME_LOCK:
+        _FILM_IFRAME_CACHE.clear()
+
 
 def clear_film_languages_cache():
     with _FILM_LANG_LOCK:
         _FILM_LANG_CACHE.clear()
+    clear_film_iframe_cache()
 
 
 def _get_iframe(id_title, domain):
-    ua = get_headers()
-    for path in (f"/it/iframe/{id_title}", f"/iframe/{id_title}"):
-        req = requests.get(f"https://{domain}{path}", headers={"User-agent": ua}, timeout=15)
-        if req.ok:
-            break
-    else:
-        raise RuntimeError(f"Cannot fetch iframe: HTTP {req.status_code}")
+    key = (domain, int(id_title))
+    now = time.time()
+    with _FILM_IFRAME_LOCK:
+        if key in _FILM_IFRAME_CACHE:
+            exp, val = _FILM_IFRAME_CACHE[key]
+            if exp > now:
+                return val
+            _FILM_IFRAME_CACHE.pop(key, None)
 
-    url_embed = BeautifulSoup(req.text, "lxml").find("iframe").get("src")
+    ua = get_headers()
+    req = None
+    for path in (f"/it/iframe/{id_title}", f"/iframe/{id_title}"):
+        try:
+            req = requests.get(f"https://{domain}{path}", headers={"User-agent": ua}, timeout=15)
+            if req.ok:
+                break
+        except Exception as e:
+            logger.warning("Iframe request failed for %s%s: %s", domain, path, e)
+    else:
+        status = req.status_code if req is not None else "failed"
+        raise RuntimeError(f"Cannot fetch iframe: HTTP {status}")
+
+    soup = BeautifulSoup(req.text, "lxml")
+    iframe_tag = soup.find("iframe")
+    if not iframe_tag or not iframe_tag.get("src"):
+        raise RuntimeError("No iframe tag found in response")
+    url_embed = iframe_tag["src"]
     # vixcloud.co /embed/ is behind Cloudflare — fetch via cloudscraper.
     script_text = _fetch_vixcloud_embed(url_embed, referer=f"https://{domain}/")
-    logger.info("Embed script (first 800 chars): %s", script_text[:800])
-    return script_text, url_embed
+    result = (script_text, url_embed)
+
+    with _FILM_IFRAME_LOCK:
+        if len(_FILM_IFRAME_CACHE) >= _MAX_FILM_IFRAME_ENTRIES:
+            _FILM_IFRAME_CACHE.pop(next(iter(_FILM_IFRAME_CACHE)), None)
+        _FILM_IFRAME_CACHE[key] = (now + _FILM_IFRAME_TTL, result)
+
+    return result
 
 
 _AUDIO_LANG_ALIASES = {
@@ -161,8 +196,9 @@ def get_film_languages(id_film: int, domain: str) -> dict:
     embed_content, url_embed = _get_iframe(id_film, domain)
     json_win_video, json_win_param = _parse_content(embed_content, url_embed)
     m3u8_url = _get_m3u8_url(json_win_video, json_win_param)
+    embed_base = json_win_video.get("base_url") or "https://vixcloud.co"
     referer = (
-        f"https://vixcloud.co/embed/{json_win_video['id']}"
+        f"{embed_base}/embed/{json_win_video['id']}"
         f"?token={json_win_param['token']}&expires={json_win_param['expires']}"
     )
     langs = fetch_master_languages(m3u8_url, referer)

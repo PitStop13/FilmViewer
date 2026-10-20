@@ -244,3 +244,89 @@ def test_a_film_without_a_tmdb_id_still_reports_the_real_error(monkeypatch, tmp_
 
     with pytest.raises(RuntimeError, match="403 Cloudflare"):
         film.download_film(1, "Test", "example.test", output_dir=str(tmp_path))
+
+
+# ── Dynamic Embed Host Resolution ─────────────────────────────────────────────
+
+def test_parse_content_extracts_dynamic_host_and_playlist_url():
+    snippet = """
+    window.video = { id: '999' };
+    window.masterPlaylist = {
+        params: { 'token': 'abc', 'expires': '123' },
+        url: 'https://vixcloud.cc/playlist/999'
+    };
+    """
+    video, param = _shared._parse_content(snippet, "https://vixcloud.cc/embed/999?scz=1")
+    assert video["id"] == "999"
+    assert video["host"] == "vixcloud.cc"
+    assert video["base_url"] == "https://vixcloud.cc"
+    assert video["playlist_url"] == "https://vixcloud.cc/playlist/999"
+    assert param["token"] == "abc"
+    assert param["expires"] == "123"
+
+    m3u8_url = _shared._get_m3u8_url(video, param)
+    assert m3u8_url.startswith("https://vixcloud.cc/playlist/999?")
+    assert "token=abc" in m3u8_url
+
+
+def test_get_m3u8_key_uses_dynamic_referer_host(monkeypatch):
+    fetched = []
+
+    def fake_get(url, *args, **kwargs):
+        fetched.append(url)
+        return _Response(content=b"\x42" * 16)
+
+    monkeypatch.setattr(_shared.requests, "get", fake_get)
+    key = _shared._get_m3u8_key(
+        {"id": "999", "base_url": "https://vixcloud.cc"},
+        {"token": "abc"},
+        referer="https://vixcloud.cc/embed/999",
+    )
+    assert key == "42" * 16
+    assert fetched == ["https://vixcloud.cc/storage/enc.key"]
+
+
+def test_key_hosts_allows_vixcloud_rotations():
+    assert _shared._is_allowed_key_host("vixcloud.cc", "https://vixcloud.cc/playlist/1")
+    assert _shared._is_allowed_key_host("vixcloud.co", "https://vixcloud.co/playlist/1")
+    assert _shared._is_allowed_key_host("vixcloud.to", "https://vixcloud.to/playlist/1")
+    assert not _shared._is_allowed_key_host("attacker.example", "https://vixcloud.cc/playlist/1")
+
+
+def test_prepare_tv_stream_auto_resolves_episode(monkeypatch, client):
+    from tests.conftest import enable_open_mode
+    enable_open_mode()
+
+    # Mock domain, token, watch page, iframe, parse content, m3u8 and key
+    from app.routers import stream as stream_router
+    monkeypatch.setattr(stream_router, "_sc_domain", lambda: "mock.example")
+    monkeypatch.setattr(stream_router, "_get_tv_token", lambda tv_id, domain: "mock_token")
+
+    class FakeWatchResponse:
+        ok = True
+        status_code = 200
+        text = '''
+        <div id="app" data-page='{"props":{"episode":{"id":777,"number":1,"name":"Pilot Episode"}}}'></div>
+        '''
+
+    monkeypatch.setattr(stream_router.requests, "get", lambda *args, **kwargs: FakeWatchResponse())
+    monkeypatch.setattr(stream_router, "_get_tv_iframe", lambda tv_id, ep_id, domain, token: ("mock_content", "https://vixcloud.cc/embed/777"))
+    monkeypatch.setattr(stream_router, "_parse_content", lambda content, referer: ({"id": "777"}, {"token": "xyz", "expires": "999"}))
+    monkeypatch.setattr(stream_router, "_get_m3u8_url", lambda v, p: "https://vixcloud.cc/playlist/777.m3u8")
+    monkeypatch.setattr(stream_router, "_get_m3u8_key", lambda v, p, ref: "abcdef123456")
+
+    res = client.post("/api/stream/prepare", json={
+        "content_type": "tv",
+        "id": "123",
+        "slug": "test-series"
+    })
+    assert res.status_code == 200
+    data = res.json()
+    assert data["content_type"] == "tv"
+    assert data["id"] == "123"
+    assert data["episode_id"] == "777"
+    assert data["episode_number"] == "1"
+    assert data["episode_title"] == "Pilot Episode"
+    assert data["master_url"].startswith("/api/stream/hls/")
+
+
