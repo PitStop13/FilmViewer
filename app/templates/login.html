@@ -12,6 +12,16 @@
   <link rel="stylesheet" href="{{ asset('css/base.css') }}"/>
   <link rel="stylesheet" href="{{ asset('css/components.css') }}"/>
   <link rel="stylesheet" href="{{ asset('css/login.css') }}"/>
+  <script>
+    (function() {
+      try {
+        var t = localStorage.getItem('sc_theme');
+        if (t && t !== 'default') {
+          document.documentElement.setAttribute('data-theme', t);
+        }
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body class="antialiased">
 

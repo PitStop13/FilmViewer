@@ -40,6 +40,7 @@ const _SETTINGS_TAB_LOADERS = {
   notifiche: () => loadNotificationChannels(),
   hook: () => loadHooks(),
   utenti: () => loadUsersList(),
+  aspetto: () => renderThemeSettings(),
 };
 
 // Two panes read the same endpoint. Shared per modal-open so switching between
@@ -1048,6 +1049,56 @@ async function confirmDeleteUser(userId, username) {
   } catch (err) {
     showToast(err.message || 'Impossibile eliminare l\'utente', 'danger');
   }
+}
+
+
+// ── Aspetto & Temi ────────────────────────────────────────────────────────────
+
+function renderThemeSettings() {
+  const container = document.getElementById('settings-theme-cards');
+  if (!container) return;
+
+  const current = typeof getCurrentTheme === 'function' ? getCurrentTheme() : 'default';
+  const themeList = typeof THEMES !== 'undefined' ? THEMES : [];
+  const currentObj = themeList.find(t => t.id === current) || { name: 'Blu Notte' };
+
+  const currentBadge = document.getElementById('current-theme-name');
+  if (currentBadge) currentBadge.textContent = currentObj.name;
+
+  container.innerHTML = themeList.map(t => {
+    const isActive = t.id === current;
+    return `
+      <div class="theme-card ${isActive ? 'is-active' : ''}" data-theme="${t.id}">
+        <div>
+          <div class="theme-card-preview" style="background:${t.bg};">
+            <div class="theme-card-preview-bar">
+              <div class="theme-card-preview-chip" style="background:${t.surface}; border: 1px solid rgba(255,255,255,.1);"></div>
+              <div class="theme-card-preview-btn" style="background:${t.accent};">Anteprima</div>
+            </div>
+            <div class="d-flex align-items-center gap-2">
+              <span style="display:inline-block; width:8px; height:8px; border-radius:50%; background:${t.accent}; box-shadow:0 0 6px ${t.accent};"></span>
+              <span style="font-size:10px; font-weight:700; color:${t.isLight ? '#0f172a' : '#fff'};">${escapeHtml(t.tag)}</span>
+            </div>
+          </div>
+          <div class="theme-card-title">
+            <span>${escapeHtml(t.name)}</span>
+            <span class="badge ${t.isLight ? 'bg-secondary-lt' : 'bg-dark'} border" style="font-size:10px;">${escapeHtml(t.tag)}</span>
+          </div>
+          <div class="theme-card-desc">${escapeHtml(t.desc)}</div>
+        </div>
+        <div class="theme-card-footer">
+          <div class="d-flex align-items-center gap-1">
+            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:${t.bg}; border:1px solid #777;"></span>
+            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:${t.surface}; border:1px solid #777;"></span>
+            <span style="display:inline-block; width:14px; height:14px; border-radius:50%; background:${t.accent};"></span>
+          </div>
+          <button class="btn btn-sm btn-theme-apply ${isActive ? 'btn-primary' : 'btn-secondary'}" data-action="theme:select" data-theme="${t.id}" type="button">
+            ${isActive ? '<i class="ti ti-check me-1"></i>Attivo' : 'Seleziona'}
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 

@@ -45,6 +45,9 @@
         <li class="nav-item">
           <a class="nav-link" href="#" data-settings-tab="utenti">Utenti</a>
         </li>
+        <li class="nav-item">
+          <a class="nav-link" href="#" data-settings-tab="aspetto">Aspetto & Temi</a>
+        </li>
       </ul>
 
       <div class="settings-pane" data-settings-pane="sorgente">
@@ -471,6 +474,29 @@
                 <tr><td colspan="5" class="text-center text-muted py-3">Caricamento utenti in corso...</td></tr>
               </tbody>
             </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="settings-pane" data-settings-pane="aspetto" style="display:none">
+        <!-- ── Aspetto & Temi Grafici ─────────────────────────────────── -->
+        <div class="settings-section">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <div>
+              <p class="settings-section-label mb-0">Temi & Personalizzazione Grafica</p>
+              <p class="settings-section-hint mb-0">
+                Scegli tra temi curati con palette bilanciate ad alta leggibilità. La preferenza viene collegata direttamente al tuo account utente.
+              </p>
+            </div>
+            <span class="badge bg-blue-lt px-3 py-1" id="current-theme-badge" style="font-size:12px;">
+              Tema Attivo: <strong id="current-theme-name" class="ms-1">Blu Notte</strong>
+            </span>
+          </div>
+
+          <div id="theme-feedback" class="form-text mb-2"></div>
+
+          <div class="theme-cards-grid" id="settings-theme-cards">
+            <!-- Populated dynamically with rich theme preview cards -->
           </div>
         </div>
       </div>

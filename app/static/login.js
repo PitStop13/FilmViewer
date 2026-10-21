@@ -117,7 +117,10 @@
         return;
       }
 
-      // Success! Redirect to home
+      // Success! Save user theme and redirect to home
+      if (body && body.user && body.user.theme) {
+        try { localStorage.setItem("sc_theme", body.user.theme); } catch (e) {}
+      }
       window.location.href = "/";
     } catch (err) {
       showAlert("Errore di connessione con il server. Riprova tra poco.");

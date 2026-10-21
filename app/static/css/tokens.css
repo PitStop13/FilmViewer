@@ -92,3 +92,276 @@
       --font-ui:       'Inter', system-ui, -apple-system, sans-serif;
       --font-mono:     'JetBrains Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
     }
+
+    /* ═══════════════════════════════════════════════════════
+       PRESET THEMES
+       ═══════════════════════════════════════════════════════ */
+
+    /* ── 1. Cyberpunk Rosa (Sakura Velvet) ───────────────── */
+    :root[data-theme="rose"] {
+      --bg-base:       #0E0713;
+      --bg-surface:    #170D20;
+      --bg-raised:     #221430;
+      --bg-hover:      #2E1B42;
+      --bg-input:      #12091A;
+      --scrim-strong:  rgba(23,13,32,.78);
+      --scrim-soft:    rgba(23,13,32,.25);
+
+      --border:        rgba(244,63,133,.12);
+      --border-mid:    rgba(244,63,133,.22);
+      --border-strong: rgba(244,63,133,.36);
+
+      --accent:        #F43F85;
+      --accent-dim:    rgba(244,63,133,.16);
+      --accent-ring:   rgba(244,63,133,.32);
+      --accent-wash:   rgba(244,63,133,.08);
+      --accent-glow:   rgba(244,63,133,.35);
+      --accent-hover:  #E11D68;
+      --accent-text:   #FB71A3;
+
+      --text:          #FDF2F8;
+      --text-sub:      #C5B4CD;
+      --text-muted:    #8B7096;
+      --text-dim:      #584462;
+    }
+
+    /* ── 2. Verde Smeraldo (Matrix Green) ─────────────────── */
+    :root[data-theme="emerald"] {
+      --bg-base:       #05120B;
+      --bg-surface:    #0A1E14;
+      --bg-raised:     #102B1E;
+      --bg-hover:      #173A2A;
+      --bg-input:      #07170F;
+      --scrim-strong:  rgba(10,30,20,.78);
+      --scrim-soft:    rgba(10,30,20,.25);
+
+      --border:        rgba(16,185,129,.12);
+      --border-mid:    rgba(16,185,129,.22);
+      --border-strong: rgba(16,185,129,.36);
+
+      --accent:        #10B981;
+      --accent-dim:    rgba(16,185,129,.15);
+      --accent-ring:   rgba(16,185,129,.30);
+      --accent-wash:   rgba(16,185,129,.08);
+      --accent-glow:   rgba(16,185,129,.35);
+      --accent-hover:  #059669;
+      --accent-text:   #34D399;
+
+      --text:          #ECFDF5;
+      --text-sub:      #A7D4BF;
+      --text-muted:    #64937D;
+      --text-dim:      #3C6150;
+    }
+
+    /* ── 3. Arancione Fuoco (Solar Ember) ─────────────────── */
+    :root[data-theme="amber"] {
+      --bg-base:       #120904;
+      --bg-surface:    #1C1108;
+      --bg-raised:     #2A190D;
+      --bg-hover:      #382314;
+      --bg-input:      #160D06;
+      --scrim-strong:  rgba(28,17,8,.78);
+      --scrim-soft:    rgba(28,17,8,.25);
+
+      --border:        rgba(249,115,22,.14);
+      --border-mid:    rgba(249,115,22,.24);
+      --border-strong: rgba(249,115,22,.38);
+
+      --accent:        #F97316;
+      --accent-dim:    rgba(249,115,22,.15);
+      --accent-ring:   rgba(249,115,22,.32);
+      --accent-wash:   rgba(249,115,22,.08);
+      --accent-glow:   rgba(249,115,22,.35);
+      --accent-hover:  #EA580C;
+      --accent-text:   #FB923C;
+
+      --text:          #FFF7ED;
+      --text-sub:      #D9BAA4;
+      --text-muted:    #9C7D66;
+      --text-dim:      #624B3A;
+    }
+
+    /* ── 4. Bianco Perla (Luxury Porcelain Light) ────────── */
+    :root[data-theme="light"] {
+      color-scheme: light;
+      --bg-base:       #EDF1F7;
+      --bg-surface:    #FFFFFF;
+      --bg-raised:     #F8FAFC;
+      --bg-hover:      #E4E9F2;
+      --bg-input:      #FFFFFF;
+      --scrim-strong:  rgba(255,255,255,.90);
+      --scrim-soft:    rgba(255,255,255,.45);
+
+      --border:        rgba(15,23,42,.09);
+      --border-mid:    rgba(15,23,42,.16);
+      --border-strong: rgba(15,23,42,.26);
+
+      --accent:        #2563EB;
+      --accent-dim:    rgba(37,99,235,.10);
+      --accent-ring:   rgba(37,99,235,.26);
+      --accent-wash:   rgba(37,99,235,.07);
+      --accent-glow:   rgba(37,99,235,.22);
+      --accent-hover:  #1D4ED8;
+      --accent-text:   #1D4ED8;
+
+      --danger:        #DC2626;
+      --danger-dim:    rgba(220,38,38,.10);
+      --danger-ring:   rgba(220,38,38,.24);
+      --danger-solid:  #DC2626;
+
+      --blue:          #2563EB;
+      --blue-dim:      rgba(37,99,235,.10);
+      --blue-ring:     rgba(37,99,235,.24);
+      --green:         #059669;
+      --green-dim:     rgba(5,150,105,.10);
+      --green-ring:    rgba(5,150,105,.24);
+      --yellow:        #D97706;
+      --yellow-dim:    rgba(217,119,6,.12);
+      --yellow-ring:   rgba(217,119,6,.26);
+      --teal:          #0891B2;
+      --teal-dim:      rgba(8,145,178,.10);
+      --purple:        #7C3AED;
+      --purple-dim:    rgba(124,58,237,.10);
+      --orange:        #EA580C;
+      --orange-dim:    rgba(234,88,12,.10);
+      --orange-ring:   rgba(234,88,12,.26);
+
+      --text:          #0F172A;
+      --text-sub:      #334155;
+      --text-muted:    #64748B;
+      --text-dim:      #94A3B8;
+
+      --video-bg:      #000;
+    }
+
+    /* ── 5. Viola Galassia (Cosmic Violet) ────────────────── */
+    :root[data-theme="purple"] {
+      --bg-base:       #0B0716;
+      --bg-surface:    #130D26;
+      --bg-raised:     #1D1439;
+      --bg-hover:      #271C4C;
+      --bg-input:      #0E091E;
+      --scrim-strong:  rgba(19,13,38,.78);
+      --scrim-soft:    rgba(19,13,38,.25);
+
+      --border:        rgba(168,85,247,.12);
+      --border-mid:    rgba(168,85,247,.22);
+      --border-strong: rgba(168,85,247,.36);
+
+      --accent:        #9333EA;
+      --accent-dim:    rgba(147,51,234,.15);
+      --accent-ring:   rgba(147,51,234,.30);
+      --accent-wash:   rgba(147,51,234,.08);
+      --accent-glow:   rgba(147,51,234,.35);
+      --accent-hover:  #7E22CE;
+      --accent-text:   #C084FC;
+
+      --text:          #FAF5FF;
+      --text-sub:      #C6B7DD;
+      --text-muted:    #8A74A3;
+      --text-dim:      #5A486F;
+    }
+
+    /* ── 6. Ciano Abissale (Vapor Teal) ───────────────────── */
+    :root[data-theme="cyan"] {
+      --bg-base:       #040E14;
+      --bg-surface:    #091822;
+      --bg-raised:     #0E2331;
+      --bg-hover:      #143042;
+      --bg-input:      #07131B;
+      --scrim-strong:  rgba(9,24,34,.78);
+      --scrim-soft:    rgba(9,24,34,.25);
+
+      --border:        rgba(6,182,212,.12);
+      --border-mid:    rgba(6,182,212,.22);
+      --border-strong: rgba(6,182,212,.36);
+
+      --accent:        #06B6D4;
+      --accent-dim:    rgba(6,182,212,.15);
+      --accent-ring:   rgba(6,182,212,.30);
+      --accent-wash:   rgba(6,182,212,.08);
+      --accent-glow:   rgba(6,182,212,.35);
+      --accent-hover:  #0891B2;
+      --accent-text:   #22D3EE;
+
+      --text:          #ECFEFF;
+      --text-sub:      #9CD5E2;
+      --text-muted:    #5E8E9B;
+      --text-dim:      #3A5D66;
+    }
+
+    /* ── 7. Nero OLED (Pure AMOLED) ───────────────────────── */
+    :root[data-theme="oled"] {
+      --bg-base:       #000000;
+      --bg-surface:    #09090B;
+      --bg-raised:     #131316;
+      --bg-hover:      #1C1C22;
+      --bg-input:      #050507;
+      --scrim-strong:  rgba(0,0,0,.85);
+      --scrim-soft:    rgba(0,0,0,.35);
+
+      --border:        rgba(255,255,255,.08);
+      --border-mid:    rgba(255,255,255,.16);
+      --border-strong: rgba(255,255,255,.28);
+
+      --accent:        #E11D48;
+      --accent-dim:    rgba(225,29,72,.15);
+      --accent-ring:   rgba(225,29,72,.30);
+      --accent-wash:   rgba(225,29,72,.08);
+      --accent-glow:   rgba(225,29,72,.35);
+      --accent-hover:  #BE123C;
+      --accent-text:   #FB7185;
+
+      --text:          #FAFAFA;
+      --text-sub:      #A1A1AA;
+      --text-muted:    #71717A;
+      --text-dim:      #3F3F46;
+    }
+
+    /* ── 8. Rosso Rubino (Crimson Shadow) ─────────────────── */
+    :root[data-theme="crimson"] {
+      --bg-base:       #110608;
+      --bg-surface:    #1D0B0F;
+      --bg-raised:     #2B1218;
+      --bg-hover:      #3A1A22;
+      --bg-input:      #15070A;
+      --scrim-strong:  rgba(29,11,15,.78);
+      --scrim-soft:    rgba(29,11,15,.25);
+
+      --border:        rgba(225,29,72,.14);
+      --border-mid:    rgba(225,29,72,.24);
+      --border-strong: rgba(225,29,72,.38);
+
+      --accent:        #DC2626;
+      --accent-dim:    rgba(220,38,38,.15);
+      --accent-ring:   rgba(220,38,38,.32);
+      --accent-wash:   rgba(220,38,38,.08);
+      --accent-glow:   rgba(220,38,38,.35);
+      --accent-hover:  #B91C1C;
+      --accent-text:   #F87171;
+
+      --text:          #FFF1F2;
+      --text-sub:      #D9B4B8;
+      --text-muted:    #9C777C;
+      --text-dim:      #624247;
+    }
+
+    /* Light mode scrollbar adjustments */
+    :root[data-theme="light"] ::-webkit-scrollbar-thumb {
+      background: rgba(15,23,42,.14);
+    }
+    :root[data-theme="light"] ::-webkit-scrollbar-thumb:hover {
+      background: rgba(15,23,42,.25);
+    }
+    :root[data-theme="light"] .bg-secondary-lt {
+      background: rgba(15,23,42,.06) !important;
+      color: var(--text-muted) !important;
+    }
+    :root[data-theme="light"] .bg-secondary {
+      background: rgba(15,23,42,.08) !important;
+      color: var(--text-muted) !important;
+    }
+    :root[data-theme="light"] .modal-backdrop {
+      background: rgba(15,23,42,.35) !important;
+    }
+

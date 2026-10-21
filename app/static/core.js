@@ -68,6 +68,10 @@ async function initAuth() {
 
   _authEnabled = _me.auth_enabled !== false;
 
+  if (_me && _me.user && _me.user.theme) {
+    applyTheme(_me.user.theme, false);
+  }
+
   const initials = (_me.user.username || '?').slice(0, 2).toUpperCase();
   const roleText = _roleLabel();
 
@@ -197,6 +201,10 @@ function fmtEta(sec) {
 function showModal(id) {
   const el = document.getElementById(id);
   if (!el) return;
+  // Blur currently focused element so button clicks don't swallow Space/keys
+  if (document.activeElement && typeof document.activeElement.blur === 'function') {
+    document.activeElement.blur();
+  }
   el.style.display = 'block';
   el.classList.add('show');
   el.setAttribute('aria-modal', 'true');
@@ -207,6 +215,13 @@ function showModal(id) {
     document.body.appendChild(bd);
   }
   document.body.classList.add('modal-open');
+
+  const v = el.querySelector('video');
+  if (v) {
+    setTimeout(() => {
+      try { v.focus(); } catch (_) {}
+    }, 100);
+  }
 }
 function hideModal(id) {
   const el = document.getElementById(id);
@@ -250,11 +265,252 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Close open modal on Escape key
+// Close open modal on Escape key (only if not currently exiting browser fullscreen)
 document.addEventListener('keydown', (e) => {
   if (e.key === 'Escape' || e.key === 'Esc') {
+    if (document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement) {
+      return;
+    }
     const openModals = document.querySelectorAll('.modal.show, .modal[style*="display: block"]');
     openModals.forEach(m => hideModal(m.id));
+  }
+});
+
+// ── Global Video Player Controls & Hotkeys ───────────────────────────────────
+
+function isTypingContext(target) {
+  if (!target) return false;
+  const tag = target.tagName;
+  if (tag === 'INPUT') {
+    const type = (target.type || 'text').toLowerCase();
+    return !['checkbox', 'radio', 'button', 'submit', 'reset', 'range'].includes(type);
+  }
+  if (tag === 'TEXTAREA' || tag === 'SELECT') return true;
+  if (target.isContentEditable) return true;
+  return false;
+}
+
+function getActiveVideoPlayer() {
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+  if (fsEl) {
+    if (fsEl.tagName === 'VIDEO') return fsEl;
+    const vInFs = fsEl.querySelector('video');
+    if (vInFs) return vInFs;
+  }
+  const streamVideo = document.getElementById('stream-video-player');
+  if (streamVideo && streamVideo.webkitDisplayingFullscreen) return streamVideo;
+  const localVideo = document.getElementById('video-player');
+  if (localVideo && localVideo.webkitDisplayingFullscreen) return localVideo;
+
+  const streamModal = document.getElementById('stream-player-modal');
+  if (streamModal && (streamModal.classList.contains('show') || streamModal.style.display === 'block')) {
+    if (streamVideo && streamVideo.style.display !== 'none') return streamVideo;
+  }
+  const playerModal = document.getElementById('player-modal');
+  if (playerModal && (playerModal.classList.contains('show') || playerModal.style.display === 'block')) {
+    if (localVideo && localVideo.style.display !== 'none') return localVideo;
+  }
+  const videos = document.querySelectorAll('video');
+  for (const v of videos) {
+    if (!v.paused && v.offsetWidth > 0 && v.offsetHeight > 0) return v;
+  }
+  if (streamModal && (streamModal.classList.contains('show') || streamModal.style.display === 'block')) {
+    if (streamVideo) return streamVideo;
+  }
+  if (playerModal && (playerModal.classList.contains('show') || playerModal.style.display === 'block')) {
+    if (localVideo) return localVideo;
+  }
+  return null;
+}
+
+function refocusActivePlayer() {
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+  const video = fsEl ? (fsEl.tagName === 'VIDEO' ? fsEl : fsEl.querySelector('video')) : getActiveVideoPlayer();
+  if (video) {
+    if (document.activeElement && document.activeElement !== video) {
+      try { document.activeElement.blur(); } catch (_) {}
+    }
+    try {
+      video.focus({ preventScroll: true });
+    } catch (_) {
+      try { video.focus(); } catch (_) {}
+    }
+  }
+}
+
+function togglePlayerFullscreen(specificVideo) {
+  const video = specificVideo || getActiveVideoPlayer();
+  if (!video) return;
+
+  const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+  if (!isFullscreen) {
+    if (video.requestFullscreen) {
+      video.requestFullscreen().catch(() => {
+        if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+      });
+    } else if (video.webkitRequestFullscreen) {
+      video.webkitRequestFullscreen();
+    } else if (video.msRequestFullscreen) {
+      video.msRequestFullscreen();
+    } else if (document.documentElement.requestFullscreen) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    }
+  } else {
+    if (document.exitFullscreen) {
+      document.exitFullscreen().catch(() => {});
+    } else if (document.webkitExitFullscreen) {
+      document.webkitExitFullscreen();
+    } else if (document.msExitFullscreen) {
+      document.msExitFullscreen();
+    }
+  }
+}
+
+// When entering or exiting fullscreen, refocus the video and update UI button icons
+['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
+  document.addEventListener(evt, () => {
+    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+    document.querySelectorAll('#stream-player-fs-btn i, #player-fs-btn i').forEach(icon => {
+      icon.className = isFullscreen ? 'ti ti-minimize' : 'ti ti-maximize';
+    });
+    refocusActivePlayer();
+    setTimeout(refocusActivePlayer, 50);
+    setTimeout(refocusActivePlayer, 150);
+  });
+});
+
+let _lastHandledKeyTime = 0;
+let _lastHandledKey = '';
+
+function handlePlayerKeyDown(e) {
+  if (isTypingContext(e.target)) return;
+
+  const key = e.key;
+  const code = e.code;
+  const isSpace = code === 'Space' || key === ' ' || key === 'Spacebar';
+  const isPlayPause = isSpace || key === 'k' || key === 'K';
+  const isSeekRight = key === 'ArrowRight' || key === 'l' || key === 'L';
+  const isSeekLeft = key === 'ArrowLeft' || key === 'j' || key === 'J';
+  const isVolUp = key === 'ArrowUp';
+  const isVolDown = key === 'ArrowDown';
+  const isMute = key === 'm' || key === 'M';
+  const isFs = key === 'f' || key === 'F';
+
+  if (!isPlayPause && !isSeekRight && !isSeekLeft && !isVolUp && !isVolDown && !isMute && !isFs) {
+    return;
+  }
+
+  const video = getActiveVideoPlayer();
+  if (!video) return;
+
+  // Discard key repetitions for toggle actions (play/pause, fullscreen, mute)
+  if (e.repeat && (isPlayPause || isFs || isMute)) {
+    e.preventDefault();
+    return;
+  }
+
+  e.preventDefault();
+  e.stopImmediatePropagation();
+
+  if (document.activeElement && document.activeElement !== video && document.activeElement.tagName === 'BUTTON') {
+    try { document.activeElement.blur(); } catch (_) {}
+  }
+
+  // Spacebar or 'k' / 'K': Play / Pause toggle
+  if (isPlayPause) {
+    if (video.paused) {
+      video.play().catch(() => {});
+    } else {
+      video.pause();
+    }
+    return;
+  }
+
+  // ArrowRight or 'l' / 'L': Seek +10 seconds
+  if (isSeekRight) {
+    video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 10);
+    return;
+  }
+
+  // ArrowLeft or 'j' / 'J': Seek -10 seconds
+  if (isSeekLeft) {
+    video.currentTime = Math.max(0, video.currentTime - 10);
+    return;
+  }
+
+  // ArrowUp: Volume +10%
+  if (isVolUp) {
+    video.volume = Math.min(1, Math.round((video.volume + 0.1) * 10) / 10);
+    video.muted = false;
+    return;
+  }
+
+  // ArrowDown: Volume -10%
+  if (isVolDown) {
+    video.volume = Math.max(0, Math.round((video.volume - 0.1) * 10) / 10);
+    return;
+  }
+
+  // 'm' or 'M': Mute / Unmute
+  if (isMute) {
+    video.muted = !video.muted;
+    return;
+  }
+
+  // 'f' or 'F': Fullscreen toggle directly on the video element (pure video, full screen)
+  if (isFs) {
+    togglePlayerFullscreen(video);
+    return;
+  }
+}
+
+// Intercept hotkeys on window in capture phase
+window.addEventListener('keydown', handlePlayerKeyDown, true);
+
+// Focus video on pointerdown to guarantee it receives keyboard input
+document.addEventListener('pointerdown', (e) => {
+  if (e.target && e.target.tagName === 'VIDEO') {
+    try { e.target.focus({ preventScroll: true }); } catch (_) {}
+  }
+}, true);
+
+// Auto-focus video when a modal opens
+document.addEventListener('shown.bs.modal', (e) => {
+  const vid = e.target && e.target.querySelector ? e.target.querySelector('video') : null;
+  if (vid) {
+    try { vid.focus({ preventScroll: true }); } catch (_) {}
+  }
+});
+
+// Click directly on video element toggles play/pause (ignoring bottom control bar area)
+let _lastVideoClickTime = 0;
+document.addEventListener('click', (e) => {
+  if (e.target && e.target.tagName === 'VIDEO') {
+    const video = e.target;
+    try { video.focus({ preventScroll: true }); } catch (_) {}
+    const rect = video.getBoundingClientRect();
+    const isNearBottom = (e.clientY - rect.top) > (rect.height - 56);
+    if (!isNearBottom) {
+      const now = performance.now();
+      if (now - _lastVideoClickTime > 250) {
+        if (video.paused) video.play().catch(() => {});
+        else video.pause();
+      }
+      _lastVideoClickTime = now;
+    }
+  }
+});
+
+// Double click on video toggles fullscreen
+document.addEventListener('dblclick', (e) => {
+  if (e.target && e.target.tagName === 'VIDEO') {
+    const video = e.target;
+    const rect = video.getBoundingClientRect();
+    const isNearBottom = (e.clientY - rect.top) > (rect.height - 56);
+    if (!isNearBottom) {
+      e.preventDefault();
+      togglePlayerFullscreen(video);
+    }
   }
 });
 
@@ -419,4 +675,210 @@ registerActions({
   // The button sits inside the .alert; the positioned wrapper is its parent,
   // and that is what has to go, or an invisible box keeps covering the corner.
   'toast:dismiss':  (d, el) => el.closest('.alert')?.parentElement?.remove(),
+  'theme:toggle':   () => toggleThemePanel(),
+  'theme:select':   d => {
+    applyTheme(d.theme);
+    const th = THEMES.find(t => t.id === d.theme);
+    showToast(`Tema "${th ? th.name : d.theme}" applicato`, 'success');
+  },
+  'player:toggleFullscreen': () => togglePlayerFullscreen(),
 });
+
+
+// ── Theming System ─────────────────────────────────────────────────────────────
+
+const THEMES = [
+  {
+    id: 'default',
+    name: 'Blu Notte',
+    tag: 'Classico',
+    desc: 'L\'iconica palette dark navy con accenti blu cobalto e bagliori al neon.',
+    bg: '#070A12',
+    surface: '#10151F',
+    accent: '#3D6BF5',
+    isLight: false,
+  },
+  {
+    id: 'rose',
+    name: 'Rosa Neon',
+    tag: 'Cyberpunk',
+    desc: 'Atmosfera dark velvet con intensi riflessi rosa acceso e sfumature prugna.',
+    bg: '#0E0713',
+    surface: '#170D20',
+    accent: '#F43F85',
+    isLight: false,
+  },
+  {
+    id: 'emerald',
+    name: 'Verde Smeraldo',
+    tag: 'Matrix',
+    desc: 'Fondo ossidiana e riflessi verde smeraldo / menta ad alta visibilità.',
+    bg: '#05120B',
+    surface: '#0A1E14',
+    accent: '#10B981',
+    isLight: false,
+  },
+  {
+    id: 'amber',
+    name: 'Arancione Fuoco',
+    tag: 'Solare',
+    desc: 'Tonalità calde carbone con contrasti solari ambra e arancione tramonto.',
+    bg: '#120904',
+    surface: '#1C1108',
+    accent: '#F97316',
+    isLight: false,
+  },
+  {
+    id: 'light',
+    name: 'Bianco Perla',
+    tag: 'Luminoso',
+    desc: 'Stile chiaro, pulito e moderno con superfici bianco porcellana e blu zaffiro.',
+    bg: '#EDF1F7',
+    surface: '#FFFFFF',
+    accent: '#2563EB',
+    isLight: true,
+  },
+  {
+    id: 'purple',
+    name: 'Viola Galassia',
+    tag: 'Cosmico',
+    desc: 'Nero galattico con riflessi ultravioletti e ametista misteriosi ed eleganti.',
+    bg: '#0B0716',
+    surface: '#130D26',
+    accent: '#9333EA',
+    isLight: false,
+  },
+  {
+    id: 'cyan',
+    name: 'Ciano Abissale',
+    tag: 'Vaporwave',
+    desc: 'Nero abisso profondo con accenti ciano elettrico e bagliori oceanici.',
+    bg: '#040E14',
+    surface: '#091822',
+    accent: '#06B6D4',
+    isLight: false,
+  },
+  {
+    id: 'oled',
+    name: 'Nero OLED',
+    tag: 'AMOLED',
+    desc: 'Nero assoluto 100% per il massimo risparmio energetico e contrasto crimson.',
+    bg: '#000000',
+    surface: '#09090B',
+    accent: '#E11D48',
+    isLight: false,
+  },
+  {
+    id: 'crimson',
+    name: 'Rosso Rubino',
+    tag: 'Passione',
+    desc: 'Tonalità dark crimson sofisticata con accenti rosso fuoco decisi.',
+    bg: '#110608',
+    surface: '#1D0B0F',
+    accent: '#DC2626',
+    isLight: false,
+  },
+];
+
+function getCurrentTheme() {
+  return document.documentElement.getAttribute('data-theme') || 'default';
+}
+
+function applyTheme(themeId, saveToServer = true) {
+  const targetTheme = THEMES.some(t => t.id === themeId) ? themeId : 'default';
+
+  if (targetTheme === 'default') {
+    document.documentElement.removeAttribute('data-theme');
+  } else {
+    document.documentElement.setAttribute('data-theme', targetTheme);
+  }
+
+  try {
+    localStorage.setItem('sc_theme', targetTheme);
+  } catch (e) {}
+
+  updateThemeUI(targetTheme);
+
+  if (saveToServer && _me && _me.user && _me.user.id) {
+    _saveThemeToServer(targetTheme);
+  }
+}
+
+async function _saveThemeToServer(themeId) {
+  try {
+    const res = await _nativeFetch('/api/auth/theme', _withCsrfHeader({
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ theme: themeId }),
+    }, 'PUT'));
+    if (res.ok && _me && _me.user) {
+      _me.user.theme = themeId;
+    }
+  } catch (err) {
+    console.warn('Could not save theme to server', err);
+  }
+}
+
+function updateThemeUI(activeTheme = getCurrentTheme()) {
+  const currentObj = THEMES.find(t => t.id === activeTheme) || THEMES[0];
+
+  // Update header theme panel items
+  renderHeaderThemeOptions(activeTheme);
+
+  // Update Settings page badge and cards if rendered
+  const currentBadge = document.getElementById('current-theme-name');
+  if (currentBadge) currentBadge.textContent = currentObj.name;
+
+  document.querySelectorAll('.theme-card').forEach(card => {
+    const isThis = card.dataset.theme === activeTheme;
+    card.classList.toggle('is-active', isThis);
+    const btn = card.querySelector('.btn-theme-apply');
+    if (btn) {
+      btn.className = isThis ? 'btn btn-sm btn-primary' : 'btn btn-sm btn-secondary';
+      btn.innerHTML = isThis ? '<i class="ti ti-check me-1"></i>Attivo' : 'Seleziona';
+    }
+  });
+}
+
+function renderHeaderThemeOptions(activeTheme = getCurrentTheme()) {
+  const container = document.getElementById('theme-options-list');
+  if (!container) return;
+
+  container.innerHTML = THEMES.map(t => {
+    const isActive = t.id === activeTheme;
+    return `
+      <button class="theme-option-btn ${isActive ? 'is-active' : ''}" data-action="theme:select" data-theme="${t.id}" type="button">
+        <div class="theme-swatch-pill" style="background:${t.bg}; border-color:${t.isLight ? 'rgba(0,0,0,.15)' : 'rgba(255,255,255,.15)'}">
+          <div class="theme-swatch-dot" style="background:${t.accent}; color:${t.accent};"></div>
+        </div>
+        <div class="theme-option-info">
+          <div class="theme-option-name">${escapeHtml(t.name)}</div>
+          <div class="theme-option-desc">${escapeHtml(t.tag)} &bull; ${escapeHtml(t.desc)}</div>
+        </div>
+        <i class="ti ti-check theme-option-check"></i>
+      </button>
+    `;
+  }).join('');
+}
+
+function toggleThemePanel() {
+  const panel = document.getElementById('theme-panel');
+  if (!panel) return;
+  const opening = panel.style.display === 'none' || !panel.style.display;
+  panel.style.display = opening ? 'block' : 'none';
+  if (opening) {
+    renderHeaderThemeOptions();
+    // Close notifications panel if open
+    const notif = document.getElementById('notif-panel');
+    if (notif) notif.style.display = 'none';
+  }
+}
+
+document.addEventListener('click', event => {
+  const panel = document.getElementById('theme-panel');
+  if (!panel || panel.style.display === 'none') return;
+  if (!event.target.closest('#theme-panel') && !event.target.closest('[data-action="theme:toggle"]')) {
+    panel.style.display = 'none';
+  }
+});
+

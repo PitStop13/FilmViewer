@@ -6,7 +6,7 @@ import shutil
 import time
 import threading
 import warnings
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait, FIRST_COMPLETED
 
 import requests
 import ffmpeg
@@ -382,7 +382,7 @@ class M3U8_Segments:
         os.makedirs(self.temp_folder, exist_ok=True)
 
         self.progress_factory = progress_factory
-        self.progress_timeout = 30
+        self.progress_timeout = 120
         self.max_retry = 3
         self._failed_segments = set()
         self._saved_count = 0
@@ -396,12 +396,17 @@ class M3U8_Segments:
         self._workers = max(1, int(get_settings().get("max_segment_workers", 16)))
         self._budget = segment_budget(self._workers)
         self._session = _new_session(self._workers)
-
-        # One user-agent for the whole download, not one per request.
-        # get_headers() builds a rotator and picks again on every call, so a
-        # single film sent thousands of different agents down what is now one
-        # connection — wasted work, and exactly the shape a CDN rate-limits.
         self._user_agent = get_headers()
+
+        if self._cancel and hasattr(self._cancel, "add_callback"):
+            self._cancel.add_callback(self._on_cancel)
+
+    def _on_cancel(self):
+        self._abort.set()
+        try:
+            self._session.close()
+        except Exception:
+            pass
 
     def parse_data(self, m3u8_content):
         m3u8_parser = M3U8_Parser()
@@ -499,7 +504,7 @@ class M3U8_Segments:
         Returns the bytes, or None once the segment is given up on.
         """
         for attempt in range(self.max_retry):
-            if self._cancel and self._cancel.is_set():
+            if (self._cancel and self._cancel.is_set()) or self._abort.is_set():
                 return None
             asked_for = None
             try:
@@ -508,9 +513,11 @@ class M3U8_Segments:
                 # willing to give to someone else.
                 with self._budget:
                     response = self._session.get(
-                        ts_url, headers=self._headers(), timeout=(5, 12)
+                        ts_url, headers=self._headers(), timeout=(10, 45)
                     )
             except Exception as e:
+                if (self._cancel and self._cancel.is_set()) or self._abort.is_set():
+                    return None
                 # A refused or timed-out connection under load says the same
                 # thing a 503 does, and used to be the one form of pushback the
                 # limiter never heard about.
@@ -519,6 +526,8 @@ class M3U8_Segments:
                 logger.warning("Segment exception (attempt %d/%d): %s",
                                attempt + 1, self.max_retry, e)
             else:
+                if (self._cancel and self._cancel.is_set()) or self._abort.is_set():
+                    return None
                 if response.status_code == 200:
                     self._budget.reward()
                     return response.content
@@ -535,11 +544,15 @@ class M3U8_Segments:
                 # the attempt already made still counts: bailing out before ever
                 # asking is what made an early abort cascade through every
                 # segment still in flight.
-                if self._abort.is_set():
+                if (self._cancel and self._cancel.is_set()) or self._abort.is_set():
                     return None
                 # The source's own number wins over our guess when it sent one.
-                time.sleep(asked_for if asked_for is not None
-                           else _segment_backoff(attempt))
+                delay = asked_for if asked_for is not None else _segment_backoff(attempt)
+                if self._cancel:
+                    if self._cancel.wait(delay):
+                        return None
+                else:
+                    time.sleep(delay)
         return None
 
     def _write_ts(self, index, content):
@@ -581,9 +594,7 @@ class M3U8_Segments:
                      streak, lost, len(self.segments))
 
     def save_ts(self, index, progress_counter, quit_event):
-        if self._cancel and self._cancel.is_set():
-            return
-        if self._abort.is_set():
+        if (self._cancel and self._cancel.is_set()) or self._abort.is_set():
             return
         ts_url = self.segments[index]
         ts_filename = os.path.join(self.temp_folder, f"{index}.ts")
@@ -604,7 +615,11 @@ class M3U8_Segments:
             # Empty content counts as a failure: it would otherwise write a
             # zero-byte file, which then looks like a segment that is present.
             if not ts_content:
+                if (self._cancel and self._cancel.is_set()) or self._abort.is_set():
+                    return
                 self._record_failure(index, ts_url)
+                return
+            if (self._cancel and self._cancel.is_set()) or self._abort.is_set():
                 return
             self._write_ts(index, ts_content)
             downloaded_bytes = len(ts_content)
@@ -635,29 +650,32 @@ class M3U8_Segments:
         )
         timer_thread.start()
 
+        executor = ThreadPoolExecutor(max_workers=self._workers)
         try:
-            with ThreadPoolExecutor(max_workers=self._workers) as executor:
-                futures = []
-                for index in range(len(self.segments)):
-                    if timeout_event.is_set() or self._abort.is_set():
-                        break
-                    if self._cancel and self._cancel.is_set():
-                        cancelled = True
-                        break
-                    futures.append(executor.submit(self.save_ts, index, progress_counter, quit_event))
+            futures = []
+            for index in range(len(self.segments)):
+                if timeout_event.is_set() or self._abort.is_set():
+                    break
+                if self._cancel and self._cancel.is_set():
+                    cancelled = True
+                    self._on_cancel()
+                    break
+                futures.append(executor.submit(self.save_ts, index, progress_counter, quit_event))
 
-                for future in as_completed(futures):
-                    if timeout_event.is_set() or self._abort.is_set():
-                        for f in futures:
-                            f.cancel()
-                        break
-                    if self._cancel and self._cancel.is_set():
-                        cancelled = True
-                        for f in futures:
-                            f.cancel()
-                        break
+            pending = set(futures)
+            while pending:
+                if self._cancel and self._cancel.is_set():
+                    cancelled = True
+                    self._on_cancel()
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    break
+                if timeout_event.is_set() or self._abort.is_set():
+                    executor.shutdown(wait=False, cancel_futures=True)
+                    break
+                done, pending = wait(pending, timeout=0.2, return_when=FIRST_COMPLETED)
+                for f in done:
                     try:
-                        future.result()
+                        f.result()
                     except Exception as e:
                         logger.error(f"Segment error: {e}")
 
@@ -665,9 +683,9 @@ class M3U8_Segments:
             # against the parallel pass, and the retry below is deliberately
             # slow and one request at a time.
             quit_event.set()
-            timer_thread.join()
+            timer_thread.join(timeout=1.0)
 
-            if cancelled:
+            if cancelled or (self._cancel and self._cancel.is_set()):
                 raise DownloadCancelledError("Download annullato dall'utente")
 
             # Both of these used to fall through to the join, which then wrote
@@ -687,16 +705,13 @@ class M3U8_Segments:
             self._retry_failed_sequentially(progress_counter)
             self._require_every_segment()
         finally:
-            # Closed here and not before the retry pass: a segment recovered
-            # sequentially has to reach the bar, or a download that lost some
-            # segments early stops short of its total and never emits the event
-            # that says the phase is finished.
             progress_counter.close()
             quit_event.set()
-            timer_thread.join()
-            # Nothing after this fetches anything — join() only reads the files
-            # already on disk — so the pooled connections are released here
-            # rather than waiting on the garbage collector.
+            timer_thread.join(timeout=1.0)
+            try:
+                executor.shutdown(wait=False, cancel_futures=True)
+            except Exception:
+                pass
             self._session.close()
 
     def _retry_failed_sequentially(self, progress_counter):
@@ -770,6 +785,8 @@ class M3U8_Segments:
         last_count = 0
 
         while not quit_event.is_set():
+            if self._cancel and self._cancel.is_set():
+                break
             current_count = progress_counter.n
             if current_count != last_count:
                 start_time = time.time()
@@ -781,7 +798,8 @@ class M3U8_Segments:
                 quit_event.set()
                 break
 
-            time.sleep(1)
+            if quit_event.wait(0.2):
+                break
 
         progress_counter.refresh()
 
@@ -861,6 +879,8 @@ class M3U8_Downloader:
         self.audio_paths: list[str] = []
 
     def start(self):
+        if self.cancel_event and self.cancel_event.is_set():
+            raise DownloadCancelledError("Download annullato dall'utente")
         video_temp = os.path.join(self.temp_dir, "video")
         video_m3u8 = M3U8_Segments(self.m3u8_url, self.key,
                                     temp_dir=video_temp,
@@ -871,11 +891,15 @@ class M3U8_Downloader:
         logger.info("Downloading video segments...")
         video_m3u8.get_info()
         video_m3u8.download_ts()
+        if self.cancel_event and self.cancel_event.is_set():
+            raise DownloadCancelledError("Download annullato dall'utente")
         bar = getattr(video_m3u8, "_bar", None)
         video_m3u8.join(self.video_path)
 
         if self.audio_track_urls:
             for i, track in enumerate(self.audio_track_urls):
+                if self.cancel_event and self.cancel_event.is_set():
+                    raise DownloadCancelledError("Download annullato dall'utente")
                 lang = track.get("language", "und")
                 phase_label = f"audio_{lang}"
                 if bar and hasattr(bar, "emit_status"):
@@ -891,6 +915,8 @@ class M3U8_Downloader:
                 logger.info("Downloading audio track %d (%s)...", i + 1, lang)
                 audio_m3u8.get_info()
                 audio_m3u8.download_ts()
+                if self.cancel_event and self.cancel_event.is_set():
+                    raise DownloadCancelledError("Download annullato dall'utente")
                 audio_path = os.path.join(self.temp_dir, f"_audio_{i}.mp4")
                 audio_m3u8.join(audio_path)
                 self.audio_paths.append({"path": audio_path, "language": lang})

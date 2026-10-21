@@ -241,4 +241,4 @@ def test_public_allowlist_stays_small():
         "/api/auth/skip",
         "/mcp",
     }
-    assert SESSION_ONLY_PATHS == {"/api/auth/me", "/api/auth/logout"}
+    assert SESSION_ONLY_PATHS == {"/api/auth/me", "/api/auth/logout", "/api/auth/theme"}

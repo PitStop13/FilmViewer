@@ -69,11 +69,27 @@ function connectGlobalStream() {
       case 'done':
         handleDoneEvent(msg.job_id, msg.output_path);
         break;
+      case 'cancelled':
+        handleCancelledEvent(msg.job_id, msg.message || 'Fermato');
+        break;
       case 'error':
-        handleErrorEvent(msg.job_id, msg.message);
+        if (msg.message === 'Annullato' || msg.message === 'Fermato' || msg.message === "Download annullato dall'utente") {
+          handleCancelledEvent(msg.job_id, 'Fermato');
+        } else {
+          handleErrorEvent(msg.job_id, msg.message);
+        }
         break;
       case 'job_dismissed':
         _jobs.delete(msg.job_id);
+        delete _jobPhases[msg.job_id];
+        const dismissedCard = document.getElementById(`job-card-${msg.job_id}`);
+        if (dismissedCard) {
+          const groupBody = dismissedCard.closest('.job-group-body');
+          dismissedCard.remove();
+          if (groupBody && !groupBody.children.length) {
+            groupBody.closest('.job-group')?.remove();
+          }
+        }
         renderAllJobCards();
         updateActiveBadge();
         break;
@@ -124,24 +140,24 @@ function connectGlobalStream() {
 const PHASE_LABELS = {
   scheduled:'Programmato', queued:'In attesa', running:'In corso',
   video:'Video', joining:'Finalizzazione',
-  audio:'Audio', merging:'Unione', done:'Completato', error:'Errore', cancelled:'Annullato',
+  audio:'Audio', merging:'Unione', done:'Completato', error:'Errore', cancelled:'Fermato',
 };
 const PHASE_BADGE = {
   scheduled:'bg-yellow-lt', queued:'bg-secondary-lt', running:'bg-blue-lt',
   video:'bg-blue-lt', joining:'bg-yellow-lt',
   audio:'bg-teal-lt', merging:'bg-purple-lt', done:'bg-success-lt',
-  error:'bg-danger-lt', cancelled:'bg-secondary-lt',
+  error:'bg-danger-lt', cancelled:'bg-warning-lt',
 };
 const PHASE_BAR = {
   running:'bg-blue', video:'bg-blue', joining:'phase-bar-joining bg-warning',
   audio:'phase-bar-audio bg-teal', merging:'phase-bar-merging bg-purple',
-  done:'phase-bar-done bg-success', error:'phase-bar-error bg-danger', cancelled:'phase-bar-error bg-danger',
+  done:'phase-bar-done bg-success', error:'phase-bar-error bg-danger', cancelled:'bg-warning',
 };
 const PHASE_BORDER_MAP = {
   scheduled:'var(--yellow)', queued:'var(--text-dim)', running:'var(--blue)',
   video:'var(--blue)', joining:'var(--yellow)',
   audio:'var(--teal)', merging:'var(--purple)', done:'var(--green)',
-  error:'var(--danger)', cancelled:'var(--text-dim)',
+  error:'var(--danger)', cancelled:'var(--yellow)',
 };
 
 // Short by design: these are cells on a rail, not sentences. An audio phase
@@ -225,7 +241,7 @@ function _phaseBorder(phase) {
 // is null and only what has actually arrived is claimed.
 function _jobInfoText(progress, status) {
   if (!progress) return '';
-  const active = status === 'running';
+  const active = status === 'running' || status === 'queued';
   const done = progress.bytes_done || 0;
   const expected = progress.bytes_total;
 
@@ -235,14 +251,16 @@ function _jobInfoText(progress, status) {
       ? formatSize(done)
       : `${formatSize(done)} di ~${formatSize(expected)}`;
   }
-  const speed = active
+  const speed = (status === 'running')
     ? (progress.bytes_speed > 0 ? formatSize(progress.bytes_speed) + '/s'
        : (progress.speed > 0 ? `${progress.speed} seg/s` : ''))
     : '';
-  const eta = active && progress.eta ? fmtEta(progress.eta) : '';
-  const pct = active && progress.pct ? `${progress.pct}%` : '';
+  const eta = (status === 'running') && progress.eta ? fmtEta(progress.eta) : '';
+  const pct = (active || status === 'cancelled') && progress.pct ? `${progress.pct}%` : '';
 
-  return [size, speed, eta, pct].filter(Boolean).join(' · ');
+  const res = [size, speed, eta, pct].filter(Boolean).join(' · ');
+  if (!res && status === 'running') return 'Download in corso...';
+  return res;
 }
 
 // Built in one place because the card renders them twice: once when it is
@@ -285,10 +303,12 @@ function _waitingText(j) {
 
 function _failedBtnsHtml(jobId, status) {
   const isCancelled = status === 'cancelled';
-  const title = isCancelled ? 'Riprendi download' : 'Riprova';
+  const title = isCancelled ? 'Continua download' : 'Riprova';
+  const icon = isCancelled ? 'ti-player-play' : 'ti-reload';
+  const btnClass = isCancelled ? 'btn-outline-success' : 'btn-outline-primary';
   const retry = can('DOWNLOAD')
-    ? `<button class="btn btn-sm btn-outline-primary ms-1" data-action="jobs:retry"
-               data-job="${jobId}" title="${title}"><i class="ti ti-reload"></i></button>`
+    ? `<button class="btn btn-sm ${btnClass} ms-1" data-action="jobs:retry"
+               data-job="${jobId}" title="${title}"><i class="ti ${icon}"></i></button>`
     : '';
   return retry + `<button class="btn btn-sm btn-outline-secondary ms-1" data-action="jobs:dismiss"
                   data-job="${jobId}" title="Rimuovi dall'elenco"><i class="ti ti-x"></i></button>`;
@@ -325,7 +345,7 @@ function _buildJobCard(j) {
   const dateLabel = j.scheduled_at ? `⏰ ${dateStr}` : dateStr;
 
   const stepsHtml = _buildStepsHtml(j.job_id, j.phases, phase, j.status);
-  return `<div class="card mb-2 job-card${j.status==='done'?' is-done':''}${j.status==='error'?' is-error':''}" id="job-card-${j.job_id}" style="border-left:3px solid ${borderColor} !important">
+  return `<div class="card mb-2 job-card${j.status==='done'?' is-done':''}${j.status==='error'?' is-error':''}${j.status==='cancelled'?' is-cancelled':''}" id="job-card-${j.job_id}" style="border-left:3px solid ${borderColor} !important">
     <div class="card-body py-2 px-3">
       <div class="d-flex align-items-center gap-2">
         <span class="badge ${isMovie?'bg-blue-lt':isAnimeJob?'bg-purple-lt':'bg-green-lt'} flex-shrink-0">${isMovie?'Film':isAnimeJob?'Anime':'TV'}</span>
@@ -339,7 +359,7 @@ function _buildJobCard(j) {
         <div class="progress-bar ${barClass}${animated} job-progress-bar" id="job-bar-${j.job_id}" style="width:${barWidth}%"></div>
       </div>
       <div class="d-flex justify-content-between align-items-center">
-        <small class="text-muted" id="job-info-${j.job_id}"${infoTitle}>${infoStr || (j.status==='error' ? escapeHtml(j.error||'Errore') : (j.status==='done'?'Completato':''))}</small>
+        <small class="text-muted" id="job-info-${j.job_id}"${infoTitle}>${infoStr || (j.status==='error' ? escapeHtml(j.error||'Errore') : (j.status==='cancelled' ? 'Fermato' : (j.status==='done'?'Completato':'')))}</small>
         <small class="text-muted">${dateLabel}</small>
       </div>
     </div>
@@ -533,6 +553,7 @@ function refreshCardAppearance(jobId) {
   // Update card classes and border
   card.classList.toggle('is-done', j.status==='done');
   card.classList.toggle('is-error', j.status==='error');
+  card.classList.toggle('is-cancelled', j.status==='cancelled');
   card.style.borderLeftColor = _phaseBorder(phase);
 
   // Update badge
@@ -566,7 +587,7 @@ function refreshCardAppearance(jobId) {
     if (j.status==='error') info.textContent = j.error||'Errore';
     else if (j.status==='queued' && !j.retry_at) info.textContent = _waitingText(j);
     else if (j.status==='done') info.textContent = 'Completato';
-    else if (j.status==='cancelled') info.textContent = 'Annullato';
+    else if (j.status==='cancelled') info.textContent = _jobInfoText(j.progress, 'cancelled') || 'Fermato';
   }
 
   updateActiveSection();
@@ -668,7 +689,41 @@ function handleDoneEvent(jobId, outputPath) {
   if (document.getElementById('page-files')?.style.display!=='none') loadFiles();
 }
 
+function handleCancelledEvent(jobId, message = 'Fermato') {
+  delete _jobPhases[jobId];
+  const job = _jobs.get(jobId);
+  if (job) { job.status = 'cancelled'; job.error = message; }
+
+  const card = document.getElementById(`job-card-${jobId}`);
+  if (card) {
+    card.classList.remove('is-error');
+    card.classList.add('is-cancelled');
+  }
+  const badge = document.getElementById(`job-badge-${jobId}`);
+  if (badge) {
+    badge.className = 'badge bg-warning-lt flex-shrink-0';
+    badge.textContent = 'Fermato';
+  }
+  const bar = document.getElementById(`job-bar-${jobId}`);
+  if (bar) {
+    bar.className = 'progress-bar bg-warning job-progress-bar';
+  }
+  const info = document.getElementById(`job-info-${jobId}`);
+  if (info) {
+    info.textContent = job ? (_jobInfoText(job.progress, 'cancelled') || 'Fermato') : 'Fermato';
+  }
+  const stop = document.getElementById(`job-stop-${jobId}`);
+  if (stop) stop.innerHTML = _failedBtnsHtml(jobId, 'cancelled');
+
+  renderAllJobCards();
+  updateActiveBadge();
+}
+
 function handleErrorEvent(jobId, message) {
+  if (message === 'Annullato' || message === 'Fermato' || message === "Download annullato dall'utente") {
+    handleCancelledEvent(jobId, 'Fermato');
+    return;
+  }
   delete _jobPhases[jobId];
   const job = _jobs.get(jobId);
   if (job) { job.status='error'; job.error=message; }
@@ -680,9 +735,9 @@ function handleErrorEvent(jobId, message) {
   const bar = document.getElementById(`job-bar-${jobId}`);
   if (bar) { bar.className='progress-bar phase-bar-error bg-danger job-progress-bar'; bar.style.width='100%'; }
   const info = document.getElementById(`job-info-${jobId}`);
-  if (info) info.textContent = message==='Annullato' ? 'Annullato' : escapeHtml(message||'Errore');
+  if (info) info.textContent = escapeHtml(message||'Errore');
   const stop = document.getElementById(`job-stop-${jobId}`);
-  if (stop) stop.innerHTML='';
+  if (stop) stop.innerHTML = _failedBtnsHtml(jobId, 'error');
 
   // Same reason as handleDoneEvent: a failed job has changed bucket.
   renderAllJobCards();
@@ -696,9 +751,10 @@ async function fireNow(jobId) {
 }
 
 async function cancelJob(jobId) {
-  if (!await scConfirm('Interrompere il download?')) return;
+  if (!await scConfirm('Fermare il download?')) return;
   try {
     await api.del(`/api/download/${jobId}`);
+    handleCancelledEvent(jobId, 'Fermato');
   } catch(e) { showToast(errText(e), 'danger'); }
 }
 
@@ -721,12 +777,41 @@ async function refreshJobs() {
   }
 }
 
-async function retryJob(jobId) {
-  // The server replaces the failed entry with a new job; job_dismissed and
-  // job_created on the stream move the card.
+async function retryJob(jobId, el) {
+  const btn = el || document.querySelector(`[data-action="jobs:retry"][data-job="${jobId}"]`);
+  if (btn) {
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm" role="status"></span>';
+  }
+  const badge = document.getElementById(`job-badge-${jobId}`);
+  if (badge) {
+    badge.className = 'badge bg-blue-lt flex-shrink-0';
+    badge.textContent = 'Riavvio in corso...';
+  }
   try {
-    await api.post(`/api/download/${jobId}/retry`);
-  } catch(e) { showToast(errText(e), 'danger'); }
+    const res = await api.post(`/api/download/${jobId}/retry`);
+    if (res && res.job_id) {
+      if (res.job_id !== jobId) {
+        _jobs.delete(jobId);
+      }
+      await refreshJobs();
+    } else {
+      setTimeout(refreshJobs, 500);
+    }
+  } catch(e) {
+    showToast(errText(e), 'danger');
+    if (btn) {
+      btn.disabled = false;
+      const job = _jobs.get(jobId);
+      const isCancelled = job?.status === 'cancelled';
+      btn.innerHTML = `<i class="ti ${isCancelled ? 'ti-player-play' : 'ti-reload'}"></i>`;
+    }
+    if (badge) {
+      const job = _jobs.get(jobId);
+      badge.className = job?.status === 'cancelled' ? 'badge bg-warning-lt flex-shrink-0' : 'badge bg-danger-lt flex-shrink-0';
+      badge.textContent = job?.status === 'cancelled' ? 'Fermato' : 'Errore';
+    }
+  }
 }
 
 async function retryFailed() {
@@ -737,9 +822,25 @@ async function retryFailed() {
 }
 
 async function dismissJob(jobId) {
+  _jobs.delete(jobId);
+  delete _jobPhases[jobId];
+  const card = document.getElementById(`job-card-${jobId}`);
+  if (card) {
+    const groupBody = card.closest('.job-group-body');
+    card.remove();
+    if (groupBody && !groupBody.children.length) {
+      groupBody.closest('.job-group')?.remove();
+    }
+  }
+  renderAllJobCards();
+  updateActiveBadge();
   try {
     await api.del(`/api/download/${jobId}`);
-  } catch(e) { showToast(errText(e), 'danger'); }
+  } catch(e) {
+    if (e?.status !== 404 && !e?.message?.includes('non trovato')) {
+      showToast(errText(e), 'danger');
+    }
+  }
 }
 
 // Failed jobs are not "finished" here: clearing them used to throw away the
@@ -768,7 +869,7 @@ registerActions({
   'jobs:filter':      d => setDlFilter(d.filter),
   'jobs:fire':        d => fireNow(d.job),
   'jobs:cancel':      d => cancelJob(d.job),
-  'jobs:retry':       d => retryJob(d.job),
+  'jobs:retry':       (d, e) => retryJob(d.job, e?.currentTarget),
   'jobs:retryFailed': () => retryFailed(),
   'jobs:dismiss':     d => dismissJob(d.job),
   'jobs:toggleGroup': d => toggleJobGroup(d.batch),

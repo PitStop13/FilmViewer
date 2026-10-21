@@ -179,3 +179,48 @@ def test_the_batch_label_reaches_the_client():
     # Still not on the wire: the jobs list is readable by anyone who can
     # download, and the interface has no use for who asked.
     assert "user_id" not in wire
+
+
+def test_delete_download_endpoint_is_idempotent_and_cleans_up(client, panel, tmp_path, monkeypatch):
+    """Cancelling and dismissing via DELETE /api/download/{job_id} cleans disk and never 404s on second click."""
+    from app.jobs import job_manager
+    from app import jobs
+    from tests.conftest import enable_open_mode
+
+    enable_open_mode()
+    monkeypatch.setattr(jobs, "TMP_DIR", tmp_path)
+
+    # 1. Create a cancelled job with temp segments
+    from app.progress import DownloadCancelledError
+    import time
+
+    def cancellable(cancel_event=None, **kw):
+        while not (cancel_event and cancel_event.is_set()):
+            time.sleep(0.01)
+        raise DownloadCancelledError("cancelled")
+
+    job = job_manager._make_job("Serie S01E04", "episode")
+    job_temp = tmp_path / job.job_id
+    job_temp.mkdir(parents=True, exist_ok=True)
+    (job_temp / "segment_0.ts").write_text("segment content")
+
+    job_manager._submit_job(job, cancellable, cancel_event=job.cancel_event, temp_dir=str(job_temp))
+    time.sleep(0.05)
+    assert job_manager.cancel(job.job_id) is True
+    deadline = time.time() + 2
+    while time.time() < deadline and job.status != "cancelled":
+        time.sleep(0.01)
+    assert job.status == "cancelled"
+    assert (job_temp / "segment_0.ts").exists()
+
+    # 2. First DELETE dismisses job and purges temp dir
+    res1 = client.delete(f"/api/download/{job.job_id}", headers={"X-CSRF-Token": panel.csrf})
+    assert res1.status_code == 200
+    assert res1.json() == {"job_id": job.job_id, "status": "dismissed"}
+    assert job_manager.get(job.job_id) is None
+    assert not job_temp.exists()
+
+    # 3. Second DELETE on already dismissed job is idempotent, cleans up and returns 200 (not 404)
+    res2 = client.delete(f"/api/download/{job.job_id}", headers={"X-CSRF-Token": panel.csrf})
+    assert res2.status_code == 200
+    assert res2.json() == {"job_id": job.job_id, "status": "dismissed"}

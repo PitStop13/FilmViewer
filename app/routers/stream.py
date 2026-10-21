@@ -51,6 +51,11 @@ _STREAM_SESSIONS: dict[str, dict] = {}
 _STREAM_SESSIONS_LOCK = threading.Lock()
 _STREAM_TTL = 4 * 3600  # 4 hours
 
+_SEGMENT_CACHE: dict[str, tuple[float, bytes]] = {}
+_SEGMENT_CACHE_LOCK = threading.Lock()
+_MAX_SEGMENTS_CACHE = 60
+_SEGMENT_TTL = 600.0  # 10 minutes
+
 _TV_DEFAULT_EP_CACHE: dict[str, tuple[str, str, str]] = {}
 _TV_DEFAULT_EP_LOCK = threading.Lock()
 
@@ -97,7 +102,7 @@ def _get_http_session() -> requests.Session:
     with _http_session_lock:
         if _http_session is None:
             _http_session = requests.Session()
-            adapter = requests.adapters.HTTPAdapter(pool_connections=20, pool_maxsize=20, max_retries=1)
+            adapter = requests.adapters.HTTPAdapter(pool_connections=64, pool_maxsize=64, max_retries=2)
             _http_session.mount("https://", adapter)
             _http_session.mount("http://", adapter)
         return _http_session
@@ -312,6 +317,16 @@ async def get_master_playlist(token: str):
     if not session:
         raise HTTPException(status_code=404, detail="Sessione di streaming non trovata o scaduta")
 
+    if "master_content" in session:
+        return Response(
+            content=session["master_content"],
+            media_type="application/vnd.apple.mpegurl",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+            },
+        )
+
     def _fetch():
         headers = {"user-agent": get_headers(), "referer": session["referer"]}
         url = session["m3u8_url"]
@@ -346,8 +361,11 @@ async def get_master_playlist(token: str):
         else:
             lines.append(line)
 
+    content = "\n".join(lines)
+    session["master_content"] = content
+
     return Response(
-        content="\n".join(lines),
+        content=content,
         media_type="application/vnd.apple.mpegurl",
         headers={
             "Access-Control-Allow-Origin": "*",
@@ -363,6 +381,17 @@ async def get_variant_playlist(token: str, uri: str = Query(...)):
         raise HTTPException(status_code=404, detail="Sessione di streaming non trovata o scaduta")
 
     abs_playlist_url = unquote_plus(uri)
+
+    variant_cache = session.setdefault("variant_cache", {})
+    if abs_playlist_url in variant_cache:
+        return Response(
+            content=variant_cache[abs_playlist_url],
+            media_type="application/vnd.apple.mpegurl",
+            headers={
+                "Access-Control-Allow-Origin": "*",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+            },
+        )
 
     def _fetch():
         headers = {"user-agent": get_headers(), "referer": session["referer"]}
@@ -392,8 +421,11 @@ async def get_variant_playlist(token: str, uri: str = Query(...)):
         else:
             lines.append(line)
 
+    content = "\n".join(lines)
+    variant_cache[abs_playlist_url] = content
+
     return Response(
-        content="\n".join(lines),
+        content=content,
         media_type="application/vnd.apple.mpegurl",
         headers={
             "Access-Control-Allow-Origin": "*",
@@ -453,29 +485,53 @@ async def get_stream_segment(token: str, uri: str = Query(...)):
     if not (abs_seg_url.startswith("http://") or abs_seg_url.startswith("https://")):
         raise HTTPException(status_code=400, detail="URL segmento non valido")
 
+    now = time.time()
+    with _SEGMENT_CACHE_LOCK:
+        cached = _SEGMENT_CACHE.get(abs_seg_url)
+        if cached and (now - cached[0] < _SEGMENT_TTL):
+            return Response(
+                content=cached[1],
+                media_type="video/mp2t",
+                headers={
+                    "Access-Control-Allow-Origin": "*",
+                    "Cache-Control": "public, max-age=86400",
+                },
+            )
+
     client = _get_http_session()
     headers = {"user-agent": get_headers(), "referer": session["referer"]}
 
     def _request():
         for attempt in range(3):
             try:
-                r = client.get(abs_seg_url, headers=headers, stream=True, timeout=(5, 20))
+                r = client.get(abs_seg_url, headers=headers, timeout=(5, 20))
                 if r.ok:
-                    return r
+                    data = r.content
+                    with _SEGMENT_CACHE_LOCK:
+                        cur_time = time.time()
+                        if len(_SEGMENT_CACHE) >= _MAX_SEGMENTS_CACHE:
+                            expired = [k for k, v in _SEGMENT_CACHE.items() if (cur_time - v[0]) >= _SEGMENT_TTL]
+                            for k in expired:
+                                _SEGMENT_CACHE.pop(k, None)
+                            if len(_SEGMENT_CACHE) >= _MAX_SEGMENTS_CACHE:
+                                oldest_key = min(_SEGMENT_CACHE.keys(), key=lambda k: _SEGMENT_CACHE[k][0])
+                                _SEGMENT_CACHE.pop(oldest_key, None)
+                        _SEGMENT_CACHE[abs_seg_url] = (cur_time, data)
+                    return data
             except Exception:
                 if attempt == 2:
                     raise
-                time.sleep(0.4)
+                time.sleep(0.2)
         raise RuntimeError(f"Impossibile scaricare segmento: HTTP {r.status_code if 'r' in locals() else 'error'}")
 
     try:
-        r = await asyncio.to_thread(_request)
+        content = await asyncio.to_thread(_request)
     except Exception as e:
         logger.warning("Segment fetch failed for %s: %s", abs_seg_url, e)
         raise HTTPException(status_code=502, detail="Errore nel recupero del segmento video")
 
-    return StreamingResponse(
-        r.iter_content(chunk_size=65536),
+    return Response(
+        content=content,
         media_type="video/mp2t",
         headers={
             "Access-Control-Allow-Origin": "*",

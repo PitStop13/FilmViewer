@@ -678,8 +678,10 @@ async function playMineRequest(id) {
   if (titleEl) titleEl.textContent = title;
   const video = document.getElementById('video-player');
   if (video) {
+    video.tabIndex = 0;
     video.src = streamUrl;
     video.load();
+    try { video.focus({ preventScroll: true }); } catch (_) {}
     const playPromise = video.play();
     if (playPromise !== undefined) {
       playPromise.catch(err => {

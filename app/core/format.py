@@ -7,6 +7,7 @@ import ffmpeg
 
 from app.core import container
 from app.core.ffmpeg_path import ffmpeg_file_arg, get_ffmpeg_exe
+from app.core.headers import get_headers
 from app.core.m3u8 import M3U8_Parser
 
 logger = logging.getLogger(__name__)
@@ -180,7 +181,7 @@ def download_subtitle_tracks(parser, allowed_languages: list[str], output_dir: s
         logger.info("Downloading subtitle: %s -> %s", lang_code, out_path)
 
         try:
-            req_sub_content = requests.get(sub_info.get("uri"), timeout=15)
+            req_sub_content = requests.get(sub_info.get("uri"), headers={"user-agent": get_headers()}, timeout=15)
             if not req_sub_content.ok:
                 logger.warning("Failed to fetch subtitle playlist for %s", lang_code)
                 continue
@@ -189,7 +190,7 @@ def download_subtitle_tracks(parser, allowed_languages: list[str], output_dir: s
             sub_parse.parse_data(req_sub_content.text)
 
             if sub_parse.subtitle:
-                content_resp = requests.get(sub_parse.subtitle[0], timeout=30)
+                content_resp = requests.get(sub_parse.subtitle[0], headers={"user-agent": get_headers()}, timeout=30)
                 if content_resp.ok:
                     with open(out_path, "wb") as f:
                         f.write(content_resp.content)

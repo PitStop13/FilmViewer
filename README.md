@@ -4,12 +4,12 @@
 
 <p align="center">
   <b>Un'interfaccia web moderna, veloce e intuitiva per esplorare, guardare e scaricare film e serie TV per uso personale.</b><br/>
-  Streaming player HLS integrato, catalogo dinamico con algoritmo di raccomandazione, auto-recovery del dominio, download ultra-rapido con ripresa (resume), "Continua a guardare" per utente e gestione multi-utenza.
+  Streaming player HLS integrato, catalogo dinamico con raccomandazioni personalizzate, auto-recovery intelligente del dominio, motore di download ad alte prestazioni con pausa/ripresa/cancellazione pulita, monitoraggio serie TV e gestione multi-utenza con ruoli e richieste.
 </p>
 
 <p align="center">
   <a href="#-guida-allinstallazione"><img src="https://img.shields.io/badge/Installazione-CasaOS_%7C_Windows_%7C_macOS_%7C_Linux-brightgreen?style=flat-square" alt="Install"/></a>
-  <a href="#-funzionalità-principali"><img src="https://img.shields.io/badge/Funzionalità-Streaming_%2B_Download_%2B_AutoDomain-orange?style=flat-square" alt="Features"/></a>
+  <a href="#-funzionalità-principali"><img src="https://img.shields.io/badge/Funzionalità-Streaming_%2B_Download_%2B_AutoDomain_%2B_MultiUser-orange?style=flat-square" alt="Features"/></a>
   <a href="#-crediti-e-disclaimer"><img src="https://img.shields.io/badge/Licenza-MIT_%7C_Non--Commercial-blue?style=flat-square" alt="License"/></a>
 </p>
 
@@ -17,7 +17,7 @@
 
 ## 📌 Panoramica
 
-FilmViewer è un'applicazione web pensata per la fruizione domestica e privata tra amici e familiari. Combina le funzionalità di un catalogo multimediale in stile Netflix con un player streaming HLS ad alta risoluzione, un potente motore di download e la completa indipendenza dai cambi di dominio delle sorgenti.
+FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e privata tra amici e familiari. Combina l'esperienza d'uso di un catalogo in stile Netflix con un player streaming HLS ad alta risoluzione, un avanzato motore di download parallelo e un sistema di auto-aggiornamento intelligente che previene qualsiasi interruzione dovuta ai cambi di dominio della sorgente.
 
 <p align="center">
   <img src="docs/home.png" alt="Schermata Principale" width="88%"/>
@@ -27,43 +27,68 @@ FilmViewer è un'applicazione web pensata per la fruizione domestica e privata t
 
 ## ✨ Funzionalità Principali
 
-### 🌐 Auto-Recovery e Rotazione Automatica del Dominio
-- **Sempre Funzionante:** Le sorgenti online cambiano periodicamente estensione o indirizzo. FilmViewer integra un sistema di monitoraggio continuo (*Domain Health Check*) che interroga resolver DNS alternativi (Cloudflare, Google, OpenDNS).
-- **Aggiornamento a Caldo (`domain_auto_apply`):** Se il dominio attivo non risponde, l'applicazione individua autonomamente il nuovo dominio valido e aggiorna la configurazione all'istante senza bisogno di riavvii o interventi manuali.
+### 🌐 Auto-Recovery e Rotazione Intelligente del Dominio
+- **Monitoraggio e Ricerca Automatica:** Le piattaforme sorgente cambiano periodicamente dominio. FilmViewer interroga in background i canali ufficiali e rileva istantaneamente il nuovo indirizzo.
+- **Triplo Filtro di Sicurezza:**
+  1. *Filtro del Nome:* Accetta esclusivamente domini conformi alla struttura ufficiale (`streaming(community|unity)...`).
+  2. *Anti-SSRF su IP Pubblici:* Risolve il DNS e rifiuta rigorosamente IP locali, loopback (localhost) o reti private.
+  3. *Verifica Runtime della Firma:* Interroga il server e verifica che risponda con la versione e l'architettura autentica prima di prenderlo in considerazione.
+- **Due Modalità di Applicazione:**
+  - *Con Notifica e Banner (Default):* Propone il nuovo dominio con un banner in cima all'interfaccia; basta un clic su **"Applica"** per confermarlo.
+  - *Zero-Click (`domain_auto_apply`):* Se abilitato nelle Impostazioni, FilmViewer aggiorna il dominio da solo non appena quello vecchio scade, svuotando all'istante le cache DNS, immagini e catalogo senza interruzioni.
+- **Trigger Reattivo & Pulsante "Controlla ora":** Il controllo scatta automaticamente se una richiesta fallisce (con protezione anti-stampede di 10 minuti) oppure manualmente su richiesta dell'amministratore.
 
-### 🎬 Catalogo Dinamico & Algoritmo di Raccomandazione
-- **Home Page Viva e Rinnovata:** La schermata principale non è mai statica. Oltre alla Top 10 della settimana e del mese, i cataloghi di film e serie TV si rinnovano regolarmente proponendo titoli variegati dall'archivio.
-- **"Perché hai guardato...":** Algoritmo di raccomandazione personalizzato basato sulla reale cronologia di visione dell'utente. Se completi o guardi con interesse un film o una serie, la Home ti suggerirà automaticamente opere correlate e simili.
-- **Rendering Istantaneo (Stale-While-Revalidate):** Grazie al caching intelligente e alla pre-risoluzione asincrona, la navigazione nella Home è immediata (0 ms di latenza percepita).
+---
 
-### ▶️ Web Player HLS Integrato
-- **Streaming Diretto nel Browser:** Guarda film e serie TV con un click senza dover prima scaricare il file.
-- **Risoluzione Automatica Episodi Serie TV:** Per le serie TV, il player riprende automaticamente l'ultimo episodio guardato oppure avvia l'episodio 1 di default.
-- **Multi-Qualità & Multi-Traccia Audio:** Selettore dinamico della risoluzione video (Auto, 1080p, 720p, 480p) e cambio al volo della lingua audio (italiano, lingua originale, ecc.).
+### ⚡ Engine di Download Ultra-Rapido & Gestione Coda
+- **Download Multi-Thread con AdaptiveLimiter:** Algoritmo intelligente a scaricamento parallelo che massimizza la velocità di download e previene blocchi o ban temporanei da parte del CDN.
+- **Pausa, Ripresa e Cancellazione Istantanea:**
+  - **Pausa / Resume:** Metti in pausa qualsiasi download e riprendilo in un secondo momento riscaricando unicamente i segmenti mancanti.
+  - **Cancellazione Pulita:** Cliccando sulla **X** durante il download o mentre è in pausa, il worker viene terminato all'istante, la memoria RAM viene disallocata, i file temporanei vengono cancellati dal disco e la lista si aggiorna immediatamente in tempo reale senza errori.
+- **Multi-Traccia Audio & Sottotitoli:** Possibilità di selezionare la lingua audio desiderata e scaricare i sottotitoli incorporati nel contenitore video (.mkv/.mp4) o come file `.vtt` separati.
+- **Muxing con FFmpeg & Naming Personalizzato:** Assemblaggio continuo con FFmpeg e template di rinomina dei file personalizzabili (compatibili al 100% con Plex, Jellyfin ed Emby).
+
+---
+
+### 📺 Monitoraggio Serie TV ("Serie Seguite")
+- **Controllo Automatico Nuovi Episodi:** Aggiungi qualsiasi serie TV alla lista delle "Serie Seguite".
+- **Download Automatico in Background:** Un poller periodico rileva l'uscita di nuovi episodi o nuove stagioni e può scaricarli automaticamente non appena disponibili.
+
+---
+
+### 🎬 Catalogo Dinamico & Raccomandazioni Intelligenti
+- **Home Page Sempre Nuova:** Classifiche aggiornate (Top 10 settimanale e mensile) e caroselli a rotazione che pescano continuamente dal catalogo per non mostrare mai una pagina statica.
+- **"Perché hai guardato...":** Algoritmo di raccomandazione personalizzato basato sulla reale cronologia di visione dell'utente.
+- **Navigazione a Zero Latenza (Stale-While-Revalidate):** I dati del catalogo e le locandine vengono pre-risolti e serviti con latenza percepita di 0 ms.
+
+---
+
+### ▶️ Web Player HLS Integrato & "Continua a Guardare"
+- **Streaming Diretto nel Browser:** Guarda film e serie TV con un click senza dover attendere il completamento del download.
+- **Risoluzione Automatica per Serie TV:** Seleziona in automatico l'ultimo episodio guardato o avvia il primo episodio di default, con passaggio fluido all'episodio successivo.
+- **Selettore Risoluzione & Audio:** Scelta rapida della risoluzione (Auto, 1080p, 720p, 480p) e della traccia audio.
 - **Scorciatoie da Tastiera Avanzate:**
   - `Spazio`: Play / Pausa.
   - `Freccia Destra` / `Freccia Sinistra`: Salto rapido di 10 secondi avanti/indietro.
-  - `F`: Schermo intero reale HTML5 Fullscreen.
+  - `F`: Modalità a schermo intero reale (HTML5 Fullscreen).
+- **Continua a Guardare Multi-Utente:** Progresso salvato automaticamente ogni 5 secondi, isolato per ogni profilo, con badge del tempo rimanente e pulsanti rapidi per riprendere o ricominciare dall'inizio.
 
-### ⏱️ Continua a Guardare & Cronologia Personale
-- **Sincronizzazione in Tempo Reale:** Posizione di visione salvata ogni 5 secondi nel database SQLite locale, isolata per ciascun utente.
-- **Controlli Flessibili:** Dalla Home o dalla scheda del titolo puoi riprendere la visione esattamente dal minuto in cui eri rimasto (con badge del tempo residuo), ricominciare dall'inizio oppure eliminare il contenuto dalla lista.
+---
 
-### ⚡ Engine di Download Ultra-Rapido ad Alta Concorrenza
-- **AdaptiveLimiter ad Alte Prestazioni:** Motore multi-thread parallelo con rilevamento della tolleranza del CDN. I timeout di lettura sono ottimizzati per evitare qualsiasi blocco della banda anche in caso di connessioni ballerine.
-- **Resume Automatico:** Se un download viene interrotto o la connessione salta, la ripresa riscarica solo i segmenti mancanti senza ripartire da zero.
-- **Tracce Audio & Sottotitoli:** Possibilità di selezionare le lingue audio desiderate e scaricare i sottotitoli incorporati nel contenitore video (.mkv/.mp4) o estratti come file `.vtt`.
-- **Muxing con FFmpeg:** Unione dei flussi video/audio a livello di pacchetti continui e pulizia automatica dei file temporanei.
+### 👥 Multi-Utenza, Ruoli & Sistema di Richieste
+- **Profili Protetti:** Autenticazione sicura con hash bcrypt per le password e gestione delle sessioni tramite cookie protetti.
+- **Ruoli & Permessi Granulari:**
+  - **Amministratore:** Controllo completo delle impostazioni di rete, gestione sorgente, librerie disco, approvazione richieste e gestione utenti.
+  - **Utente Base:** Accesso indipendente allo streaming, cronologia personale, download dei propri contenuti e invio di richieste.
+- **Flusso Richieste con Notifiche SSE:** Gli utenti possono richiedere titoli non ancora presenti sul server; gli amministratori possono approvare, rifiutare o avviare il download con aggiornamento in tempo reale (badge campanella e notifiche push interne).
+- **File Manager Integrato (`#/files`) & Pulizia Automatica:** Sezione dedicata per consultare i file salvati su disco; l'eliminazione di un elemento ripulisce fisicamente i file e le cartelle vuote.
 
-### 🚀 DNS Cache In-Memory
-- **Zero Latenza di Risoluzione:** Cache interna DNS (`TTL 300s`) che previene le perdite di pacchetti UDP e i tipici timeout di 8 secondi riscontrati negli ambienti containerizzati Docker su Windows e Linux.
+---
 
-### 👥 Multi-utenza & Gestione Richieste
-- **Profili Sicuri:** Autenticazione protetta con crittografia bcrypt per password.
-- **Ruoli & Permessi:**
-  - **Admin:** Pieno controllo su impostazioni, configurazione di rete, gestione utenti e approvazione globale.
-  - **Utente Base:** Accesso indipendente allo streaming, catalogo, continua a guardare e gestione autonoma dei propri download.
-- **Pulizia Disco Automatica:** L'eliminazione di un film o di una serie dalla sezione richieste rimuove fisicamente i file dal disco rigido e ripulisce le cartelle vuote.
+### 🎨 Design Moderno & Reattivo (Glassmorphism Dark Mode)
+- **Aestetica Premium:** Interfaccia scura raffinata con palette armoniose, trasparenze in stile glassmorphism, badge di stato chiari e micro-animazioni fluide.
+- **Completamente Responsive:** Layout ottimizzato per l'uso da smartphone, tablet, computer e browser per Smart TV.
+- **DNS Cache In-Memory:** Cache interna ad alta velocità che elimina i ritardi di risoluzione DNS tipici dei container Docker su Windows e Linux.
 
 ---
 
@@ -120,8 +145,8 @@ x-casaos:
     - arm
   main: filmviewer
   description:
-    en_us: Web interface to stream and download movies and TV series for personal use.
-    it_it: Interfaccia web per guardare e scaricare film e serie TV con player integrato e resume.
+    en_us: Modern web interface to stream and download movies and TV series for personal use.
+    it_it: Interfaccia web per guardare e scaricare film e serie TV con player HLS integrato, auto-domain e download rapido.
   tagline:
     en_us: Streaming & Downloader
     it_it: Streaming & Downloader
@@ -137,7 +162,7 @@ x-casaos:
 
 4. Clicca su **"Invia"** (*Submit*). I parametri principali risulteranno già precompilati.
 5. Clicca su **"Installa"** e attendi il completamento.
-6. Apri FilmViewer cliccando sulla sua icona o su: 👉 **`http://<IP-DEL-TUO-SERVER>:9876`**
+6. Apri FilmViewer cliccando sulla sua icona o collegandoti a: 👉 **`http://<IP-DEL-TUO-SERVER>:9876`**
 
 #### Metodo 2: Da Terminale (o SSH)
 ```bash
@@ -164,7 +189,7 @@ docker compose up -d --build
 3. Apri il browser su: 👉 **`http://localhost:9876`**
 
 #### Opzione 2: Senza Docker (Python)
-1. Installa **Python 3.11+** e **FFmpeg** (assicurandoti che `ffmpeg` sia nel PATH di sistema).
+1. Installa **Python 3.11+** e **FFmpeg** (assicurandoti che `ffmpeg` sia aggiunto al PATH di sistema).
 2. Nel terminale esegui:
    ```powershell
    pip install -r requirements.txt
@@ -199,13 +224,13 @@ Apri il browser su: 👉 **`http://localhost:9876`**
 ## 🎯 Configurazione e Primo Accesso
 
 1. **Creazione Account Amministratore:**
-   - Alla prima apertura dell'indirizzo `http://localhost:9876` o `http://<IP-SERVER>:9876`, comparirà la schermata di configurazione iniziale per impostare le credenziali dell'account **Admin**.
+   - Alla prima apertura dell'indirizzo `http://localhost:9876` o `http://<IP-SERVER>:9876`, comparirà la procedura guidata per impostare username e password dell'account **Admin**.
 2. **Creazione Profili Aggiuntivi:**
-   - Dall'account admin, vai in **Impostazioni → Utenti** per aggiungere account per amici e parenti (ruolo Amministratore o Utente Base).
+   - Dall'account admin, accedi alla sezione **Impostazioni → Utenti** per aggiungere nuovi account con ruolo Amministratore o Utente Base.
 3. **Cartella di Download:**
    > ⚠️ **NOTA SUI VOLUMI DOCKER / CASAOS:**  
-   > Nel campo del percorso video dell'interfaccia lascia o inserisci **`/app/videos`** (valore di default).  
-   > **Non inserire percorsi host come `C:\...` o `/DATA/...`**: il container Docker usa `/app/videos` come mount point interno collegato alla tua cartella reale.
+   > Nel campo del percorso video dell'interfaccia web lascia o inserisci **`/app/videos`** (valore predefinito).  
+   > **Non inserire percorsi fisici dell'host come `C:\...` o `/DATA/...`**: il container Docker utilizza `/app/videos` come mount point interno collegato alla tua cartella reale.
 
 ---
 

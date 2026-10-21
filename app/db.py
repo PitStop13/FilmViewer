@@ -574,6 +574,11 @@ _V13_WATCH_HISTORY = [
 ]
 
 
+_V14_USER_THEME = [
+    "ALTER TABLE jf_user ADD COLUMN theme TEXT NOT NULL DEFAULT 'default'",
+]
+
+
 Migration = list[str] | Callable[[sqlite3.Connection, bool], None]
 
 MIGRATIONS: list[Migration] = [
@@ -590,6 +595,7 @@ MIGRATIONS: list[Migration] = [
     _V11_CONTINUE_WATCHING,
     _V12_LOCAL_AUTH_AND_PROFILES,
     _V13_WATCH_HISTORY,
+    _V14_USER_THEME,
 ]
 
 

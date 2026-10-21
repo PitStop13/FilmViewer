@@ -5,8 +5,11 @@
         <img class="brand-icon" src="{{ asset('logo.png') }}" alt="" width="36" height="36">
         <span class="brand-text">SC Panel</span>
       </a>
-      <!-- Mobile-only controls: settings icon + hamburger -->
+      <!-- Mobile-only controls: theme icon + settings icon + hamburger -->
       <div class="d-flex align-items-center gap-2 d-lg-none">
+        <button class="btn-icon-mobile" data-action="theme:toggle" title="Temi">
+          <i class="ti ti-palette" style="font-size:19px"></i>
+        </button>
         <button class="btn-icon-mobile" data-action="settings:open" title="Impostazioni">
           <i class="ti ti-settings" style="font-size:19px"></i>
         </button>
@@ -82,9 +85,14 @@
                 <div class="text-muted text-truncate" id="sb-user-profile" style="font-size:10px; line-height:1.2;">—</div>
               </div>
             </div>
-            <button class="btn btn-sm btn-icon btn-ghost-danger" data-action="session:logout" title="Disconnetti" style="padding:2px 6px">
-              <i class="ti ti-logout" style="font-size:15px"></i>
-            </button>
+            <div class="d-flex align-items-center gap-1">
+              <button class="btn btn-sm btn-icon btn-ghost-secondary" data-action="theme:toggle" title="Cambia tema colore" style="padding:2px 6px">
+                <i class="ti ti-palette" style="font-size:15px"></i>
+              </button>
+              <button class="btn btn-sm btn-icon btn-ghost-danger" data-action="session:logout" title="Disconnetti" style="padding:2px 6px">
+                <i class="ti ti-logout" style="font-size:15px"></i>
+              </button>
+            </div>
           </div>
           <button class="btn-sidebar-settings" data-perm="MANAGE_SETTINGS" data-action="settings:open">
             <i class="ti ti-settings" style="font-size:15px;flex-shrink:0"></i>

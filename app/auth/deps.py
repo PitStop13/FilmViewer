@@ -40,6 +40,7 @@ OPEN_MODE_USER = models.User(
     last_login_at=None,
     parental_control="adult",
     password_hash=None,
+    theme="default",
 )
 
 # Reachable without a session. Everything not listed here needs one.
@@ -61,6 +62,7 @@ PUBLIC_PREFIXES = ("/static/",)
 SESSION_ONLY_PATHS = {
     "/api/auth/me",
     "/api/auth/logout",
+    "/api/auth/theme",
 }
 
 SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}

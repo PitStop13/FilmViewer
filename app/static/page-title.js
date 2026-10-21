@@ -826,9 +826,6 @@ function _savePlaybackProgress(isFinish = false) {
     season_number: _currentStreamTracking.seasonNumber != null ? parseInt(_currentStreamTracking.seasonNumber) : null,
     episode_title: _currentStreamTracking.episodeTitle || null,
     position_seconds: Math.floor(cur),
-    duration_seconds: Math.floor(dur),
-  }).then(() => {
-    if (typeof refreshContinueWatching === 'function') refreshContinueWatching();
   }).catch(() => {});
 }
 
@@ -913,7 +910,11 @@ async function openStreamPlayer(opts) {
     }
 
     if (loadingEl) loadingEl.style.display = 'none';
-    if (videoEl) videoEl.style.display = 'block';
+    if (videoEl) {
+      videoEl.style.display = 'block';
+      videoEl.tabIndex = 0;
+      try { videoEl.focus({ preventScroll: true }); } catch (_) {}
+    }
 
     videoEl.onended = () => _savePlaybackProgress(true);
     videoEl.onpause = () => _savePlaybackProgress(false);
@@ -923,9 +924,16 @@ async function openStreamPlayer(opts) {
         xhrSetup: (xhr) => {
           xhr.withCredentials = true;
         },
-        maxBufferLength: 30,
-        maxMaxBufferLength: 60,
+        maxBufferLength: 20,
+        maxMaxBufferLength: 40,
+        maxBufferSize: 30 * 1000 * 1000,
+        backBufferLength: 15,
         enableWorker: true,
+        fragLoadingTimeOut: 35000,
+        fragLoadingMaxRetry: 4,
+        fragLoadingRetryDelay: 500,
+        manifestLoadingTimeOut: 15000,
+        levelLoadingTimeOut: 15000,
       };
       if (opts.startTime && opts.startTime > 0) {
         hlsConfig.startPosition = opts.startTime;
@@ -1096,32 +1104,6 @@ document.addEventListener('DOMContentLoaded', () => {
     m.addEventListener('hidden.bs.modal', () => {
       _cleanupStreamPlayer();
     });
-  }
-});
-
-document.addEventListener('keydown', (e) => {
-  const modal = document.getElementById('stream-player-modal');
-  if (!modal || !modal.classList.contains('show')) return;
-  const video = document.getElementById('stream-video-player');
-  if (!video || video.style.display === 'none') return;
-
-  if (e.key === ' ' && e.target.tagName !== 'INPUT' && e.target.tagName !== 'BUTTON') {
-    e.preventDefault();
-    if (video.paused) video.play(); else video.pause();
-  } else if (e.key === 'ArrowRight' && e.target.tagName !== 'INPUT') {
-    e.preventDefault();
-    video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 10);
-  } else if (e.key === 'ArrowLeft' && e.target.tagName !== 'INPUT') {
-    e.preventDefault();
-    video.currentTime = Math.max(0, video.currentTime - 10);
-  } else if ((e.key === 'f' || e.key === 'F') && e.target.tagName !== 'INPUT') {
-    e.preventDefault();
-    if (!document.fullscreenElement) {
-      if (video.requestFullscreen) video.requestFullscreen();
-      else if (video.webkitRequestFullscreen) video.webkitRequestFullscreen();
-    } else {
-      if (document.exitFullscreen) document.exitFullscreen();
-    }
   }
 });
 

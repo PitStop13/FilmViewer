@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import shutil
 import uuid
 from datetime import datetime
 
@@ -10,7 +11,7 @@ from pydantic import BaseModel
 from app import downloads_notify
 from app.auth.deps import OPEN_MODE_USER, current_user, require
 from app.auth.permissions import Permission
-from app.config import configured_domain
+from app.config import configured_domain, TMP_DIR
 from app.jobs import job_manager
 
 logger = logging.getLogger(__name__)
@@ -425,4 +426,9 @@ def cancel_or_dismiss(job_id: str):
         return {"job_id": job_id, "status": "dismissed"}
     if job_manager.cancel(job_id):
         return {"job_id": job_id, "status": "cancelled"}
-    raise HTTPException(status_code=404, detail="Job non trovato")
+    # If the job was already dismissed or removed, ensure UI drops any stale card and clean leftover temp dir
+    job_manager._broadcast({"type": "job_dismissed", "job_id": job_id})
+    tmp_path = TMP_DIR / job_id
+    if tmp_path.exists():
+        shutil.rmtree(tmp_path, ignore_errors=True)
+    return {"job_id": job_id, "status": "dismissed"}

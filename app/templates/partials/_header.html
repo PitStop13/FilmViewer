@@ -7,6 +7,20 @@
           <div class="col-auto">
             <div class="header-actions">
 
+              <!-- Theme picker -->
+              <div class="theme-wrap">
+                <button class="header-icon-btn" id="theme-button" data-action="theme:toggle" title="Temi & Colori" aria-label="Cambia tema">
+                  <i class="ti ti-palette"></i>
+                </button>
+                <div class="theme-panel" id="theme-panel" style="display:none">
+                  <div class="theme-panel-header">
+                    <span class="theme-panel-title">Temi & Colori</span>
+                    <span class="theme-panel-sub">Scegli la palette</span>
+                  </div>
+                  <div class="theme-options-list" id="theme-options-list"></div>
+                </div>
+              </div>
+
               <!-- Notification bell -->
               <!-- No data-requires-auth: without accounts the bell shows the
                    panel's own notifications rather than a user's. -->

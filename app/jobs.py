@@ -8,6 +8,7 @@ from collections import deque
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 from typing import Optional
 
 from app.config import VIDEOS_DIR, TMP_DIR, get_settings
@@ -40,6 +41,31 @@ AUTO_RETRIES = 3
 AUTO_RETRY_DELAY = 60  # seconds
 
 
+class CancelEvent(threading.Event):
+    """threading.Event with synchronous callback dispatch when set."""
+
+    def __init__(self):
+        super().__init__()
+        self._callbacks = []
+
+    def add_callback(self, cb):
+        if self.is_set():
+            try:
+                cb()
+            except Exception:
+                pass
+        else:
+            self._callbacks.append(cb)
+
+    def set(self):
+        super().set()
+        for cb in list(self._callbacks):
+            try:
+                cb()
+            except Exception:
+                pass
+
+
 @dataclass
 class DownloadJob:
     job_id: str
@@ -57,7 +83,8 @@ class DownloadJob:
     })
     phases: list = field(default_factory=list)
     progress_queue: asyncio.Queue = field(default_factory=asyncio.Queue)
-    cancel_event: threading.Event = field(default_factory=threading.Event)
+    cancel_event: CancelEvent = field(default_factory=CancelEvent)
+    future: Optional[object] = field(default=None, repr=False)
 
     # Set when this job is one episode of a season or series asked for in one go,
     # so the notification can be a single summary instead of one per episode.
@@ -457,8 +484,9 @@ class JobManager:
             was_scheduled = job.status == "scheduled"
             job.cancel_event.set()
             job.status = "cancelled"
+            job.error = "Fermato"
         self._slots.wake()
-        self._emit(job, {"type": "error", "message": "Annullato"})
+        self._emit(job, {"type": "cancelled", "message": "Fermato"})
         if was_scheduled:
             self._notify_listeners(job)
         return True
@@ -472,11 +500,23 @@ class JobManager:
             del self._jobs[job_id]
         if self._schedule_store is not None:
             self._schedule_store.remove_by_job_id(job_id)
+
+        # Wait briefly for previous thread to finish unwinding if still alive
+        if getattr(job, "future", None) is not None and not job.future.done():
+            try:
+                job.future.result(timeout=1.5)
+            except Exception:
+                pass
+
         self._broadcast({"type": "job_dismissed", "job_id": job_id})
-        tmp_path = TMP_DIR / job_id
-        if tmp_path.exists():
-            shutil.rmtree(tmp_path, ignore_errors=True)
-            logger.info("Cleaned up temp dir on dismiss: %s", tmp_path)
+
+        dirs_to_clean = {TMP_DIR / job_id}
+        if getattr(job, "temp_dir", None):
+            dirs_to_clean.add(Path(job.temp_dir))
+        for td in dirs_to_clean:
+            if td.exists():
+                shutil.rmtree(td, ignore_errors=True)
+                logger.info("Cleaned up temp dir on dismiss: %s", td)
         return True
 
     def retry(self, job_id: str) -> Optional[str]:
@@ -498,15 +538,30 @@ class JobManager:
             self._schedule_store.remove_by_job_id(job_id)
         self._broadcast({"type": "job_dismissed", "job_id": job_id})
 
+        # Wait briefly for previous thread to finish unwinding if still alive
+        if getattr(old, "future", None) is not None and not old.future.done():
+            try:
+                old.future.result(timeout=1.5)
+            except Exception:
+                pass
+
         job = self._make_job(
             old.title, old.type, phases=list(old.phases),
             user_id=old.user_id, media_label=old.media_label, year=old.year,
             season=old.season, episode_number=old.episode_number,
             external_id=old.external_id,
         )
+        if old.progress:
+            job.progress = {
+                **old.progress,
+                "speed": 0,
+                "bytes_speed": 0,
+                "eta": None,
+            }
 
         old_tmp = TMP_DIR / old.job_id
         new_tmp = TMP_DIR / job.job_id
+        actual_temp_dir = new_tmp
         if old_tmp.exists():
             try:
                 if new_tmp.exists():
@@ -514,7 +569,8 @@ class JobManager:
                 old_tmp.rename(new_tmp)
                 logger.info("Migrated temp dir for retry/resume: %s -> %s", old_tmp, new_tmp)
             except Exception as e:
-                logger.warning("Could not rename temp dir %s to %s: %s", old_tmp, new_tmp, e)
+                logger.warning("Could not rename temp dir %s to %s: %s; reusing old temp dir directly", old_tmp, new_tmp, e)
+                actual_temp_dir = old_tmp
 
         fn, args, kwargs = old.call
 
@@ -534,7 +590,7 @@ class JobManager:
 
         return self._submit_job(
             job, fn, *args, **kwargs,
-            temp_dir=str(TMP_DIR / job.job_id),
+            temp_dir=str(actual_temp_dir),
             progress_factory=self._make_progress_factory(job),
             cancel_event=job.cancel_event,
         )
@@ -558,7 +614,8 @@ class JobManager:
                 if job.cancel_event.wait(AUTO_RETRY_DELAY):
                     job.retry_at = None
                     job.status = "cancelled"
-                    self._emit(job, {"type": "error", "message": "Annullato"})
+                    job.error = "Fermato"
+                    self._emit(job, {"type": "cancelled", "message": "Fermato"})
                     return
                 job.retry_at = None
                 if "progress_factory" in kwargs:
@@ -572,7 +629,8 @@ class JobManager:
         """Run the download once. True when it failed and should run again."""
         if not self._slots.acquire(job, on_queued=self._announce_queued):
             job.status = "cancelled"
-            self._emit(job, {"type": "error", "message": "Annullato"})
+            job.error = "Fermato"
+            self._emit(job, {"type": "cancelled", "message": "Fermato"})
             return False
         try:
             job.status = "running"
@@ -585,7 +643,8 @@ class JobManager:
                 self._emit(job, {"type": "done", "output_path": result})
             except DownloadCancelledError:
                 job.status = "cancelled"
-                self._emit(job, {"type": "error", "message": "Annullato"})
+                job.error = "Fermato"
+                self._emit(job, {"type": "cancelled", "message": "Fermato"})
             except Exception as e:
                 if job.retries < AUTO_RETRIES and _worth_retrying(e):
                     job.retries += 1
@@ -604,10 +663,13 @@ class JobManager:
                 self._emit(job, {"type": "error", "message": str(e)})
             finally:
                 if job.status == "done":
-                    tmp_path = TMP_DIR / job.job_id
-                    if tmp_path.exists():
-                        shutil.rmtree(tmp_path, ignore_errors=True)
-                        logger.info("Cleaned up temp dir: %s", tmp_path)
+                    dirs_to_clean = {TMP_DIR / job.job_id}
+                    if getattr(job, "temp_dir", None):
+                        dirs_to_clean.add(Path(job.temp_dir))
+                    for td in dirs_to_clean:
+                        if td.exists():
+                            shutil.rmtree(td, ignore_errors=True)
+                            logger.info("Cleaned up temp dir: %s", td)
         finally:
             self._slots.release()
         return False
@@ -620,9 +682,11 @@ class JobManager:
     def _submit_job(self, job: DownloadJob, fn, *args, **kwargs) -> str:
         with self._lock:
             self._jobs[job.job_id] = job
+        if "temp_dir" in kwargs:
+            job.temp_dir = kwargs["temp_dir"]
         self._remember_call(job, fn, args, kwargs)
         self._broadcast({"type": "job_created", "job": self._job_to_dict(job)})
-        self._executor.submit(self._run_download, job, fn, *args, **kwargs)
+        job.future = self._executor.submit(self._run_download, job, fn, *args, **kwargs)
         return job.job_id
 
     def _make_job(self, title: str, type_: str, scheduled_at: Optional[datetime] = None,

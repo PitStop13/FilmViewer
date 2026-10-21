@@ -259,3 +259,54 @@ def test_cancelling_during_the_wait_ends_it_at_once(monkeypatch):
         assert finished == ["cancelled"]
     finally:
         jm._executor.shutdown(wait=False)
+
+
+def test_cancelled_job_dismiss_cleans_temp_and_broadcasts(tmp_path, monkeypatch):
+    from pathlib import Path
+    from app import jobs
+    from app.progress import DownloadCancelledError
+
+    monkeypatch.setattr(jobs, "TMP_DIR", tmp_path)
+    jm = JobManager()
+    events = []
+    jm._broadcast = lambda ev: events.append(ev)
+
+    def cancellable(temp_dir, cancel_event, progress_factory=None):
+        p = Path(temp_dir)
+        p.mkdir(parents=True, exist_ok=True)
+        (p / "segment_0.ts").write_text("segment content")
+        while not cancel_event.is_set():
+            time.sleep(0.01)
+        raise DownloadCancelledError("cancelled")
+
+    try:
+        job = jm._make_job("Serie S01E04", "episode")
+        job_temp = tmp_path / job.job_id
+        jm._submit_job(job, cancellable, temp_dir=str(job_temp),
+                       cancel_event=job.cancel_event, progress_factory=None)
+
+        # Wait for segment to be written
+        deadline = time.time() + 2
+        while time.time() < deadline and not (job_temp / "segment_0.ts").exists():
+            time.sleep(0.01)
+        assert (job_temp / "segment_0.ts").exists()
+
+        # Step 1: User puts job on pause / stops it
+        assert jm.cancel(job.job_id) is True
+        _wait(job)
+        assert job.status == "cancelled"
+        # While cancelled/paused, temp files are preserved for possible resume
+        assert (job_temp / "segment_0.ts").exists()
+
+        # Step 2: User clicks 'x' to dismiss and free memory/disk
+        assert jm.dismiss(job.job_id) is True
+        assert jm.get(job.job_id) is None
+
+        # Verify broadcast event was sent for UI removal
+        assert any(ev.get("type") == "job_dismissed" and ev.get("job_id") == job.job_id for ev in events)
+
+        # Verify temp directory and all its contents were purged
+        assert not job_temp.exists()
+    finally:
+        jm._executor.shutdown(wait=False)
+

@@ -136,3 +136,22 @@ def me(request: Request):
     user = current_user(request)
     return _session_payload(user, getattr(request.state, "csrf_token", None))
 
+
+class ThemeRequest(BaseModel):
+    theme: str
+
+
+@router.put("/theme")
+def set_user_theme(body: ThemeRequest, request: Request):
+    """Save UI color theme preference for the current user."""
+    theme = (body.theme or "default").strip().lower()
+    if theme not in models.VALID_THEMES:
+        raise HTTPException(status_code=400, detail=f"Tema non valido: {theme}")
+
+    user = current_user(request)
+    if user and user.id:
+        models.update_user_theme(user.id, theme)
+
+    return {"ok": True, "theme": theme}
+
+

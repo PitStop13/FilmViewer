@@ -396,6 +396,7 @@
 
     .job-card.is-done  { opacity: .5 !important; }
     .job-card.is-error { opacity: .65 !important; border-color: var(--danger-ring) !important; }
+    .job-card.is-cancelled { opacity: .85 !important; border-color: rgba(245, 159, 0, 0.35) !important; }
 
     .job-card .card-body { padding: 12px 15px !important; }
 

@@ -114,6 +114,19 @@ def runtime_open_mode() -> bool:
 
 
 
+VALID_THEMES = {
+    "default",
+    "rose",
+    "emerald",
+    "amber",
+    "light",
+    "purple",
+    "cyan",
+    "oled",
+    "crimson",
+}
+
+
 # ── Users ──────────────────────────────────────────────────────────────────────
 
 @dataclass(frozen=True)
@@ -129,6 +142,7 @@ class User:
     last_login_at: str | None
     parental_control: str = "adult"
     password_hash: str | None = None
+    theme: str = "default"
 
     @property
     def is_admin(self) -> bool:
@@ -150,6 +164,7 @@ class User:
             "permissions": self.permissions,
             "permission_names": self.permission_names,
             "parental_control": self.parental_control,
+            "theme": self.theme,
             "enabled": self.enabled,
             "created_at": self.created_at,
             "last_login_at": self.last_login_at,
@@ -159,12 +174,17 @@ class User:
 def _row_to_user(row: sqlite3.Row) -> User:
     parental_control = "adult"
     password_hash = None
+    theme = "default"
     try:
         parental_control = row["parental_control"] or "adult"
     except (IndexError, KeyError):
         pass
     try:
         password_hash = row["password_hash"]
+    except (IndexError, KeyError):
+        pass
+    try:
+        theme = row["theme"] or "default"
     except (IndexError, KeyError):
         pass
 
@@ -180,6 +200,7 @@ def _row_to_user(row: sqlite3.Row) -> User:
         last_login_at=row["last_login_at"],
         parental_control=parental_control,
         password_hash=password_hash,
+        theme=theme,
     )
 
 
@@ -289,6 +310,7 @@ def update_local_user(
     parental_control: str | None = None,
     is_admin: bool | None = None,
     enabled: bool | None = None,
+    theme: str | None = None,
 ) -> User:
     user = get_user(user_id)
     if not user:
@@ -319,6 +341,12 @@ def update_local_user(
             updates.append("parental_control = ?")
             params.append(prof)
 
+    if theme is not None:
+        clean_theme = theme.strip().lower()
+        if clean_theme in VALID_THEMES:
+            updates.append("theme = ?")
+            params.append(clean_theme)
+
     if is_admin is not None:
         if not is_admin and user.is_admin and count_admins() <= 1:
             raise ValueError("Non è possibile rimuovere i permessi di amministratore all'ultimo amministratore attivo")
@@ -346,6 +374,16 @@ def update_local_user(
                 conn.execute("DELETE FROM jf_session WHERE user_id = ?", (user_id,))
 
     return get_user(user_id)
+
+
+def update_user_theme(user_id: int, theme: str) -> str:
+    """Update UI color theme preference for a specific user."""
+    clean_theme = (theme or "default").strip().lower()
+    if clean_theme not in VALID_THEMES:
+        clean_theme = "default"
+    with db.tx() as conn:
+        conn.execute("UPDATE jf_user SET theme = ? WHERE id = ?", (clean_theme, user_id))
+    return clean_theme
 
 
 def delete_local_user(user_id: int) -> bool:

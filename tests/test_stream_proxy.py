@@ -100,3 +100,40 @@ def test_variant_playlist_rewriting(client, monkeypatch):
     # Segments rewritten to segment proxy
     assert f"/api/stream/hls/{token}/segment.ts?uri=" in body
     assert "seg_001.ts" in body
+
+
+def test_stream_segment_caching(client, monkeypatch):
+    enable_open_mode()
+    token = stream._create_stream_session(
+        m3u8_url="https://vixcloud.co/playlist/123",
+        referer="https://vixcloud.co/embed/123",
+        key_hex="00112233445566778899aabbccddeeff",
+        meta={"type": "movie"},
+    )
+
+    fetch_count = [0]
+
+    class FakeSegmentResponse:
+        content = b"TEST_MPEGTS_SEGMENT_DATA"
+        status_code = 200
+        ok = True
+
+    class FakeSession:
+        def get(self, url, headers=None, timeout=None):
+            fetch_count[0] += 1
+            return FakeSegmentResponse()
+
+    monkeypatch.setattr(stream, "_get_http_session", lambda: FakeSession())
+
+    # First request fetches segment
+    res1 = client.get(f"/api/stream/hls/{token}/segment.ts?uri=https%3A%2F%2Fvixcloud.co%2Fsegment_01.ts")
+    assert res1.status_code == 200
+    assert res1.content == b"TEST_MPEGTS_SEGMENT_DATA"
+    assert fetch_count[0] == 1
+
+    # Second request hits in-memory cache directly (0 fetches)
+    res2 = client.get(f"/api/stream/hls/{token}/segment.ts?uri=https%3A%2F%2Fvixcloud.co%2Fsegment_01.ts")
+    assert res2.status_code == 200
+    assert res2.content == b"TEST_MPEGTS_SEGMENT_DATA"
+    assert fetch_count[0] == 1
+
