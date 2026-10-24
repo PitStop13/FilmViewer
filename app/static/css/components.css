@@ -627,3 +627,71 @@
       object-fit: contain !important;
       background: #000 !important;
     }
+
+    /* ═══════════════════════════════════════════════════════
+       JAM WATCH PARTY
+       ═══════════════════════════════════════════════════════ */
+    .jam-hero-banner {
+      background: linear-gradient(135deg, rgba(61,107,245,.14), rgba(16,21,31,.95));
+      border: 1px solid var(--accent-ring);
+      border-radius: 12px;
+      padding: 20px 24px;
+    }
+    .jam-icon-box {
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      border-radius: 12px;
+      background: rgba(61,107,245,.18);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .jam-action-card {
+      transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease;
+    }
+    .jam-action-card:hover {
+      border-color: var(--accent-text) !important;
+      transform: translateY(-2px);
+      box-shadow: 0 8px 24px rgba(0,0,0,.4);
+    }
+    .jam-dot {
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--text-muted);
+      position: relative;
+    }
+    .jam-dot.online {
+      background: #2ed573;
+      box-shadow: 0 0 8px #2ed573;
+    }
+    .jam-dot.waiting {
+      background: var(--yellow);
+      animation: jamPulse 1.8s infinite;
+    }
+    @keyframes jamPulse {
+      0% { opacity: .4; transform: scale(.85); }
+      50% { opacity: 1; transform: scale(1.15); }
+      100% { opacity: .4; transform: scale(.85); }
+    }
+    .jam-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(148, 163, 208, 0.12);
+      border: 1px solid rgba(255, 255, 255, 0.14);
+      padding: 4px 10px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #fff;
+      cursor: pointer;
+      backdrop-filter: blur(8px);
+      transition: background .15s ease, border-color .15s ease;
+    }
+    .jam-pill:hover {
+      background: rgba(61, 107, 245, 0.25);
+      border-color: var(--accent);
+    }

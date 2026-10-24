@@ -41,6 +41,7 @@ const _SETTINGS_TAB_LOADERS = {
   hook: () => loadHooks(),
   utenti: () => loadUsersList(),
   aspetto: () => renderThemeSettings(),
+  jam: () => { if (window.Jam) window.Jam.renderSettings(); },
 };
 
 // Two panes read the same endpoint. Shared per modal-open so switching between
