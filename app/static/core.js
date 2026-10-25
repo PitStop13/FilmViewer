@@ -57,14 +57,29 @@ window.fetch = async (input, init) => {
     }
   }
 
+function _preservePendingJamCode() {
+  try {
+    const raw = (window.location.hash || '') + (window.location.search || '');
+    const match = raw.match(/code=([0-9]{6})/);
+    if (match && match[1]) {
+      sessionStorage.setItem('fv_jam_pending_code', match[1]);
+    }
+  } catch (_) {}
+}
+
   if (res.status === 401 && !isAuthCall) {
+    _preservePendingJamCode();
     window.location.href = '/login';
   }
   return res;
 };
 
 async function initAuth() {
-  if (!await _refreshIdentity()) { window.location.href = '/login'; return false; }
+  if (!await _refreshIdentity()) {
+    _preservePendingJamCode();
+    window.location.href = '/login';
+    return false;
+  }
 
   _authEnabled = _me.auth_enabled !== false;
 
@@ -172,8 +187,58 @@ function scPrompt(msg, defaultVal='') {
     cancel.addEventListener('click', onCancel, {once:true});
     input.addEventListener('keydown', onKey);
     showModal('sc-prompt-modal');
-    setTimeout(() => input.focus(), 50);
+    setTimeout(() => {
+      try { input.focus(); input.select(); } catch (_) { try { input.focus(); } catch (_) {} }
+    }, 50);
   });
+}
+
+// Universal clipboard copy with fallback for non-secure HTTP contexts (e.g. LAN / Docker)
+async function copyToClipboard(text) {
+  if (!text) return false;
+
+  // 1. Try modern Async Clipboard API in secure contexts (HTTPS or localhost)
+  if (window.isSecureContext && navigator.clipboard && typeof navigator.clipboard.writeText === 'function') {
+    try {
+      await navigator.clipboard.writeText(text);
+      return true;
+    } catch (e) {
+      console.warn('[Clipboard] Async API failed, falling back:', e);
+    }
+  }
+
+  // 2. Fallback using temporary textarea + execCommand('copy')
+  try {
+    const ta = document.createElement('textarea');
+    ta.value = text;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;pointer-events:none;z-index:-1;';
+    document.body.appendChild(ta);
+
+    // iOS selection compatibility
+    if (navigator.userAgent.match(/ipad|ipod|iphone/i)) {
+      const range = document.createRange();
+      range.selectNodeContents(ta);
+      const sel = window.getSelection();
+      if (sel) {
+        sel.removeAllRanges();
+        sel.addRange(range);
+      }
+      ta.setSelectionRange(0, 999999);
+    } else {
+      ta.focus();
+      ta.select();
+      ta.setSelectionRange(0, text.length);
+    }
+
+    const success = document.execCommand('copy');
+    document.body.removeChild(ta);
+    if (success) return true;
+  } catch (err) {
+    console.warn('[Clipboard] execCommand fallback failed:', err);
+  }
+
+  return false;
 }
 
 function escapeHtml(s) {

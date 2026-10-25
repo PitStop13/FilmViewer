@@ -17,6 +17,7 @@ from app.auth import models
 from app.auth.deps import require
 from app.auth.permissions import Permission
 from app.config import configured_domain
+from app.core import domain_recovery
 from app.core.headers import get_headers
 from app.core._shared import (
     _fetch_vixcloud_embed,
@@ -189,10 +190,8 @@ async def get_watch_info(
 async def prepare_stream(req: StreamPrepareRequest, request: Request):
     c_type = (req.content_type or "").lower().strip()
 
-    domain = _sc_domain()
-
-
     def _resolve():
+        domain = _sc_domain()
         if c_type in ("movie", "film"):
             embed_content, embed_referer = _get_film_iframe(int(req.id), domain)
             json_win_video, json_win_param = _parse_content(embed_content, embed_referer)
@@ -213,11 +212,20 @@ async def prepare_stream(req: StreamPrepareRequest, request: Request):
 
             # 1. If no episode_id was passed, check if the user was already watching this series
             if not episode_id:
-                user_id = getattr(request.state, "user_id", 0)
+                user = getattr(request.state, "user", None)
+                user_id = getattr(user, "id", 0) if user else 0
                 try:
-                    from app.continue_watching import get_continue_watching
-                    cw_list = get_continue_watching(user_id=user_id)
-                    found_cw = next((cw for cw in cw_list if str(cw.get("content_id")) == str(req.id) and cw.get("content_type") == "tv"), None)
+                    from app.continue_watching import get_continue_watching_list
+                    cw_list = get_continue_watching_list(user_id=user_id)
+                    found_cw = next(
+                        (
+                            cw
+                            for cw in cw_list
+                            if str(cw.get("content_id")) == str(req.id)
+                            and cw.get("content_type") in ("tv", "series")
+                        ),
+                        None,
+                    )
                     if found_cw and found_cw.get("episode_id"):
                         episode_id = str(found_cw["episode_id"])
                         episode_num = str(found_cw.get("episode_number") or 1)
@@ -297,8 +305,30 @@ async def prepare_stream(req: StreamPrepareRequest, request: Request):
     try:
         token, ep_id, ep_num, ep_title = await asyncio.to_thread(_resolve)
     except Exception as e:
-        logger.error("Failed to prepare stream: %s", e, exc_info=True)
-        raise HTTPException(status_code=502, detail=f"Errore caricamento streaming: {str(e)}")
+        err_msg = str(e).lower()
+        is_conn_error = any(term in err_msg for term in (
+            "connection refused", "failed to establish a new connection",
+            "connection error", "connection reset", "name or service not known",
+            "nodename nor servname provided", "max retries exceeded"
+        ))
+        if is_conn_error:
+            logger.warning("Stream preparation failed with connection error (%s). Checking domain recovery...", e)
+            try:
+                rec_result = await asyncio.to_thread(domain_recovery.run_check, True)
+                if rec_result.get("applied") or (rec_result.get("candidate") and domain_recovery.config.configured_domain() == rec_result.get("candidate")):
+                    logger.info("New domain recovered (%s). Retrying stream preparation...", domain_recovery.config.configured_domain())
+                    token, ep_id, ep_num, ep_title = await asyncio.to_thread(_resolve)
+                else:
+                    logger.error("Failed to prepare stream: %s", e, exc_info=True)
+                    raise HTTPException(status_code=502, detail=f"Errore caricamento streaming: {str(e)}")
+            except HTTPException:
+                raise
+            except Exception as retry_err:
+                logger.error("Failed to prepare stream after domain check: %s", retry_err, exc_info=True)
+                raise HTTPException(status_code=502, detail=f"Errore caricamento streaming: {str(retry_err)}")
+        else:
+            logger.error("Failed to prepare stream: %s", e, exc_info=True)
+            raise HTTPException(status_code=502, detail=f"Errore caricamento streaming: {str(e)}")
 
     return {
         "stream_token": token,

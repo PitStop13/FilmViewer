@@ -108,9 +108,35 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
       </div>
-      <div class="modal-body p-0">
+      <div class="modal-body p-0 position-relative" style="background:#000; min-height:420px; display:flex; align-items:center; justify-content:center;">
         <video id="video-player" controls preload="metadata" tabindex="0"
                class="player-video"></video>
+
+        <!-- JAM Party Wait / Status Overlay -->
+        <div id="player-jam-overlay" class="jam-player-overlay" style="display:none;">
+          <div class="jam-pulse-ring mb-3">
+            <i class="ti ti-headphones text-primary fs-1"></i>
+          </div>
+          <h3 class="text-white fw-bold mb-1" id="player-jam-title">Sondaggio Watch Party in corso...</h3>
+          <p class="text-muted small mb-3 px-3" id="player-jam-desc" style="max-width:440px;">
+            In attesa che gli altri amici nella stanza JAM rispondano all'invito per partire tutti assieme.
+          </p>
+          <div id="player-jam-peers" class="d-flex flex-column gap-2 mb-4 w-100 px-3" style="max-width:380px;"></div>
+          <div class="d-flex align-items-center gap-2" id="player-jam-actions">
+            <button type="button" class="btn btn-primary btn-sm px-3" id="player-jam-start-now-btn" data-action="jam:startNow">
+              <i class="ti ti-player-play me-1"></i>Avvia comunque ora
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-action="jam:cancelParty">
+              <i class="ti ti-x me-1"></i>Annulla
+            </button>
+          </div>
+        </div>
+
+        <!-- JAM Synchronized Countdown Overlay -->
+        <div id="player-countdown-overlay" class="jam-countdown-overlay" style="display:none;">
+          <div id="player-countdown-number" class="jam-countdown-num">3</div>
+          <div class="jam-countdown-text">Partenza Sincronizzata</div>
+        </div>
       </div>
       <div class="modal-footer py-2 px-3 justify-content-between" style="background:rgba(255,255,255,0.02); border-top:1px solid rgba(255,255,255,0.06);">
         <small class="text-muted d-none d-md-inline">
@@ -183,6 +209,32 @@
         <!-- Video player element -->
         <video id="stream-video-player" controls preload="auto" playsinline tabindex="0"
                style="width:100%; height:70vh; max-height:760px; object-fit:contain; display:none; background:#000;"></video>
+
+        <!-- JAM Party Wait / Status Overlay -->
+        <div id="stream-player-jam-overlay" class="jam-player-overlay" style="display:none;">
+          <div class="jam-pulse-ring mb-3">
+            <i class="ti ti-headphones text-primary fs-1"></i>
+          </div>
+          <h3 class="text-white fw-bold mb-1" id="stream-player-jam-title">Sondaggio Watch Party in corso...</h3>
+          <p class="text-muted small mb-3 px-3" id="stream-player-jam-desc" style="max-width:440px;">
+            In attesa che gli altri amici nella stanza JAM rispondano all'invito per partire tutti assieme.
+          </p>
+          <div id="stream-player-jam-peers" class="d-flex flex-column gap-2 mb-4 w-100 px-3" style="max-width:380px;"></div>
+          <div class="d-flex align-items-center gap-2" id="stream-player-jam-actions">
+            <button type="button" class="btn btn-primary btn-sm px-3" id="stream-player-jam-start-now-btn" data-action="jam:startNow">
+              <i class="ti ti-player-play me-1"></i>Avvia comunque ora
+            </button>
+            <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-action="jam:cancelParty">
+              <i class="ti ti-x me-1"></i>Annulla
+            </button>
+          </div>
+        </div>
+
+        <!-- JAM Synchronized Countdown Overlay -->
+        <div id="stream-player-countdown-overlay" class="jam-countdown-overlay" style="display:none;">
+          <div id="stream-player-countdown-number" class="jam-countdown-num">3</div>
+          <div class="jam-countdown-text">Partenza Sincronizzata</div>
+        </div>
       </div>
 
       <div class="modal-footer py-2 px-3 justify-content-between" style="background:rgba(255,255,255,0.02); border-top:1px solid rgba(255,255,255,0.06);">
@@ -398,5 +450,88 @@
     </div>
   </div>
 </div>
+
+<!-- ── JAM Watch Party Quick Modal (In-Player Management) ────────────── -->
+<div class="modal modal-blur fade" id="jam-quick-modal" tabindex="-1" style="display:none; z-index:1065;" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:520px;">
+    <div class="modal-content" style="background:#090f1d; border:1px solid rgba(255,255,255,0.15); border-radius:18px; overflow:hidden; box-shadow:0 25px 60px -15px rgba(0,0,0,0.9);">
+      <div class="modal-header border-0 py-3 px-4 d-flex align-items-center justify-content-between" style="background:rgba(255,255,255,0.02); border-bottom:1px solid rgba(255,255,255,0.06) !important;">
+        <div class="d-flex align-items-center gap-2">
+          <i class="ti ti-headphones text-primary fs-2"></i>
+          <h5 class="modal-title m-0 text-white fw-bold">JAM Watch Party</h5>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Chiudi"></button>
+      </div>
+      <div class="modal-body p-4" id="jam-quick-modal-body">
+        <!-- Rendered dynamically by Jam.renderQuickModal() -->
+      </div>
+      <div class="modal-footer py-2 px-4 justify-content-between" style="background:rgba(255,255,255,0.02); border-top:1px solid rgba(255,255,255,0.06);">
+        <button type="button" class="btn btn-sm btn-outline-secondary" data-action="jam:openFullSettings">
+          <i class="ti ti-settings me-1"></i>Tutte le impostazioni JAM
+        </button>
+        <button type="button" class="btn btn-sm btn-primary" data-bs-dismiss="modal">Torna al video</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ── JAM Proposal Modal (Sondaggio Unisciti / Rifiuta) ──────────────── -->
+<div class="modal modal-blur fade" id="jam-proposal-modal" tabindex="-1" style="display:none; z-index:1070;" aria-hidden="true" data-bs-backdrop="static">
+  <div class="modal-dialog modal-dialog-centered" style="max-width:480px;">
+    <div class="modal-content" style="background:#090f1d; border:1px solid rgba(46,213,115,0.3); border-radius:18px; overflow:hidden; box-shadow:0 25px 60px -15px rgba(0,0,0,0.95);">
+      <div class="modal-header border-0 py-3 px-4 d-flex align-items-center justify-content-between" style="background:rgba(46,213,115,0.08); border-bottom:1px solid rgba(46,213,115,0.15) !important;">
+        <div class="d-flex align-items-center gap-2">
+          <div style="width:34px; height:34px; border-radius:10px; background:rgba(46,213,115,0.2); display:flex; align-items:center; justify-content:center;">
+            <i class="ti ti-headphones text-success fs-2"></i>
+          </div>
+          <div>
+            <h5 class="modal-title m-0 text-white fw-bold">Invito Watch Party JAM</h5>
+            <small class="text-success" id="jam-proposal-room-badge">Stanza attiva</small>
+          </div>
+        </div>
+        <button type="button" class="btn-close btn-close-white" data-action="jam:rejectProposal" aria-label="Rifiuta"></button>
+      </div>
+
+      <div class="modal-body p-4">
+        <div class="mb-3 text-white fs-3">
+          <span id="jam-proposal-nick" class="fw-bold text-success">Amico</span>
+          <span class="text-muted fs-4">ha avviato la riproduzione:</span>
+        </div>
+
+        <div class="card bg-dark border-0 p-3 mb-3 d-flex flex-row align-items-center gap-3" style="background:rgba(255,255,255,0.04) !important; border:1px solid rgba(255,255,255,0.08) !important; border-radius:12px;">
+          <img id="jam-proposal-poster" src="" style="width:68px; height:98px; object-fit:cover; border-radius:8px; display:none;" alt="Poster">
+          <div id="jam-proposal-poster-fallback" style="width:68px; height:98px; min-width:68px; border-radius:8px; background:rgba(255,255,255,0.06); display:flex; align-items:center; justify-content:center;">
+            <i class="ti ti-movie fs-1 text-muted"></i>
+          </div>
+          <div class="text-truncate">
+            <h4 class="text-white fw-bold m-0 text-truncate" id="jam-proposal-title">Titolo</h4>
+            <div class="text-muted small mt-1 text-truncate" id="jam-proposal-sub">Film</div>
+            <div class="mt-2">
+              <span class="badge bg-success-lt" style="font-size:11px;">
+                <i class="ti ti-broadcast me-1"></i>Avvio Sincronizzato
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <div class="alert alert-info py-2 px-3 d-flex align-items-center mb-0" style="background:rgba(32,107,196,0.12); border-color:rgba(32,107,196,0.3); font-size:12px;">
+          <i class="ti ti-info-circle me-2 fs-2 text-info"></i>
+          <div>Se fai <strong>Unisciti</strong>, il film si aprirà e partirà nello stesso momento per tutti i partecipanti.</div>
+        </div>
+      </div>
+
+      <div class="modal-footer py-3 px-4 justify-content-between border-0" style="background:rgba(255,255,255,0.02); border-top:1px solid rgba(255,255,255,0.06);">
+        <button type="button" class="btn btn-outline-secondary" data-action="jam:rejectProposal">
+          <i class="ti ti-x me-1"></i>Rifiuta
+        </button>
+        <button type="button" class="btn btn-success fw-bold px-3" data-action="jam:acceptProposal">
+          <i class="ti ti-player-play me-1"></i>Unisciti e Guarda Insieme
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
 
 

@@ -28,6 +28,7 @@
   let _suppressLocalEvents = false;
   let _heartbeatTimer = null;
   let _pingTimer = null;
+  let _reconnectTimer = null;
   let _lastSentTime = -1;
   let _lastSentState = null;
 
@@ -46,6 +47,9 @@
       lastRemoteMedia: null,
       statusMessage: '',
       statusType: 'muted', // 'muted' | 'success' | 'warning' | 'danger'
+      activeProposal: null, // when initiating: { id, media, responses: Map<peerId, { nickname, status, ready }>, initiatorReady: false }
+      incomingProposal: null, // when receiving: { id, senderId, senderNick, media }
+      countdownActive: false,
     },
 
     init() {
@@ -65,13 +69,23 @@
         registerActions({
           'jam:create': () => this.createRoom(),
           'jam:join': () => this.joinFromInput(),
+          'jam:joinAuto': (d) => {
+            const code = (d && d.code) || this._pendingCodeFromUrl;
+            if (code) this.joinRoom(code, false);
+          },
           'jam:leave': () => this.leaveRoom(),
           'jam:forceSync': () => this.forceSync(),
-          'jam:copyCode': () => this.copyRoomCode(),
-          'jam:copyLink': () => this.copyQuickLink(),
+          'jam:copyCode': (d, el) => this.copyRoomCode(el),
+          'jam:copyLink': (d, el) => this.copyQuickLink(el),
+          'jam:shareLink': (d, el) => this.shareLink(el),
           'jam:openSettings': () => this.openJamSettings(),
-          'jam:toggleToasts': (el) => {
-            const enabled = !!el.checked;
+          'jam:openFullSettings': () => this.openFullSettings(),
+          'jam:acceptProposal': () => this.acceptProposal(),
+          'jam:rejectProposal': () => this.rejectProposal(),
+          'jam:startNow': () => this.startNow(),
+          'jam:cancelParty': () => this.cancelParty(),
+          'jam:toggleToasts': (d, el) => {
+            const enabled = !!(el && el.checked);
             this.state.showToasts = enabled;
             localStorage.setItem(STORAGE_KEYS.toasts, enabled ? '1' : '0');
           },
@@ -98,6 +112,11 @@
       return this.state.connected && !!this.state.roomCode;
     },
 
+    hasConnectedPeers() {
+      if (!this.isActive()) return false;
+      return this.state.peers.size > 0;
+    },
+
     setNickname(name) {
       if (!name) return;
       this.state.nickname = name;
@@ -109,12 +128,30 @@
 
     _checkUrlCode() {
       try {
-        const hash = window.location.hash || '';
-        const match = hash.match(/code=([0-9]{6})/);
+        const stored = sessionStorage.getItem('fv_jam_pending_code');
+        if (stored && /^[0-9]{6}$/.test(stored)) {
+          sessionStorage.removeItem('fv_jam_pending_code');
+          this._pendingCodeFromUrl = stored;
+          return;
+        }
+
+        const raw = (window.location.hash || '') + (window.location.search || '');
+        const match = raw.match(/code=([0-9]{6})/);
         if (match && match[1]) {
           this._pendingCodeFromUrl = match[1];
         }
       } catch (_) {}
+    },
+
+    setPendingCode(code) {
+      if (!code) return;
+      code = String(code).trim().replace(/[^0-9]/g, '');
+      if (code.length === 6) {
+        this._pendingCodeFromUrl = code;
+        if (!this.isActive() && !this.state.connecting) {
+          this.renderSettings();
+        }
+      }
     },
 
     generateRoomCode() {
@@ -180,11 +217,13 @@
           this._stopLoops();
           this._updatePlayerPills();
 
+          if (_reconnectTimer) clearTimeout(_reconnectTimer);
           if (this.state.roomCode) {
             this.state.statusMessage = `Connessione interrotta (${responseObject.errorMessage || 'Timeout'}). Riconnessione...`;
             this.state.statusType = 'danger';
             this.renderSettings();
-            setTimeout(() => {
+            _reconnectTimer = setTimeout(() => {
+              _reconnectTimer = null;
               if (this.state.roomCode) this._connectToBroker();
             }, 3000);
           }
@@ -254,6 +293,11 @@
     },
 
     leaveRoom(notify = true) {
+      if (_reconnectTimer) {
+        clearTimeout(_reconnectTimer);
+        _reconnectTimer = null;
+      }
+
       if (notify && this.isActive()) {
         try {
           this.sendAction('LEAVE', { nickname: this.state.nickname });
@@ -264,6 +308,8 @@
 
       if (_client) {
         try {
+          _client.onConnectionLost = null;
+          _client.onMessageArrived = null;
           if (_client.isConnected()) {
             _client.disconnect();
           }
@@ -276,6 +322,13 @@
       this.state.roomCode = null;
       this.state.isHost = false;
       this.state.peers.clear();
+      this.state.activeProposal = null;
+      this.state.incomingProposal = null;
+      this.state.countdownActive = false;
+      this._hidePartyOverlays();
+      if (typeof hideModal === 'function') {
+        hideModal('jam-proposal-modal');
+      }
       this.state.statusMessage = 'Disconnesso';
       this.state.statusType = 'muted';
 
@@ -449,6 +502,75 @@
           this.renderSettings();
           break;
         }
+
+        case 'PARTY_PROPOSAL': {
+          if (!data.proposalId || !data.media) return;
+          this.state.incomingProposal = {
+            id: data.proposalId,
+            senderId,
+            senderNick: nick,
+            media: data.media,
+          };
+          this._showProposalModal(nick, data.media);
+          break;
+        }
+
+        case 'PARTY_RESPONSE': {
+          if (!this.state.activeProposal || this.state.activeProposal.id !== data.proposalId) return;
+
+          const prop = this.state.activeProposal;
+          const peerResp = prop.responses.get(senderId) || { nickname: nick };
+          peerResp.status = data.accepted ? 'accepted' : 'rejected';
+          prop.responses.set(senderId, peerResp);
+
+          if (data.accepted) {
+            if (this.state.showToasts && typeof showToast === 'function') {
+              showToast(`🎉 ${nick} ha accettato l'invito! Caricamento in corso...`, 'success');
+            }
+          } else {
+            if (this.state.showToasts && typeof showToast === 'function') {
+              showToast(`ℹ️ ${nick} ha rifiutato l'invito.`, 'info');
+            }
+          }
+
+          this._updatePartyOverlays();
+          this._checkPartyAllReady();
+          break;
+        }
+
+        case 'PARTY_READY': {
+          if (!this.state.activeProposal || this.state.activeProposal.id !== data.proposalId) return;
+
+          const prop = this.state.activeProposal;
+          const peerResp = prop.responses.get(senderId) || { nickname: nick };
+          peerResp.status = 'accepted';
+          peerResp.ready = true;
+          prop.responses.set(senderId, peerResp);
+
+          this._updatePartyOverlays();
+          this._checkPartyAllReady();
+          break;
+        }
+
+        case 'PARTY_START': {
+          const sec = Number(data.countdownSec) || 3;
+          this._runCountdown(sec);
+          break;
+        }
+
+        case 'PARTY_CANCEL': {
+          if (this.state.incomingProposal && this.state.incomingProposal.id === data.proposalId) {
+            this.state.incomingProposal = null;
+            if (typeof hideModal === 'function') {
+              hideModal('jam-proposal-modal');
+            }
+            this._hidePartyOverlays();
+            if (this.state.showToasts && typeof showToast === 'function') {
+              showToast(`Invito Watch Party annullato da ${nick}.`, 'warning');
+            }
+          }
+          break;
+        }
       }
     },
 
@@ -572,6 +694,341 @@
       });
     },
 
+    proposeMedia(opts) {
+      if (!this.isActive() || !this.hasConnectedPeers()) return false;
+
+      const proposalId = 'jam_prop_' + Date.now() + '_' + Math.random().toString(36).substring(2, 7);
+      const media = {
+        type: opts.type || 'movie',
+        id: opts.id,
+        slug: opts.slug || '',
+        title: opts.title || 'Film',
+        episodeId: opts.episodeId,
+        episodeNumber: opts.episodeNumber,
+        episodeTitle: opts.episodeTitle,
+        poster: opts.poster || '',
+        startTime: opts.startTime || 0,
+      };
+
+      const responses = new Map();
+      this.state.peers.forEach((peer, peerId) => {
+        responses.set(peerId, {
+          nickname: peer.nickname || 'Amico',
+          status: 'pending',
+          ready: false,
+        });
+      });
+
+      this.state.activeProposal = {
+        id: proposalId,
+        media,
+        responses,
+        initiatorReady: false,
+      };
+
+      // Broadcast proposal to all peers in room
+      this.sendAction('PARTY_PROPOSAL', {
+        proposalId,
+        media,
+      });
+
+      // Open stream player with flags so it buffers and stays paused
+      if (typeof openStreamPlayer === 'function') {
+        openStreamPlayer({
+          ...opts,
+          _jamDirectPlay: true,
+          _jamPendingParty: true,
+        });
+      }
+
+      this._updatePartyOverlays();
+      return true;
+    },
+
+    _showProposalModal(nick, media) {
+      const modal = document.getElementById('jam-proposal-modal');
+      if (!modal) return;
+
+      const nickEl = document.getElementById('jam-proposal-nick');
+      const titleEl = document.getElementById('jam-proposal-title');
+      const subEl = document.getElementById('jam-proposal-sub');
+      const posterImg = document.getElementById('jam-proposal-poster');
+      const posterFallback = document.getElementById('jam-proposal-poster-fallback');
+      const roomBadge = document.getElementById('jam-proposal-room-badge');
+
+      if (nickEl) nickEl.textContent = nick;
+      if (titleEl) titleEl.textContent = media.title || 'Film';
+      if (subEl) {
+        if (media.type === 'movie') {
+          subEl.textContent = 'Film';
+        } else {
+          subEl.textContent = media.episodeTitle ? `${media.episodeTitle} (Ep. ${media.episodeNumber || 1})` : `Episodio ${media.episodeNumber || 1}`;
+        }
+      }
+      if (roomBadge) roomBadge.textContent = `Stanza #${this.state.roomCode}`;
+
+      if (posterImg && posterFallback) {
+        if (media.poster) {
+          posterImg.src = media.poster;
+          posterImg.style.display = 'block';
+          posterFallback.style.display = 'none';
+          posterImg.onerror = () => {
+            posterImg.style.display = 'none';
+            posterFallback.style.display = 'flex';
+          };
+        } else {
+          posterImg.style.display = 'none';
+          posterFallback.style.display = 'flex';
+        }
+      }
+
+      if (typeof showModal === 'function') {
+        showModal('jam-proposal-modal');
+      }
+    },
+
+    acceptProposal() {
+      const prop = this.state.incomingProposal;
+      if (!prop) return;
+
+      if (typeof hideModal === 'function') {
+        hideModal('jam-proposal-modal');
+      }
+
+      this.sendAction('PARTY_RESPONSE', {
+        proposalId: prop.id,
+        accepted: true,
+      });
+
+      // Open player paused
+      if (typeof openStreamPlayer === 'function') {
+        openStreamPlayer({
+          ...prop.media,
+          _jamDirectPlay: true,
+          _jamPendingParty: true,
+        });
+      }
+
+      this._showReceiverWaitOverlay(prop.senderNick);
+    },
+
+    rejectProposal() {
+      const prop = this.state.incomingProposal;
+      if (typeof hideModal === 'function') {
+        hideModal('jam-proposal-modal');
+      }
+      if (!prop) return;
+
+      this.sendAction('PARTY_RESPONSE', {
+        proposalId: prop.id,
+        accepted: false,
+      });
+      this.state.incomingProposal = null;
+    },
+
+    notifyPlayerReady() {
+      const player = this.getActivePlayer();
+      if (player) {
+        try { player.pause(); } catch (_) {}
+      }
+
+      // If we are receiver of an incoming proposal
+      if (this.state.incomingProposal) {
+        this.sendAction('PARTY_READY', {
+          proposalId: this.state.incomingProposal.id,
+        });
+        const statusEl = document.getElementById('stream-player-jam-desc') || document.getElementById('player-jam-desc');
+        if (statusEl) {
+          const initiatorName = typeof escapeHtml === 'function' ? escapeHtml(this.state.incomingProposal.senderNick || 'l\'organizzatore') : (this.state.incomingProposal.senderNick || 'l\'organizzatore');
+          statusEl.textContent = `Video pronto! In attesa che ${initiatorName} dia il via sincronizzato...`;
+        }
+      }
+
+      // If we are initiator
+      if (this.state.activeProposal) {
+        this.state.activeProposal.initiatorReady = true;
+        this._checkPartyAllReady();
+      }
+    },
+
+    _checkPartyAllReady() {
+      if (!this.state.activeProposal) return;
+      const prop = this.state.activeProposal;
+
+      if (!prop.initiatorReady) return;
+
+      let allResponded = true;
+      let hasAccepted = false;
+      let allAcceptedReady = true;
+
+      prop.responses.forEach((resp) => {
+        if (resp.status === 'pending') allResponded = false;
+        if (resp.status === 'accepted') {
+          hasAccepted = true;
+          if (!resp.ready) allAcceptedReady = false;
+        }
+      });
+
+      if (allResponded && hasAccepted && allAcceptedReady) {
+        this.startNow();
+      }
+    },
+
+    startNow() {
+      const proposalId = this.state.activeProposal ? this.state.activeProposal.id : (this.state.incomingProposal ? this.state.incomingProposal.id : null);
+      if (proposalId) {
+        this.sendAction('PARTY_START', {
+          proposalId,
+          countdownSec: 3,
+        });
+      }
+      this._runCountdown(3);
+    },
+
+    cancelParty() {
+      if (this.state.activeProposal) {
+        this.sendAction('PARTY_CANCEL', { proposalId: this.state.activeProposal.id });
+        this.state.activeProposal = null;
+      }
+      this.state.incomingProposal = null;
+      this._hidePartyOverlays();
+      if (typeof hideModal === 'function') {
+        hideModal('stream-player-modal');
+        hideModal('player-modal');
+        hideModal('jam-proposal-modal');
+      }
+    },
+
+    _runCountdown(sec) {
+      this.state.countdownActive = true;
+      this._hidePartyOverlays();
+
+      const streamCd = document.getElementById('stream-player-countdown-overlay');
+      const localCd = document.getElementById('player-countdown-overlay');
+      const streamNum = document.getElementById('stream-player-countdown-number');
+      const localNum = document.getElementById('player-countdown-number');
+
+      const isStreamShown = streamCd && streamCd.closest && (streamCd.closest('.modal')?.classList.contains('show') || streamCd.closest('.modal')?.style.display === 'block');
+      const cdOverlay = isStreamShown ? streamCd : (streamCd || localCd);
+      const numEl = cdOverlay === streamCd ? streamNum : localNum;
+
+      if (cdOverlay) {
+        cdOverlay.style.display = 'flex';
+      }
+
+      let current = sec;
+      if (numEl) {
+        numEl.textContent = String(current);
+        numEl.style.color = '#2ed573';
+      }
+
+      const player = this.getActivePlayer();
+      if (player) {
+        try {
+          player.pause();
+          player.currentTime = 0;
+        } catch (_) {}
+      }
+
+      const timer = setInterval(() => {
+        current--;
+        if (current > 0) {
+          if (numEl) {
+            numEl.textContent = String(current);
+            numEl.style.animation = 'none';
+            void numEl.offsetWidth;
+            numEl.style.animation = 'jamCountdownPop 0.85s cubic-bezier(0.175, 0.885, 0.32, 1.275)';
+          }
+        } else if (current === 0) {
+          if (numEl) {
+            numEl.textContent = 'VIA!';
+            numEl.style.color = '#fff';
+          }
+        } else {
+          clearInterval(timer);
+          if (cdOverlay) cdOverlay.style.display = 'none';
+          this.state.countdownActive = false;
+          this.state.activeProposal = null;
+          this.state.incomingProposal = null;
+
+          const p = this.getActivePlayer();
+          if (p) {
+            p.play().catch(() => {});
+          }
+        }
+      }, 1000);
+    },
+
+    _updatePartyOverlays() {
+      if (!this.state.activeProposal) return;
+      const prop = this.state.activeProposal;
+
+      const overlays = [
+        { overlay: document.getElementById('stream-player-jam-overlay'), peersEl: document.getElementById('stream-player-jam-peers'), titleEl: document.getElementById('stream-player-jam-title'), descEl: document.getElementById('stream-player-jam-desc') },
+        { overlay: document.getElementById('player-jam-overlay'), peersEl: document.getElementById('player-jam-peers'), titleEl: document.getElementById('player-jam-title'), descEl: document.getElementById('player-jam-desc') },
+      ];
+
+      overlays.forEach(({ overlay, peersEl, titleEl, descEl }) => {
+        if (!overlay || !peersEl) return;
+        overlay.style.display = 'flex';
+
+        if (titleEl) titleEl.textContent = 'Sondaggio Watch Party in corso...';
+        if (descEl) descEl.textContent = 'Il film non inizierà finché i partecipanti non avranno risposto, per partire tutti nello stesso momento.';
+
+        let html = '';
+        prop.responses.forEach((resp) => {
+          let badge = '';
+          if (resp.status === 'pending') {
+            badge = '<span class="badge bg-warning-lt"><i class="ti ti-hourglass-empty me-1"></i>In attesa...</span>';
+          } else if (resp.status === 'accepted') {
+            badge = resp.ready
+              ? '<span class="badge bg-success-lt"><i class="ti ti-check me-1"></i>Pronto al via!</span>'
+              : '<span class="badge bg-info-lt"><i class="spinner-border spinner-border-sm me-1"></i>Caricamento...</span>';
+          } else if (resp.status === 'rejected') {
+            badge = '<span class="badge bg-secondary-lt"><i class="ti ti-x me-1"></i>Ha rifiutato</span>';
+          }
+          const name = typeof escapeHtml === 'function' ? escapeHtml(resp.nickname) : resp.nickname;
+          html += `
+            <div class="d-flex align-items-center justify-content-between p-2 rounded" style="background:rgba(255,255,255,0.05); border:1px solid rgba(255,255,255,0.08);">
+              <span class="text-white fw-bold"><i class="ti ti-user me-1 text-muted"></i>${name}</span>
+              ${badge}
+            </div>
+          `;
+        });
+        peersEl.innerHTML = html;
+      });
+    },
+
+    _showReceiverWaitOverlay(initiatorNick) {
+      const name = typeof escapeHtml === 'function' ? escapeHtml(initiatorNick || 'Amico') : (initiatorNick || 'Amico');
+      const overlays = [
+        { overlay: document.getElementById('stream-player-jam-overlay'), titleEl: document.getElementById('stream-player-jam-title'), descEl: document.getElementById('stream-player-jam-desc'), peersEl: document.getElementById('stream-player-jam-peers'), actionsEl: document.getElementById('stream-player-jam-actions') },
+        { overlay: document.getElementById('player-jam-overlay'), titleEl: document.getElementById('player-jam-title'), descEl: document.getElementById('player-jam-desc'), peersEl: document.getElementById('player-jam-peers'), actionsEl: document.getElementById('player-jam-actions') },
+      ];
+
+      overlays.forEach(({ overlay, titleEl, descEl, peersEl, actionsEl }) => {
+        if (!overlay) return;
+        overlay.style.display = 'flex';
+        if (titleEl) titleEl.textContent = 'Connesso al Watch Party!';
+        if (descEl) descEl.textContent = `Caricamento flusso video... In attesa del via simultaneo da parte di ${name}.`;
+        if (peersEl) peersEl.innerHTML = '<div class="spinner-border text-success my-2" role="status"></div>';
+        if (actionsEl) {
+          actionsEl.innerHTML = `
+            <button type="button" class="btn btn-outline-secondary btn-sm px-3" data-action="jam:cancelParty">
+              <i class="ti ti-x me-1"></i>Esci dal Party
+            </button>
+          `;
+        }
+      });
+    },
+
+    _hidePartyOverlays() {
+      const o1 = document.getElementById('stream-player-jam-overlay');
+      const o2 = document.getElementById('player-jam-overlay');
+      if (o1) o1.style.display = 'none';
+      if (o2) o2.style.display = 'none';
+    },
+
     getActivePlayer() {
       if (typeof getActiveVideoPlayer === 'function') {
         const v = getActiveVideoPlayer();
@@ -680,6 +1137,10 @@
     _updatePeerPings() {
       const el = document.getElementById('jam-peers-list');
       if (el) this._renderPeersList(el);
+      const qEl = document.getElementById('jam-quick-modal-body');
+      if (qEl && document.getElementById('jam-quick-modal')?.classList.contains('show')) {
+        this.renderQuickModal();
+      }
       this._updatePlayerPills();
     },
 
@@ -695,30 +1156,211 @@
       return `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
     },
 
-    copyRoomCode() {
-      if (!this.state.roomCode) return;
-      navigator.clipboard.writeText(this.state.roomCode).then(() => {
-        if (typeof showToast === 'function') showToast(`Codice #${this.state.roomCode} copiato!`, 'success');
-      }).catch(() => {
-        if (typeof showToast === 'function') showToast(`Codice: ${this.state.roomCode}`, 'info');
-      });
+    getQuickLink() {
+      if (!this.state.roomCode) return '';
+      const base = window.location.origin + window.location.pathname;
+      return `${base.replace(/\/+$/, '')}/#/settings/jam?code=${this.state.roomCode}`;
     },
 
-    copyQuickLink() {
-      if (!this.state.roomCode) return;
-      const url = `${window.location.origin}/#/settings/jam?code=${this.state.roomCode}`;
-      navigator.clipboard.writeText(url).then(() => {
-        if (typeof showToast === 'function') showToast('Link rapido per l\'amico copiato negli appunti!', 'success');
-      }).catch(() => {
-        if (typeof showToast === 'function') showToast(url, 'info');
-      });
+    async copyRoomCode(btnEl) {
+      const code = this.state.roomCode;
+      if (!code) return;
+
+      const success = (typeof copyToClipboard === 'function')
+        ? await copyToClipboard(code)
+        : false;
+
+      if (success) {
+        if (typeof showToast === 'function') {
+          showToast(`Codice #${code} copiato negli appunti!`, 'success');
+        }
+        this._flashBtnSuccess(btnEl || document.getElementById('jam-btn-copy-code'), 'Copiato!');
+      } else {
+        if (typeof scPrompt === 'function') {
+          scPrompt('Copia il codice della stanza:', code);
+        } else if (typeof showToast === 'function') {
+          showToast(`Codice: ${code}`, 'info');
+        }
+      }
+    },
+
+    async copyQuickLink(btnEl) {
+      const url = this.getQuickLink();
+      if (!url) return;
+
+      const success = (typeof copyToClipboard === 'function')
+        ? await copyToClipboard(url)
+        : false;
+
+      if (success) {
+        if (typeof showToast === 'function') {
+          showToast('Link di invito copiato negli appunti!', 'success');
+        }
+        this._flashBtnSuccess(btnEl || document.getElementById('jam-btn-copy-link'), 'Link Copiato!');
+      } else {
+        if (typeof scPrompt === 'function') {
+          scPrompt('Copia questo link di invito e invialo al tuo amico:', url);
+        } else if (typeof showToast === 'function') {
+          showToast(`Link: ${url}`, 'info');
+        }
+      }
+    },
+
+    async shareLink(btnEl) {
+      const url = this.getQuickLink();
+      if (!url) return;
+
+      if (navigator.share) {
+        try {
+          await navigator.share({
+            title: 'JAM Watch Party - FilmViewer',
+            text: `Unisciti alla mia stanza JAM #${this.state.roomCode} per guardare insieme in sincronia!`,
+            url: url,
+          });
+          return;
+        } catch (err) {
+          if (err.name !== 'AbortError') {
+            console.warn('[JAM] Web Share failed, copying instead:', err);
+          } else {
+            return;
+          }
+        }
+      }
+
+      await this.copyQuickLink(btnEl);
+    },
+
+    _flashBtnSuccess(btn, tempText = 'Copiato!') {
+      if (!btn) return;
+      const originalHtml = btn.dataset.origHtml || btn.innerHTML;
+      btn.dataset.origHtml = originalHtml;
+      btn.innerHTML = `<i class="ti ti-check me-1"></i>${escapeHtml(tempText)}`;
+      btn.classList.add('btn-success');
+      btn.classList.remove('btn-outline-primary', 'btn-outline-secondary', 'btn-primary');
+      setTimeout(() => {
+        btn.innerHTML = originalHtml;
+        btn.classList.remove('btn-success');
+        if (btn.id === 'jam-btn-copy-code') {
+          btn.classList.add('btn-outline-primary');
+        } else if (btn.id === 'jam-btn-copy-link') {
+          btn.classList.add('btn-primary');
+        } else if (!btn.classList.contains('jam-code-display')) {
+          btn.classList.add('btn-outline-primary');
+        }
+      }, 2000);
     },
 
     openJamSettings() {
-      if (typeof switchSettingsTab === 'function') {
-        if (typeof openSettings === 'function') openSettings();
-        setTimeout(() => switchSettingsTab('jam'), 50);
+      const streamModal = document.getElementById('stream-player-modal');
+      const playerModal = document.getElementById('player-modal');
+      const inStream = streamModal && (streamModal.classList.contains('show') || streamModal.style.display === 'block');
+      const inPlayer = playerModal && (playerModal.classList.contains('show') || playerModal.style.display === 'block');
+
+      if (inStream || inPlayer) {
+        this.openQuickModal();
+        return;
       }
+
+      this.openFullSettings();
+    },
+
+    openQuickModal() {
+      this.renderQuickModal();
+      if (typeof showModal === 'function') {
+        showModal('jam-quick-modal');
+      }
+    },
+
+    openFullSettings() {
+      if (typeof hideModal === 'function') {
+        hideModal('jam-quick-modal');
+      }
+      if (typeof openSettingsPage === 'function') {
+        openSettingsPage('jam');
+      } else if (typeof openSettings === 'function') {
+        openSettings();
+        setTimeout(() => {
+          if (typeof switchSettingsTab === 'function') switchSettingsTab('jam');
+        }, 50);
+      }
+    },
+
+    renderQuickModal() {
+      const container = document.getElementById('jam-quick-modal-body');
+      if (!container) return;
+
+      const isLive = this.isActive();
+      const code = this.state.roomCode;
+      const codeFormatted = code ? `${code.slice(0, 3)} ${code.slice(3)}` : '';
+      const quickLink = this.getQuickLink();
+      const peerCount = this.state.peers.size;
+
+      if (!isLive) {
+        container.innerHTML = `
+          <div class="text-center py-3">
+            <div class="mb-3 d-inline-flex p-3 rounded-circle" style="background:rgba(61,107,245,0.12);">
+              <i class="ti ti-headphones text-primary fs-1"></i>
+            </div>
+            <h4 class="text-white fw-bold mb-2">JAM Watch Party non attiva</h4>
+            <p class="text-muted small mb-4">
+              Crea una stanza o entra con un codice a 6 cifre per sincronizzare il film con il tuo amico.
+            </p>
+            <div class="d-flex gap-2 justify-content-center">
+              <button type="button" class="btn btn-primary" data-action="jam:create">
+                <i class="ti ti-sparkles me-1"></i>Crea nuova Stanza
+              </button>
+              <button type="button" class="btn btn-outline-secondary" data-action="jam:openFullSettings">
+                Impostazioni JAM
+              </button>
+            </div>
+          </div>
+        `;
+        return;
+      }
+
+      container.innerHTML = `
+        <div class="mb-3 p-3 rounded text-center" style="background:linear-gradient(135deg, rgba(61,107,245,0.15), rgba(16,21,31,0.95)); border:1px solid var(--accent-ring);">
+          <span class="badge bg-purple-lt mb-1"><i class="ti ti-broadcast me-1"></i>SESSIONE ATTIVA</span>
+          <div class="d-flex align-items-center justify-content-center gap-2 my-1">
+            <span class="text-white fw-bold font-monospace jam-code-display" data-action="jam:copyCode" title="Clicca per copiare il codice" style="font-size:32px; letter-spacing:4px; cursor:pointer;">
+              #${codeFormatted}
+            </span>
+            <button type="button" class="btn btn-sm btn-outline-primary" data-action="jam:copyCode" title="Copia codice">
+              <i class="ti ti-copy me-1"></i>Copia Codice
+            </button>
+          </div>
+          <small class="text-muted d-block mt-1">
+            <span class="jam-dot ${peerCount > 0 ? 'online' : 'waiting'} me-1"></span>
+            ${peerCount > 0 ? `Connesso con ${peerCount === 1 ? '1 amico' : peerCount + ' amici'}` : 'In attesa dell\'amico... Invia il codice o il link per farlo unire!'}
+          </small>
+        </div>
+
+        <div class="mb-3 p-3 rounded" style="background:rgba(255,255,255,0.02); border:1px solid var(--border);">
+          <label class="form-label text-white small fw-bold mb-1">
+            <i class="ti ti-link me-1 text-primary"></i>Link rapido di invito:
+          </label>
+          <div class="input-group input-group-sm mb-1">
+            <input type="text" readonly class="form-control bg-dark text-white border-secondary font-monospace"
+                   value="${quickLink}" onclick="this.select()" style="font-size:12px;">
+            <button type="button" class="btn btn-primary" data-action="jam:copyLink">
+              <i class="ti ti-copy me-1"></i>Copia
+            </button>
+            <button type="button" class="btn btn-outline-light" data-action="jam:shareLink" title="Condividi">
+              <i class="ti ti-share me-1"></i>Condividi
+            </button>
+          </div>
+          <small class="text-muted" style="font-size:11px;">Invia questo link al tuo amico per farlo entrare istantaneamente.</small>
+        </div>
+
+        <div class="d-flex gap-2">
+          <button type="button" class="btn btn-outline-primary flex-fill" data-action="jam:forceSync">
+            <i class="ti ti-refresh me-1"></i>Forza Sincro
+          </button>
+          <button type="button" class="btn btn-outline-danger" data-action="jam:leave">
+            <i class="ti ti-logout me-1"></i>Esci dalla stanza
+          </button>
+        </div>
+      `;
     },
 
     // ── Render Settings Pane ──────────────────────────────────────────────────
@@ -750,11 +1392,28 @@
                 </h3>
                 <p class="text-muted small mb-0">
                   Guarda film e serie insieme a distanza, perfettamente sincronizzati secondo per secondo.
-                  Ciascuno esegue il proprio container Docker in locale (es. Londra e Stoccarda): nessuna porta da aprire sul router, basta un codice a 6 cifre.
+                  Ciascuno esegue il proprio container Docker in locale (es. Londra e Stoccarda): nessuna porta da aprire sul router, basta un codice a 6 cifre o un link rapido.
                 </p>
               </div>
             </div>
           </div>
+
+          ${pending ? `
+            <div class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 mb-4" style="background:rgba(61,107,245,0.15); border:1px solid var(--accent-ring); border-radius:12px;">
+              <div class="d-flex align-items-center gap-3">
+                <div class="p-2 rounded-circle" style="background:rgba(61,107,245,0.25);">
+                  <i class="ti ti-mail-opened fs-2 text-primary"></i>
+                </div>
+                <div>
+                  <h4 class="text-white fw-bold mb-1">Invito a stanza JAM ricevuto!</h4>
+                  <p class="text-muted small mb-0">Sei stato invitato a unirti alla sessione <strong class="text-white font-monospace">#${pending}</strong>.</p>
+                </div>
+              </div>
+              <button type="button" class="btn btn-success fw-bold px-3 py-2" data-action="jam:joinAuto" data-code="${pending}">
+                <i class="ti ti-arrows-join me-1"></i>Entra Subito (#${pending})
+              </button>
+            </div>
+          ` : ''}
 
           <!-- Nickname Config -->
           <div class="card mb-4" style="background:var(--bg-surface); border:1px solid var(--border);">
@@ -870,30 +1529,28 @@
       // Active Room Dashboard
       const codeFormatted = `${code.slice(0, 3)} ${code.slice(3)}`;
       const peerCount = this.state.peers.size;
+      const quickLink = this.getQuickLink();
 
       container.innerHTML = `
         <!-- Active Room Header Card -->
-        <div class="card mb-4" style="background:linear-gradient(135deg, rgba(61,107,245,0.12), rgba(16,21,31,0.9)); border:1px solid var(--accent-ring); border-radius:12px;">
+        <div class="card mb-4" style="background:linear-gradient(135deg, rgba(61,107,245,0.12), rgba(16,21,31,0.95)); border:1px solid var(--accent-ring); border-radius:12px;">
           <div class="card-body p-4">
-            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3">
+            <div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
               <div>
                 <span class="badge bg-purple-lt mb-2">
                   <i class="ti ti-broadcast me-1"></i>SESSIONE ATTIVA
                 </span>
-                <div class="d-flex align-items-baseline gap-3">
-                  <h1 class="text-white fw-bold font-monospace m-0" style="font-size:38px; letter-spacing:4px;">
+                <div class="d-flex align-items-center gap-2 flex-wrap">
+                  <span class="text-white fw-bold font-monospace m-0 jam-code-display" data-action="jam:copyCode" title="Clicca per copiare il codice" style="font-size:38px; letter-spacing:4px; cursor:pointer;">
                     #${codeFormatted}
-                  </h1>
-                  <button type="button" class="btn btn-sm btn-outline-primary" data-action="jam:copyCode" title="Copia codice">
+                  </span>
+                  <button type="button" class="btn btn-sm btn-outline-primary" id="jam-btn-copy-code" data-action="jam:copyCode" title="Copia codice a 6 cifre">
                     <i class="ti ti-copy me-1"></i>Copia Codice
-                  </button>
-                  <button type="button" class="btn btn-sm btn-outline-secondary" data-action="jam:copyLink" title="Copia link rapido">
-                    <i class="ti ti-link me-1"></i>Link rapido
                   </button>
                 </div>
                 <div class="text-muted small mt-2 d-flex align-items-center gap-2">
                   <span class="jam-dot ${peerCount > 0 ? 'online' : 'waiting'}"></span>
-                  <span>${peerCount > 0 ? `Connesso con ${peerCount === 1 ? '1 amico' : peerCount + ' amici'}` : 'In attesa dell\'amico... Invia il codice a 6 cifre per farlo unire!'}</span>
+                  <span>${peerCount > 0 ? `Connesso con ${peerCount === 1 ? '1 amico' : peerCount + ' amici'}` : 'In attesa dell\'amico... Invia il codice o il link per farlo unire!'}</span>
                   &bull;
                   <span class="text-info">${this.state.brokerName}</span>
                 </div>
@@ -907,6 +1564,26 @@
                   <i class="ti ti-logout me-1"></i>Esci dalla JAM
                 </button>
               </div>
+            </div>
+
+            <!-- Quick Invite Box -->
+            <div class="p-3 rounded" style="background:rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.08);">
+              <label class="form-label text-white small fw-bold mb-1">
+                <i class="ti ti-link me-1 text-primary"></i>Link rapido di invito per l'amico:
+              </label>
+              <div class="input-group input-group-sm mb-2">
+                <input type="text" readonly class="form-control bg-dark text-white border-secondary font-monospace" id="jam-share-link-input"
+                       value="${quickLink}" onclick="this.select()" title="Clicca per selezionare tutto" style="font-size:12px;">
+                <button type="button" class="btn btn-primary fw-bold" id="jam-btn-copy-link" data-action="jam:copyLink">
+                  <i class="ti ti-copy me-1"></i>Copia Link
+                </button>
+                <button type="button" class="btn btn-outline-light" id="jam-btn-share-link" data-action="jam:shareLink" title="Condividi">
+                  <i class="ti ti-share me-1"></i>Condividi
+                </button>
+              </div>
+              <p class="text-muted mb-0" style="font-size:11.5px;">
+                <i class="ti ti-info-circle me-1"></i>Invia questo link al tuo amico: aprendolo entrerà istantaneamente nella sessione JAM senza dover digitare il codice a mano.
+              </p>
             </div>
           </div>
         </div>

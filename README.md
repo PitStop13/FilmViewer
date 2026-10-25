@@ -4,12 +4,12 @@
 
 <p align="center">
   <b>Un'interfaccia web moderna, veloce e intuitiva per esplorare, guardare e scaricare film e serie TV per uso personale.</b><br/>
-  Streaming player HLS integrato, catalogo dinamico con raccomandazioni personalizzate, auto-recovery intelligente del dominio, motore di download ad alte prestazioni con pausa/ripresa/cancellazione pulita, monitoraggio serie TV e gestione multi-utenza con ruoli e richieste.
+  Watch Party JAM sincronizzato in tempo reale, streaming player HLS integrato, catalogo dinamico con raccomandazioni personalizzate, auto-recovery intelligente del dominio, motore di download ad alte prestazioni con pausa/ripresa/cancellazione pulita, monitoraggio serie TV e gestione multi-utenza con ruoli e richieste.
 </p>
 
 <p align="center">
   <a href="#-guida-allinstallazione"><img src="https://img.shields.io/badge/Installazione-CasaOS_%7C_Windows_%7C_macOS_%7C_Linux-brightgreen?style=flat-square" alt="Install"/></a>
-  <a href="#-funzionalità-principali"><img src="https://img.shields.io/badge/Funzionalità-Streaming_%2B_Download_%2B_AutoDomain_%2B_MultiUser-orange?style=flat-square" alt="Features"/></a>
+  <a href="#-funzionalità-principali"><img src="https://img.shields.io/badge/Funzionalità-JAM_Watch_Party_%2B_Streaming_%2B_Download_%2B_AutoDomain_%2B_MultiUser-orange?style=flat-square" alt="Features"/></a>
   <a href="#-crediti-e-disclaimer"><img src="https://img.shields.io/badge/Licenza-MIT_%7C_Non--Commercial-blue?style=flat-square" alt="License"/></a>
 </p>
 
@@ -17,7 +17,7 @@
 
 ## 📌 Panoramica
 
-FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e privata tra amici e familiari. Combina l'esperienza d'uso di un catalogo in stile Netflix con un player streaming HLS ad alta risoluzione, un avanzato motore di download parallelo e un sistema di auto-aggiornamento intelligente che previene qualsiasi interruzione dovuta ai cambi di dominio della sorgente.
+FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e privata tra amici e familiari. Combina l'esperienza d'uso di un catalogo in stile Netflix con un player streaming HLS ad alta risoluzione, la sincronizzazione **JAM Watch Party** per guardare contenuti assieme a distanza, un avanzato motore di download parallelo e un sistema di auto-aggiornamento intelligente che previene qualsiasi interruzione dovuta ai cambi di dominio della sorgente.
 
 <p align="center">
   <img src="docs/home.png" alt="Schermata Principale" width="88%"/>
@@ -27,8 +27,21 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
 
 ## ✨ Funzionalità Principali
 
+### 🍿 JAM (Watch Party Sincronizzata in Tempo Reale)
+- **Guarda Insieme a Distanza:** Crea una stanza istantanea o unisciti a una sessione con codice a 6 caratteri o tramite link diretto di invito copiabile con un clic.
+- **Sincronizzazione Totale di Play, Pausa e Salto Temporale:** Quando un partecipante mette in pausa, riprende o salta in un punto del film, tutti i dispositivi connessi si sincronizzano all'istante con compensazione automatica della latenza.
+- **Proposta di Visione Condivisa (Watch Party):**
+  - Quando sei all'interno di una JAM e avvii la riproduzione di un titolo, compare a tutti i partecipanti un pop-up con la proposta di visione (*"TIZIO ha avviato la riproduzione di... Unisciti / Rifiuta"*).
+  - La riproduzione rimane in attesa finché gli altri rispondono o finché il conduttore non decide di avviare subito.
+  - Overlay informativo sullo stato di preparazione dei partecipanti (*In attesa*, *Pronto*).
+- **Conto alla Rovescia Sincronizzato (3... 2... 1... VIA!):** Non appena tutti i partecipanti hanno preparato il flusso, scatta un countdown animato a schermo intero sincronizzato al millisecondo, facendo partire la visione esattamente nello stesso istante per tutti.
+- **Chat e Presenza Live:** Pannello laterale per chattare durante la visione, contatore partecipanti con avatar, indicatore di stato della connessione MQTT/WebSocket sicura e auto-riconnessione silenziosa.
+
+---
+
 ### 🌐 Auto-Recovery e Rotazione Intelligente del Dominio
 - **Monitoraggio e Ricerca Automatica:** Le piattaforme sorgente cambiano periodicamente dominio. FilmViewer interroga in background i canali ufficiali e rileva istantaneamente il nuovo indirizzo.
+- **Auto-Recovery in Streaming:** Se durante la riproduzione o la preparazione dello streaming si verifica un errore di connessione (`Connection Refused`), FilmViewer attiva istantaneamente il controllo del dominio e tenta automaticamente il ripristino del flusso senza bloccare l'utente.
 - **Triplo Filtro di Sicurezza:**
   1. *Filtro del Nome:* Accetta esclusivamente domini conformi alla struttura ufficiale (`streaming(community|unity)...`).
   2. *Anti-SSRF su IP Pubblici:* Risolve il DNS e rifiuta rigorosamente IP locali, loopback (localhost) o reti private.
@@ -71,7 +84,7 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
   - `Spazio`: Play / Pausa.
   - `Freccia Destra` / `Freccia Sinistra`: Salto rapido di 10 secondi avanti/indietro.
   - `F`: Modalità a schermo intero reale (HTML5 Fullscreen).
-- **Continua a Guardare Multi-Utente:** Progresso salvato automaticamente ogni 5 secondi, isolato per ogni profilo, con badge del tempo rimanente e pulsanti rapidi per riprendere o ricominciare dall'inizio.
+- **Continua a Guardare Persistente:** Progresso salvato automaticamente ogni 5 secondi, alla pausa e alla chiusura, con fallback sicuro tra profili e modalità ospite, visualizzazione immediata in Home Page e pulsanti per riprendere con precisione o ricominciare dall'inizio. Rimozione automatica a visione ultimata (≥95%).
 
 ---
 

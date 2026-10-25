@@ -61,30 +61,68 @@ def _row_to_dict(row) -> dict:
 
 
 def get_continue_watching_list(user_id: int = 0, limit: int = 50) -> list[dict]:
-    rows = db.query(
-        "SELECT * FROM continue_watching WHERE user_id = ? ORDER BY updated_at DESC LIMIT ?",
-        (user_id, limit),
-    )
-    return [_row_to_dict(r) for r in rows]
+    if user_id > 0:
+        rows = db.query(
+            """
+            SELECT * FROM continue_watching 
+            WHERE user_id = ? OR user_id = 0 
+            ORDER BY (user_id = ?) DESC, updated_at DESC 
+            LIMIT ?
+            """,
+            (user_id, user_id, limit * 2),
+        )
+    else:
+        rows = db.query(
+            "SELECT * FROM continue_watching ORDER BY updated_at DESC LIMIT ?",
+            (limit * 2,),
+        )
+
+    seen = set()
+    items = []
+    for r in rows:
+        d = _row_to_dict(r)
+        key = (d["content_type"], str(d["content_id"]))
+        if key not in seen:
+            seen.add(key)
+            items.append(d)
+            if len(items) >= limit:
+                break
+    return items
 
 
 def get_item(content_type: str, content_id: str, user_id: int = 0) -> Optional[dict]:
     db_id = make_db_id(content_type, content_id, user_id)
+    guest_id = make_db_id(content_type, content_id, 0)
     legacy_id = make_id(content_type, content_id)
+    c_kind = "movie" if (content_type or "").strip().lower() in ("movie", "film") else "tv"
+    c_alt = "film" if c_kind == "movie" else "series"
+
     row = db.query_one(
-        "SELECT * FROM continue_watching WHERE id = ? OR (id = ? AND user_id = ?)",
-        (db_id, legacy_id, user_id),
+        """
+        SELECT * FROM continue_watching 
+        WHERE id = ? OR id = ? OR id = ? OR (content_type IN (?, ?) AND content_id = ?)
+        ORDER BY (user_id = ?) DESC, updated_at DESC 
+        LIMIT 1
+        """,
+        (db_id, guest_id, legacy_id, c_kind, c_alt, str(content_id), user_id),
     )
     return _row_to_dict(row) if row else None
 
 
 def delete_item(content_type: str, content_id: str, user_id: int = 0) -> bool:
     db_id = make_db_id(content_type, content_id, user_id)
+    guest_id = make_db_id(content_type, content_id, 0)
     legacy_id = make_id(content_type, content_id)
+    c_kind = "movie" if (content_type or "").strip().lower() in ("movie", "film") else "tv"
+    c_alt = "film" if c_kind == "movie" else "series"
+
     with db.tx() as conn:
         conn.execute(
-            "DELETE FROM continue_watching WHERE id = ? OR (id = ? AND user_id = ?)",
-            (db_id, legacy_id, user_id),
+            """
+            DELETE FROM continue_watching 
+            WHERE id = ? OR id = ? OR id = ? OR (content_type IN (?, ?) AND content_id = ? AND (user_id = ? OR user_id = 0))
+            """,
+            (db_id, guest_id, legacy_id, c_kind, c_alt, str(content_id), user_id),
         )
     logger.info("Deleted continue watching record for %s (user_id=%d)", db_id, user_id)
     return True

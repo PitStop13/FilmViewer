@@ -106,7 +106,10 @@ function openSettings() {
 
 // Reached through the router, either from openSettings() or from a pasted
 // link naming a tab.
-async function openSettingsPage(tab) {
+async function openSettingsPage(tab, params = null) {
+  if (params && params.code && window.Jam && typeof window.Jam.setPendingCode === 'function') {
+    window.Jam.setPendingCode(params.code);
+  }
   document.getElementById('domain-input').value = currentDomain;
   _SETTINGS_FEEDBACK_IDS.forEach(id => _feedback(id));
   renderLibrariesList();
@@ -1140,5 +1143,11 @@ registerActions({
 // The tab is a path segment, not a query parameter: it names which page of
 // settings you are on, the way the title's id does.
 registerPageHash('settings', {
-  read: () => ({ extra: [_settingsTab] }),
+  read: () => {
+    const state = { extra: [_settingsTab] };
+    if (_settingsTab === 'jam' && window.Jam && window.Jam.state && window.Jam.state.roomCode) {
+      state.params = { code: window.Jam.state.roomCode };
+    }
+    return state;
+  },
 });

@@ -31,7 +31,7 @@ class ProgressPayload(BaseModel):
     content_id: str
     title: str
     position_seconds: float
-    duration_seconds: float
+    duration_seconds: Optional[float] = 0.0
     slug: Optional[str] = ""
     poster: Optional[str] = None
     episode_id: Optional[str] = None
@@ -66,7 +66,7 @@ async def save_playback_progress(payload: ProgressPayload, request: Request):
             content_id=payload.content_id,
             title=payload.title,
             position_seconds=payload.position_seconds,
-            duration_seconds=payload.duration_seconds,
+            duration_seconds=payload.duration_seconds or 0.0,
             slug=payload.slug or "",
             poster=payload.poster,
             episode_id=payload.episode_id,

@@ -797,6 +797,9 @@ function _savePlaybackProgress(isFinish = false) {
     return;
   }
 
+  const durationSec = Math.floor(dur);
+  const positionSec = Math.floor(cur);
+
   if (_tp && String(_tp.id) === cId) {
     _tp.cw = {
       content_type: cType,
@@ -808,9 +811,9 @@ function _savePlaybackProgress(isFinish = false) {
       episode_number: _currentStreamTracking.episodeNumber != null ? parseInt(_currentStreamTracking.episodeNumber) : null,
       season_number: _currentStreamTracking.seasonNumber != null ? parseInt(_currentStreamTracking.seasonNumber) : null,
       episode_title: _currentStreamTracking.episodeTitle,
-      position_seconds: Math.floor(cur),
-      duration_seconds: Math.floor(dur),
-      remaining_seconds: Math.max(0, Math.floor(dur - cur)),
+      position_seconds: positionSec,
+      duration_seconds: durationSec,
+      remaining_seconds: Math.max(0, durationSec - positionSec),
     };
     _tpRenderCta();
   }
@@ -825,8 +828,15 @@ function _savePlaybackProgress(isFinish = false) {
     episode_number: _currentStreamTracking.episodeNumber != null ? parseInt(_currentStreamTracking.episodeNumber) : null,
     season_number: _currentStreamTracking.seasonNumber != null ? parseInt(_currentStreamTracking.seasonNumber) : null,
     episode_title: _currentStreamTracking.episodeTitle || null,
-    position_seconds: Math.floor(cur),
-  }).catch(() => {});
+    position_seconds: positionSec,
+    duration_seconds: durationSec,
+  }).then(() => {
+    if (typeof refreshContinueWatching === 'function') {
+      refreshContinueWatching();
+    }
+  }).catch((err) => {
+    console.warn('Errore salvataggio progresso continue-watching:', err);
+  });
 }
 
 function _cleanupStreamPlayer() {
@@ -846,12 +856,21 @@ function _cleanupStreamPlayer() {
       video.load();
     } catch (_) {}
   }
+  if (window.Jam && typeof window.Jam._hidePartyOverlays === 'function') {
+    window.Jam._hidePartyOverlays();
+  }
   if (typeof refreshContinueWatching === 'function') {
     setTimeout(refreshContinueWatching, 300);
   }
 }
 
 async function openStreamPlayer(opts) {
+  // If in an active JAM watch party with connected peers, intercept and propose synchronized watch party
+  if (window.Jam && typeof window.Jam.isActive === 'function' && window.Jam.isActive() && typeof window.Jam.hasConnectedPeers === 'function' && window.Jam.hasConnectedPeers() && !opts._jamDirectPlay) {
+    window.Jam.proposeMedia(opts);
+    return;
+  }
+
   const modalEl = document.getElementById('stream-player-modal');
   if (!modalEl) return;
 
@@ -1001,7 +1020,14 @@ async function openStreamPlayer(opts) {
           });
         }
 
-        videoEl.play().catch(() => {});
+        if (opts._jamPendingParty) {
+          videoEl.pause();
+          if (window.Jam && typeof window.Jam.notifyPlayerReady === 'function') {
+            window.Jam.notifyPlayerReady();
+          }
+        } else {
+          videoEl.play().catch(() => {});
+        }
         _stopProgressTracking();
         _streamProgressTimer = setInterval(() => {
           if (videoEl && !videoEl.paused && !videoEl.ended) {
@@ -1037,7 +1063,14 @@ async function openStreamPlayer(opts) {
         if (opts.startTime && opts.startTime > 0) {
           try { videoEl.currentTime = opts.startTime; } catch (_) {}
         }
-        videoEl.play().catch(() => {});
+        if (opts._jamPendingParty) {
+          videoEl.pause();
+          if (window.Jam && typeof window.Jam.notifyPlayerReady === 'function') {
+            window.Jam.notifyPlayerReady();
+          }
+        } else {
+          videoEl.play().catch(() => {});
+        }
         _stopProgressTracking();
         _streamProgressTimer = setInterval(() => {
           if (videoEl && !videoEl.paused && !videoEl.ended) {

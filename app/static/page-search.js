@@ -653,8 +653,18 @@ function _shelfSkeletons() {
 async function showStartPage(forceRefresh = false) {
   const host = document.getElementById('home-shelves');
   if (!host) return;
+
+  loadContinueWatching();
+
   await ensureDomain();
-  if (!currentDomain) { _setStartPageVisible(false); return; }
+  if (!currentDomain) {
+    _setStartPageVisible(false);
+    const cwSection = document.getElementById('continue-watching-section');
+    if (cwSection && _continueWatchingItems && _continueWatchingItems.length) {
+      cwSection.style.display = '';
+    }
+    return;
+  }
 
   _setStartPageVisible(true);
   loadContinueWatching();
