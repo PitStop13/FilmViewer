@@ -75,6 +75,16 @@ async function loadTitlePage(route) {
     })
     .catch(() => {});
 
+  // Check favorite status for this title
+  _tp.isFavorite = false;
+  api.get('/api/favorites/status', { media_type: route.type, content_id: String(route.id) })
+    .then(res => {
+      if (token !== _tpToken) return;
+      _tp.isFavorite = !!res?.favorited;
+      _tpRenderFavoriteButton();
+    })
+    .catch(() => {});
+
   const q = { slug: route.slug, version: currentVersion || '' };
   const metaReady = api.get(`/api/metadata/${route.type}/${route.id}`, q)
     .then(meta => { if (token === _tpToken) { _tpApplyMeta(meta); _tpRender(); } })
@@ -334,13 +344,13 @@ function _tpRenderCta() {
     ${sched}
     ${primary}
     ${watchBtn}
-    <!-- Left bare: _renderFollowButton owns this button's class and label,
-         and rewriting them here would fight it. -->
-    ${followable ? `<button id="th-follow-btn" data-action="tp:follow"></button>` : ''}
+    <button id="th-favorite-btn" class="btn btn-sm ${!_tp?.isFavorite ? 'btn-outline-danger' : 'btn-danger'}" data-action="tp:favorite" title="${!_tp?.isFavorite ? 'Aggiungi ai Preferiti' : 'Rimuovi dai Preferiti'}">
+      <i class="ti ${_tp?.isFavorite ? 'ti-heart-filled' : 'ti-heart'} me-1"></i>${_tp?.isFavorite ? 'Ti piace' : 'Mi piace'}
+    </button>
     <button class="th-icon-btn" data-action="tp:tab" data-tab="tracks" title="Scegli audio e sottotitoli">
       <i class="ti ti-adjustments"></i>
     </button>`;
-  if (followable) tpRefreshFollow();
+  _tpRenderFavoriteButton();
 }
 
 function _tpRenderTabsBar() {
@@ -542,8 +552,51 @@ function tpPrimary() {
   }
 }
 
-async function tpToggleFollow() { await toggleFollowSeries('page'); }
-async function tpRefreshFollow() { await checkWatchStatus('page'); }
+function _tpRenderFavoriteButton() {
+  const btn = document.getElementById('th-favorite-btn');
+  if (!btn || !_tp) return;
+  const isFav = !!_tp.isFavorite;
+  btn.className = `btn btn-sm ${isFav ? 'btn-danger' : 'btn-outline-danger'}`;
+  btn.innerHTML = `<i class="ti ${isFav ? 'ti-heart-filled' : 'ti-heart'} me-1"></i>${isFav ? 'Ti piace' : 'Mi piace'}`;
+  btn.title = isFav ? 'Rimuovi dai Preferiti' : 'Aggiungi ai Preferiti';
+}
+
+async function tpToggleFavorite() {
+  if (!_tp) return;
+  const isFav = !!_tp.isFavorite;
+  const newFav = !isFav;
+  _tp.isFavorite = newFav;
+  _tpRenderFavoriteButton();
+
+  try {
+    if (newFav) {
+      await api.post('/api/favorites', {
+        media_type: _tp.type,
+        content_id: String(_tp.id),
+        title: _tp.name,
+        slug: _tp.slug || '',
+        poster: _tp.poster || null,
+        year: _tp.year || null,
+        score: _tp.score || null,
+        plot: _tp.plot || null,
+      });
+      showToast('Aggiunto ai Preferiti ❤️', 'success');
+    } else {
+      await api.del(`/api/favorites/${_tp.type}/${_tp.id}`);
+      showToast('Rimosso dai Preferiti', 'info');
+    }
+    if (typeof loadFavorites === 'function') {
+      loadFavorites();
+    }
+  } catch (err) {
+    _tp.isFavorite = isFav;
+    _tpRenderFavoriteButton();
+    showToast(errText(err, 'Errore aggiornamento preferiti'), 'danger');
+  }
+}
+
+async function tpToggleFollow() { await tpToggleFavorite(); }
+async function tpRefreshFollow() { _tpRenderFavoriteButton(); }
 
 // Back to wherever the visitor came from, and to the search page when they
 // arrived by pasted link and there is no history to go back to.
@@ -1206,7 +1259,8 @@ registerActions({
   'tp:restart-cw':    () => tpRestartCw(),
   'tp:delete-cw':     () => tpDeleteCw(),
   'tp:watch-episode': d => tpWatchEpisode(Number(d.index)),
-  'tp:follow':        () => tpToggleFollow(),
+  'tp:favorite':      () => tpToggleFavorite(),
+  'tp:follow':        () => tpToggleFavorite(),
   'tp:tab':           d => tpSetTab(d.tab),
   'tp:track':         d => tpToggleTrack(d.which, d.code),
   'tp:trailer':       () => tpPlayTrailer(),

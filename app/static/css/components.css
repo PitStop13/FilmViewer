@@ -797,3 +797,24 @@
       opacity: 0.9;
     }
 
+    /* I miei Preferiti Styling */
+    .fav-card {
+      transition: transform 0.2s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.2s ease;
+    }
+    .fav-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+    }
+    .fav-card .fav-remove-btn {
+      opacity: 0.85;
+      transition: transform 0.15s ease, opacity 0.15s ease;
+    }
+    .fav-card .fav-remove-btn:hover {
+      opacity: 1;
+      transform: scale(1.15);
+    }
+    .fav-card:hover .poster-wrap img {
+      transform: scale(1.05);
+    }
+
+

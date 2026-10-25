@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>Un'interfaccia web moderna, veloce e intuitiva per esplorare, guardare e scaricare film e serie TV per uso personale.</b><br/>
-  Watch Party JAM sincronizzato in tempo reale, streaming player HLS integrato, catalogo dinamico con raccomandazioni personalizzate, auto-recovery intelligente del dominio, motore di download ad alte prestazioni con pausa/ripresa/cancellazione pulita, monitoraggio serie TV e gestione multi-utenza con ruoli e richieste.
+  Watch Party JAM sincronizzato in tempo reale, streaming player HLS integrato, catalogo dinamico con raccomandazioni personalizzate, auto-recovery intelligente del dominio, motore di download ad alte prestazioni con pausa/ripresa/cancellazione pulita, I miei Preferiti con Mi piace (❤️) e gestione multi-utenza con ruoli e richieste.
 </p>
 
 <p align="center">
@@ -63,9 +63,11 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
 
 ---
 
-### 📺 Monitoraggio Serie TV ("Serie Seguite")
-- **Controllo Automatico Nuovi Episodi:** Aggiungi qualsiasi serie TV alla lista delle "Serie Seguite".
-- **Download Automatico in Background:** Un poller periodico rileva l'uscita di nuovi episodi o nuove stagioni e può scaricarli automaticamente non appena disponibili.
+### ❤️ I miei Preferiti ("Mi piace")
+- **Salva Film e Serie TV con un Clic:** Cliccando sul pulsante a forma di cuore ❤️ su qualsiasi film o serie TV, il titolo viene aggiunto all'istante alla tua lista personale dei preferiti per ricordarti di guardarlo.
+- **Sezione Dedicata con Filtri:** Visualizza tutti i tuoi titoli salvati in una griglia elegante con filtri rapidi per categoria (*Tutti*, *Film*, *Serie TV*) e badge informativi.
+- **Avvio Immediato & Gestione Rapida:** Avvia direttamente la riproduzione in streaming con il tasto rapido **"Guarda"**, apri la scheda di dettaglio o rimuovilo in qualunque momento con un altro clic sul cuore.
+- **Supporto Multi-Profilo & Ospite:** Ogni utente ha la propria lista di preferiti, accessibile e sincronizzata sia per gli account registrati sia in modalità aperta.
 
 ---
 

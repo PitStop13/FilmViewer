@@ -579,6 +579,41 @@ _V14_USER_THEME = [
 ]
 
 
+_V15_FAVORITES = [
+    """
+    CREATE TABLE IF NOT EXISTS favorites (
+        id           TEXT PRIMARY KEY,
+        user_id      INTEGER NOT NULL DEFAULT 0,
+        media_type   TEXT NOT NULL,
+        content_id   TEXT NOT NULL,
+        slug         TEXT NOT NULL DEFAULT '',
+        title        TEXT NOT NULL,
+        poster       TEXT,
+        year         TEXT,
+        score        TEXT,
+        plot         TEXT,
+        created_at   TEXT NOT NULL
+    )
+    """,
+    "CREATE INDEX IF NOT EXISTS idx_favorites_user ON favorites(user_id, created_at DESC)",
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_favorites_user_content ON favorites(user_id, media_type, content_id)",
+    """
+    INSERT OR IGNORE INTO favorites (id, user_id, media_type, content_id, slug, title, poster, created_at)
+    SELECT 
+        'u' || COALESCE(s.user_id, 0) || ':tv:' || w.external_id,
+        COALESCE(s.user_id, 0),
+        'tv',
+        w.external_id,
+        COALESCE(w.slug, ''),
+        w.title,
+        w.poster,
+        w.created_at
+    FROM jf_series_watch w
+    LEFT JOIN jf_series_watch_subscriber s ON s.watch_id = w.id
+    """,
+]
+
+
 Migration = list[str] | Callable[[sqlite3.Connection, bool], None]
 
 MIGRATIONS: list[Migration] = [
@@ -596,6 +631,7 @@ MIGRATIONS: list[Migration] = [
     _V12_LOCAL_AUTH_AND_PROFILES,
     _V13_WATCH_HISTORY,
     _V14_USER_THEME,
+    _V15_FAVORITES,
 ]
 
 

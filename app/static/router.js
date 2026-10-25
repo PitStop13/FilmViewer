@@ -22,7 +22,7 @@
 
 // The word in the address is not always the internal page id: "detail" is the
 // name of a div, "title" is what belongs in a URL.
-const HASH_TO_PAGE = { title: 'detail' };
+const HASH_TO_PAGE = { title: 'detail', watches: 'favorites', preferiti: 'favorites' };
 const PAGE_TO_HASH = { detail: 'title' };
 
 // Each page says how to read its own state out and put it back. Registered by

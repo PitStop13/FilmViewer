@@ -311,26 +311,30 @@
           <div id="my-requests-list"></div>
         </div>
 
-        <!-- ── Followed series ─────────────────────────────────── -->
-        <div id="page-watches" style="display:none">
+        <!-- ── I miei Preferiti ─────────────────────────────────── -->
+        <div id="page-favorites" style="display:none">
           <div class="pg-head">
             <div class="pg-head-main">
-              <h1 class="pg-h1">Serie seguite</h1>
+              <h1 class="pg-h1"><i class="ti ti-heart-filled text-danger me-2"></i>I miei Preferiti</h1>
               <p class="pg-sub">
-                I nuovi episodi vengono cercati da soli. Una serie seguita non
-                scarica mai da sé: apre una richiesta, che passa dalla coda o
-                viene approvata subito, secondo i permessi di chi la segue.
+                I film e le serie TV che ti piacciono o che hai salvato per ricordarti di guardarli.
               </p>
             </div>
-            <div class="pg-stats" id="watches-stats"></div>
+            <div class="pg-stats" id="favorites-stats"></div>
             <div class="pg-actions">
-              <button class="btn btn-sm btn-outline-secondary" data-action="watch:reload" title="Aggiorna">
+              <div class="btn-group me-2" role="group">
+                <button type="button" class="btn btn-sm btn-outline-secondary active" id="fav-filter-all" data-action="fav:filter" data-type="all">Tutti</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="fav-filter-movie" data-action="fav:filter" data-type="movie">Film</button>
+                <button type="button" class="btn btn-sm btn-outline-secondary" id="fav-filter-tv" data-action="fav:filter" data-type="tv">Serie TV</button>
+              </div>
+              <button class="btn btn-sm btn-outline-secondary" data-action="fav:reload" title="Aggiorna">
                 <i class="ti ti-refresh me-1"></i>Aggiorna
               </button>
             </div>
           </div>
-          <div id="watches-list"></div>
+          <div id="favorites-list"></div>
         </div>
+        <div id="page-watches" style="display:none"></div>
 {% endblock %}
 
 {% block scripts %}
@@ -347,6 +351,7 @@
 <script src="{{ asset('page-title.js') }}"></script>
 <script src="{{ asset('page-downloads.js') }}"></script>
 <script src="{{ asset('page-requests.js') }}"></script>
+<script src="{{ asset('page-favorites.js') }}"></script>
 <script src="{{ asset('page-watches.js') }}"></script>
 <script src="{{ asset('page-files.js') }}"></script>
 <script src="{{ asset('jam.js') }}"></script>

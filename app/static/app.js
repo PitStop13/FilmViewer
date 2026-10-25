@@ -187,17 +187,17 @@ function showPage(page, params = null) {
   closeMobileMenu();
   document.querySelectorAll('.modal.show, .modal[style*="display: block"]').forEach(m => hideModal(m.id));
   if (params) PAGE_HASH[page]?.apply?.(params);
-  ['search','downloads','files','requests','my-requests','watches','users','detail','settings'].forEach(p => {
+  ['search','downloads','files','requests','my-requests','watches','favorites','users','detail','settings'].forEach(p => {
     const el = document.getElementById(`page-${p}`);
-    if (el) el.style.display = p === page ? '' : 'none';
+    if (el) el.style.display = (p === page || (page === 'watches' && p === 'favorites') || (page === 'favorites' && p === 'watches')) ? '' : 'none';
   });
   document.getElementById('page-title').textContent = {
     search:'Home', downloads:'Download', files:'File',
     requests:'Coda richieste', 'my-requests':'Le mie richieste',
-    watches:'Serie seguite', users:'Utenti', detail:'', settings:'Impostazioni',
+    watches:'I miei Preferiti', favorites:'I miei Preferiti', users:'Utenti', detail:'', settings:'Impostazioni',
   }[page] ?? 'Home';
   document.querySelectorAll('.nav-link[data-page]').forEach(el =>
-    el.classList.toggle('active', el.dataset.page === page));
+    el.classList.toggle('active', el.dataset.page === page || (page === 'watches' && el.dataset.page === 'favorites') || (page === 'favorites' && el.dataset.page === 'watches')));
   // Set before the loaders, so anything they call that writes the address —
   // a filter applying itself, a season loading — knows which page it is on.
   _routePage = page;
@@ -206,7 +206,7 @@ function showPage(page, params = null) {
   if (page === 'files') loadFiles();
   if (page === 'requests') loadRequestQueue();
   if (page === 'my-requests') loadMyRequests();
-  if (page === 'watches') loadWatches();
+  if (page === 'watches' || page === 'favorites') loadFavorites();
   if (page === 'users') loadUsersPage();
   // Every page has an address now. This used to do the opposite — strip the
   // hash on the way out of the two pages that had one — because they were the

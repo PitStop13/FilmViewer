@@ -27,7 +27,7 @@ from app.mcp import server as mcp_http
 from app.routers import (
     domain, search, home, tv, downloads, progress, files, images, notification_channels,
     metadata as metadata_router, download_hooks, library as library_router, mcp as mcp_router, stream,
-    continue_watching,
+    continue_watching, favorites as favorites_router,
 )
 
 logging.basicConfig(
@@ -141,10 +141,7 @@ async def lifespan(app: FastAPI):
         auth_models.set_setting(auth_models.SETTING_AUTH_MODE, "local")
         logger.info("No local admin found; set auth_mode to local to display initial setup screen.")
 
-    poller_task = asyncio.create_task(watch_poller.watch_poller_loop())
-    # Independent of the poller: this one watches the source itself rather than
-    # anything in it, and both sleep before their first pass so the lifespan
-    # never does network I/O.
+    # Domain watch loop periodically checks streaming host availability and recovery
     domain_task = asyncio.create_task(domain_recovery.domain_watch_loop())
     try:
         # Always running, whatever the switch says: the endpoint reads the
@@ -152,7 +149,6 @@ async def lifespan(app: FastAPI):
         async with mcp_http.running():
             yield
     finally:
-        poller_task.cancel()
         domain_task.cancel()
 
 
@@ -178,6 +174,7 @@ app.include_router(mcp_router.router)
 # Raw ASGI, outside FastAPI's routing: the MCP transport speaks JSON-RPC itself.
 app.add_route(mcp_http.PATH, mcp_http.endpoint, include_in_schema=False)
 app.include_router(watches_router.router)
+app.include_router(favorites_router.router)
 app.include_router(search.router)
 app.include_router(home.router)
 app.include_router(tv.router)
