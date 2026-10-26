@@ -17,6 +17,7 @@ from app.core._shared import (
     _parse_content,
     _get_m3u8_key,
     _get_m3u8_url,
+    _shared_get,
 )
 
 logger = logging.getLogger(__name__)
@@ -57,7 +58,7 @@ def _get_iframe(id_title, domain):
     req = None
     for path in (f"/it/iframe/{id_title}", f"/iframe/{id_title}"):
         try:
-            req = requests.get(f"https://{domain}{path}", headers={"User-agent": ua}, timeout=15)
+            req = _shared_get(f"https://{domain}{path}", headers={"User-agent": ua}, timeout=15)
             if req.ok:
                 break
         except Exception as e:

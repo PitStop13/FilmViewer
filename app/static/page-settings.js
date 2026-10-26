@@ -41,7 +41,6 @@ const _SETTINGS_TAB_LOADERS = {
   hook: () => loadHooks(),
   utenti: () => loadUsersList(),
   aspetto: () => renderThemeSettings(),
-  jam: () => { if (window.Jam) window.Jam.renderSettings(); },
 };
 
 // Two panes read the same endpoint. Shared per modal-open so switching between
@@ -107,8 +106,9 @@ function openSettings() {
 // Reached through the router, either from openSettings() or from a pasted
 // link naming a tab.
 async function openSettingsPage(tab, params = null) {
-  if (params && params.code && window.Jam && typeof window.Jam.setPendingCode === 'function') {
-    window.Jam.setPendingCode(params.code);
+  if (tab === 'jam') {
+    navigate('jam', [], params || {});
+    return;
   }
   document.getElementById('domain-input').value = currentDomain;
   _SETTINGS_FEEDBACK_IDS.forEach(id => _feedback(id));
@@ -1143,11 +1143,5 @@ registerActions({
 // The tab is a path segment, not a query parameter: it names which page of
 // settings you are on, the way the title's id does.
 registerPageHash('settings', {
-  read: () => {
-    const state = { extra: [_settingsTab] };
-    if (_settingsTab === 'jam' && window.Jam && window.Jam.state && window.Jam.state.roomCode) {
-      state.params = { code: window.Jam.state.roomCode };
-    }
-    return state;
-  },
+  read: () => ({ extra: [_settingsTab] }),
 });

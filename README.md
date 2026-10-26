@@ -28,6 +28,7 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
 ## ✨ Funzionalità Principali
 
 ### 🍿 JAM (Watch Party Sincronizzata in Tempo Reale)
+- **Accesso Diretto dalla Barra Laterale (`#/jam`):** Ora accessibile direttamente dalla navigazione laterale per tutti gli utenti (sia amministratori sia utenti base). Ogni utente può creare o gestire le proprie stanze in totale autonomia.
 - **Guarda Insieme a Distanza:** Crea una stanza istantanea o unisciti a una sessione con codice a 6 caratteri o tramite link diretto di invito copiabile con un clic.
 - **Sincronizzazione Totale di Play, Pausa e Salto Temporale:** Quando un partecipante mette in pausa, riprende o salta in un punto del film, tutti i dispositivi connessi si sincronizzano all'istante con compensazione automatica della latenza.
 - **Proposta di Visione Condivisa (Watch Party):**
@@ -36,6 +37,15 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
   - Overlay informativo sullo stato di preparazione dei partecipanti (*In attesa*, *Pronto*).
 - **Conto alla Rovescia Sincronizzato (3... 2... 1... VIA!):** Non appena tutti i partecipanti hanno preparato il flusso, scatta un countdown animato a schermo intero sincronizzato al millisecondo, facendo partire la visione esattamente nello stesso istante per tutti.
 - **Chat e Presenza Live:** Pannello laterale per chattare durante la visione, contatore partecipanti con avatar, indicatore di stato della connessione MQTT/WebSocket sicura e auto-riconnessione silenziosa.
+
+---
+
+### 🚀 Motore ad Alte Prestazioni & Zero Latenza (Ultra-Fast)
+- **Image Proxy con Cache su Disco Locale:** Tutte le locandine e i poster scaricati vengono memorizzati in una cache locale su disco (`tmp/img_cache`). Le visite successive servono le immagini in **<1ms** a costo di rete zero.
+- **Worker Pool Dedicato (Anti-Starvation):** Le richieste grafiche operano su un `ThreadPoolExecutor` isolato (`img-proxy`), impedendo alla coda delle immagini di saturare il thread pool di FastAPI: ricerche, avvio streaming e caricamento pagine rimangono sempre istantanei.
+- **Avvio Streaming HLS Accelerato:** Risoluzione ultra-rapida dell'embed video (<1 secondo) e prefetch in background asincrono della chiave di decifrazione AES-128: la riproduzione inizia all'istante senza attese.
+- **Home Shelves Ottimizzate:** Caricamento snello e fulmineo dei caroselli principali (Di tendenza, Nuove uscite, Top 10, Film e Serie popolari) con caching intelligente condiviso.
+- **Connection Pooling Globale:** Connessioni HTTP riutilizzabili con keep-alive e fail-fast intelligente su timeout DNS/TLS.
 
 ---
 
@@ -80,13 +90,14 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
 
 ### ▶️ Web Player HLS Integrato & "Continua a Guardare"
 - **Streaming Diretto nel Browser:** Guarda film e serie TV con un click senza dover attendere il completamento del download.
+- **Controlli Nativi & Puliti:** Player ottimizzato senza overlay invasivi; riproduzione e pausa native immediate tramite tasto e barra spaziatrice.
 - **Risoluzione Automatica per Serie TV:** Seleziona in automatico l'ultimo episodio guardato o avvia il primo episodio di default, con passaggio fluido all'episodio successivo.
 - **Selettore Risoluzione & Audio:** Scelta rapida della risoluzione (Auto, 1080p, 720p, 480p) e della traccia audio.
-- **Scorciatoie da Tastiera Avanzate:**
+- **Scorciatoie da Tastiera:**
   - `Spazio`: Play / Pausa.
   - `Freccia Destra` / `Freccia Sinistra`: Salto rapido di 10 secondi avanti/indietro.
   - `F`: Modalità a schermo intero reale (HTML5 Fullscreen).
-- **Continua a Guardare Persistente:** Progresso salvato automaticamente ogni 5 secondi, alla pausa e alla chiusura, con fallback sicuro tra profili e modalità ospite, visualizzazione immediata in Home Page e pulsanti per riprendere con precisione o ricominciare dall'inizio. Rimozione automatica a visione ultimata (≥95%).
+- **Continua a Guardare Persistente:** Progresso salvato automaticamente alla pausa e alla chiusura (senza spam di polling di rete durante la riproduzione), con visualizzazione immediata in Home Page e pulsanti per riprendere con precisione o ricominciare dall'inizio. Rimozione automatica a visione ultimata (≥95%).
 
 ---
 
@@ -100,9 +111,10 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
 
 ---
 
-### 🎨 Design Moderno & Reattivo (Glassmorphism Dark Mode)
+### 🎨 Design Moderno & Reattivo (Smart TV, PC & Mobile)
 - **Aestetica Premium:** Interfaccia scura raffinata con palette armoniose, trasparenze in stile glassmorphism, badge di stato chiari e micro-animazioni fluide.
-- **Completamente Responsive:** Layout ottimizzato per l'uso da smartphone, tablet, computer e browser per Smart TV.
+- **Card e Locandine Perfettamente Proporzionate:** Dimensioni uniformi e bilanciate in stile cinema/Netflix su tutte le sezioni (Home, Ricerca, Preferiti).
+- **Completamente Responsive:** Layout ottimizzato per l'uso da smartphone, tablet, computer e browser per Smart TV. Sui display mobili le card non vengono tagliate sui bordi e garantiscono uno scroll orizzontale tattile perfetto.
 - **DNS Cache In-Memory:** Cache interna ad alta velocità che elimina i ritardi di risoluzione DNS tipici dei container Docker su Windows e Linux.
 
 ---

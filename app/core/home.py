@@ -465,7 +465,7 @@ def _sc_shelves(domain: str, category: str | None = None, user_id: int = 0) -> l
             shelves.append(_shelf("streamingcommunity", key, items,
                                   fallback=slider.get("label")))
 
-    # In "all" mode, enrich with top rails, recommendations, and randomized genres
+    # In "all" mode, enrich with top rails and recommendations (focused and fast)
     if category == "all":
         core_extra = [
             ("movie_views", {"type": "movie", "sort": "views"}, "movie"),
@@ -473,18 +473,8 @@ def _sc_shelves(domain: str, category: str | None = None, user_id: int = 0) -> l
         ]
 
         candidates = cw_service.get_recommendation_candidates(user_id=user_id, limit=1)
-        sampled_movie_genres = random.sample(_MOVIE_GENRE_POOL, min(1, len(_MOVIE_GENRE_POOL)))
-        sampled_tv_genres = random.sample(_TV_GENRE_POOL, min(1, len(_TV_GENRE_POOL)))
 
-        genre_extra = [
-            (key, {"type": "movie", "genre[0]": gid, "page": random.choice([1, 2])}, "movie")
-            for key, label, gid in sampled_movie_genres
-        ] + [
-            (key, {"type": "tv", "genre[0]": gid, "page": random.choice([1, 2])}, "tv")
-            for key, label, gid in sampled_tv_genres
-        ]
-
-        with ThreadPoolExecutor(max_workers=5) as executor:
+        with ThreadPoolExecutor(max_workers=3) as executor:
             core_futures = [
                 executor.submit(_sc_archive_shelf, domain, key, params, cat)
                 for key, params, cat in core_extra
@@ -493,34 +483,13 @@ def _sc_shelves(domain: str, category: str | None = None, user_id: int = 0) -> l
                 executor.submit(_sc_fetch_recommendations_for_title, domain, cand)
                 for cand in candidates
             ]
-            genre_futures = [
-                executor.submit(_sc_archive_shelf, domain, key, params, cat)
-                for key, params, cat in genre_extra
-            ]
 
             for fut in core_futures:
                 res = fut.result()
                 if res:
                     shelves.append(res)
 
-            has_rec = False
             for fut in rec_futures:
-                res = fut.result()
-                if res:
-                    shelves.append(res)
-                    has_rec = True
-
-            if not has_rec:
-                surprise_res = _sc_archive_shelf(
-                    domain,
-                    "all_surprise",
-                    {"sort": "views", "page": random.choice([2, 3])},
-                    "all",
-                )
-                if surprise_res:
-                    shelves.append(surprise_res)
-
-            for fut in genre_futures:
                 res = fut.result()
                 if res:
                     shelves.append(res)

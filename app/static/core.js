@@ -134,6 +134,9 @@ async function initAuth() {
   if (!_authEnabled) {
     document.querySelectorAll('[data-requires-auth]').forEach(el => { el.style.display = 'none'; });
   }
+  if (window.Jam && typeof window.Jam.onUserChanged === 'function') {
+    window.Jam.onUserChanged();
+  }
   return true;
 }
 
@@ -143,6 +146,9 @@ function _roleLabel() {
 }
 
 async function logout() {
+  if (window.Jam && typeof window.Jam.leaveRoom === 'function') {
+    try { window.Jam.leaveRoom(); } catch (_) {}
+  }
   // Best effort: the cookie is the session, and landing on /login without
   // having managed to tell the server is still better than staying put.
   try { await api.post('/api/auth/logout'); } catch (e) { /* leaving anyway */ }
@@ -547,37 +553,18 @@ document.addEventListener('shown.bs.modal', (e) => {
   }
 });
 
-// Click directly on video element toggles play/pause (ignoring bottom control bar area)
-let _lastVideoClickTime = 0;
-document.addEventListener('click', (e) => {
-  if (e.target && e.target.tagName === 'VIDEO') {
-    const video = e.target;
-    try { video.focus({ preventScroll: true }); } catch (_) {}
-    const rect = video.getBoundingClientRect();
-    const isNearBottom = (e.clientY - rect.top) > (rect.height - 56);
-    if (!isNearBottom) {
-      const now = performance.now();
-      if (now - _lastVideoClickTime > 250) {
-        if (video.paused) video.play().catch(() => {});
-        else video.pause();
-      }
-      _lastVideoClickTime = now;
-    }
-  }
-});
-
-// Double click on video toggles fullscreen
-document.addEventListener('dblclick', (e) => {
+// Double click directly on video in fullscreen toggles fullscreen
+window.addEventListener('dblclick', (e) => {
   if (e.target && e.target.tagName === 'VIDEO') {
     const video = e.target;
     const rect = video.getBoundingClientRect();
-    const isNearBottom = (e.clientY - rect.top) > (rect.height - 56);
+    const isNearBottom = (e.clientY - rect.top) > (rect.height - 58);
     if (!isNearBottom) {
       e.preventDefault();
       togglePlayerFullscreen(video);
     }
   }
-});
+}, true);
 
 // ── Toast ──────────────────────────────────────────────────────────────────────
 

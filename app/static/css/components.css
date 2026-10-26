@@ -797,24 +797,239 @@
       opacity: 0.9;
     }
 
-    /* I miei Preferiti Styling */
+    /* ═══════════════════════════════════════════════════════
+       I MIEI PREFERITI (FAVORITES)
+       ═══════════════════════════════════════════════════════ */
+    .fav-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(142px, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
     .fav-card {
-      transition: transform 0.2s cubic-bezier(0.165, 0.84, 0.44, 1), box-shadow 0.2s ease;
+      position: relative;
+      display: flex;
+      flex-direction: column;
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius, 8px);
+      overflow: hidden;
+      cursor: pointer;
+      outline: none;
+      transition: transform 0.22s cubic-bezier(0.165, 0.84, 0.44, 1),
+                  box-shadow 0.22s ease,
+                  border-color 0.22s ease;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.22);
     }
+
     .fav-card:hover {
-      transform: translateY(-4px);
-      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.4);
+      transform: translateY(-4px) scale(1.02);
+      border-color: rgba(255, 71, 87, 0.4);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), 0 0 14px rgba(255, 71, 87, 0.15);
     }
-    .fav-card .fav-remove-btn {
-      opacity: 0.85;
-      transition: transform 0.15s ease, opacity 0.15s ease;
+
+    /* TV & Keyboard Focus styling */
+    .fav-card:focus-visible,
+    .fav-card:focus-within {
+      outline: 3px solid #ff4757 !important;
+      outline-offset: 3px !important;
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 10px 24px rgba(255, 71, 87, 0.4);
     }
-    .fav-card .fav-remove-btn:hover {
-      opacity: 1;
+
+    .fav-type-badge {
+      position: absolute;
+      top: 7px;
+      left: 7px;
+      z-index: 5;
+      font-size: 9.5px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.4px;
+      padding: 2px 6px;
+      border-radius: 5px;
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      box-shadow: 0 2px 6px rgba(0, 0, 0, 0.4);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+    }
+
+    /* Sleek glassmorphism heart button */
+    .fav-heart-btn {
+      position: absolute;
+      top: 7px;
+      right: 7px;
+      z-index: 6;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border-radius: 50%;
+      background: rgba(16, 21, 31, 0.65);
+      backdrop-filter: blur(10px);
+      -webkit-backdrop-filter: blur(10px);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #ff4757;
+      font-size: 13.5px;
+      cursor: pointer;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.35);
+      transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  background 0.2s ease,
+                  color 0.2s ease,
+                  box-shadow 0.2s ease,
+                  border-color 0.2s ease;
+    }
+
+    .fav-heart-btn:hover {
+      background: #ff4757;
+      color: #ffffff;
+      border-color: #ff4757;
       transform: scale(1.15);
+      box-shadow: 0 4px 14px rgba(255, 71, 87, 0.6);
     }
-    .fav-card:hover .poster-wrap img {
+
+    .fav-poster-wrap {
+      position: relative;
+      aspect-ratio: 2/3;
+      width: 100%;
+      background: #090e18;
+      overflow: hidden;
+    }
+
+    .fav-poster-wrap img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+      transition: transform 0.35s cubic-bezier(0.25, 0.46, 0.45, 0.94), filter 0.35s ease;
+    }
+
+    .fav-card:hover .fav-poster-wrap img {
       transform: scale(1.05);
+      filter: brightness(0.9);
     }
+
+    /* Subtle gradient overlay at bottom of poster */
+    .fav-poster-wrap::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(to top, rgba(16, 21, 31, 0.8) 0%, transparent 40%);
+      pointer-events: none;
+      opacity: 0.6;
+      transition: opacity 0.25s ease;
+    }
+
+    .fav-card:hover .fav-poster-wrap::after {
+      opacity: 0.9;
+    }
+
+    /* Modern centered quick-play button */
+    .fav-quick-play {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.8);
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #2ed573;
+      border: none;
+      color: #07101e;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      opacity: 0;
+      transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+                  opacity 0.22s ease,
+                  background 0.15s ease,
+                  box-shadow 0.22s ease;
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.6), 0 0 12px rgba(46, 213, 115, 0.4);
+      z-index: 5;
+      cursor: pointer;
+    }
+
+    .fav-quick-play i {
+      margin-left: 2px;
+    }
+
+    .fav-card:hover .fav-quick-play,
+    .fav-card:focus-within .fav-quick-play {
+      opacity: 1;
+      transform: translate(-50%, -50%) scale(1);
+    }
+
+    .fav-quick-play:hover {
+      transform: translate(-50%, -50%) scale(1.12) !important;
+      background: #39e280;
+      box-shadow: 0 8px 22px rgba(46, 213, 115, 0.6);
+    }
+
+    @media (hover: none) {
+      .fav-quick-play {
+        opacity: 0.92;
+        transform: translate(-50%, -50%) scale(1);
+      }
+    }
+
+    /* Card meta & info */
+    .fav-card-body {
+      padding: 8px 10px 9px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+      flex: 1;
+      background: var(--bg-surface);
+    }
+
+    .fav-card-title {
+      font-weight: 600;
+      font-size: 12.5px;
+      line-height: 1.3;
+      color: var(--text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      transition: color 0.15s ease;
+    }
+
+    .fav-card:hover .fav-card-title {
+      color: #ffffff;
+    }
+
+    .fav-card-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+      margin-top: auto;
+    }
+
+    .fav-card-year {
+      font-size: 11.5px;
+      font-weight: 500;
+      color: var(--text-muted);
+      font-family: var(--font-mono, monospace);
+    }
+
+    .fav-card-score {
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 1.5px 6px;
+      border-radius: 4px;
+      background: rgba(255, 193, 7, 0.12);
+      border: 1px solid rgba(255, 193, 7, 0.3);
+      color: #ffc107;
+      font-size: 10.5px;
+      font-weight: 700;
+      font-family: var(--font-mono, monospace);
+      letter-spacing: 0.2px;
+    }
+
 
 

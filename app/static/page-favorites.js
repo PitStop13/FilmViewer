@@ -62,61 +62,58 @@ function renderFavoritesList() {
   }
 
   c.innerHTML = `
-    <div class="search-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 16px; margin-top: 16px;">
+    <div class="fav-grid">
       ${filtered.map(item => {
         const isMovie = item.media_type === 'movie';
         const typeBadge = isMovie
-          ? '<span class="badge bg-blue" style="position:absolute; top:8px; left:8px; z-index:2; font-size:11px;">Film</span>'
-          : '<span class="badge bg-green" style="position:absolute; top:8px; left:8px; z-index:2; font-size:11px;">Serie TV</span>';
+          ? '<span class="badge bg-blue fav-type-badge">Film</span>'
+          : '<span class="badge bg-green fav-type-badge">Serie TV</span>';
         const pUrl = item.poster ? (typeof posterUrl === 'function' ? posterUrl(item) : item.poster) : '';
-        const scoreBadge = item.score ? `<span class="badge bg-dark text-warning border border-secondary" style="font-size:10.5px;"><i class="ti ti-star-filled me-1"></i>${escapeHtml(item.score)}</span>` : '';
-        const yearStr = item.year ? `<span class="text-muted" style="font-size:11.5px;">${escapeHtml(item.year)}</span>` : '';
+        const scoreBadge = item.score
+          ? `<span class="fav-card-score"><i class="ti ti-star-filled me-1"></i>${escapeHtml(item.score)}</span>`
+          : '';
+        const yearStr = item.year ? escapeHtml(item.year) : (isMovie ? 'Film' : 'Serie TV');
 
         return `
-          <div class="result-card fav-card" style="position:relative; background:rgba(255,255,255,0.04); border-radius:10px; border:1px solid rgba(255,255,255,0.08); overflow:hidden; transition:transform 0.18s, box-shadow 0.18s;">
+          <div class="fav-card" tabindex="0">
             ${typeBadge}
-            <button class="btn btn-sm btn-danger fav-remove-btn" 
+            <button class="fav-heart-btn" 
                     data-action="fav:remove" 
                     data-type="${escapeHtml(item.media_type)}" 
                     data-id="${escapeHtml(item.content_id)}" 
                     data-title="${escapeHtml(item.title)}"
-                    title="Rimuovi dai Preferiti"
-                    style="position:absolute; top:8px; right:8px; z-index:2; width:28px; height:28px; padding:0; display:flex; align-items:center; justify-content:center; border-radius:50%; box-shadow:0 2px 8px rgba(0,0,0,0.5);">
-              <i class="ti ti-heart-filled" style="font-size:14px;"></i>
+                    title="Rimuovi dai Preferiti">
+              <i class="ti ti-heart-filled"></i>
             </button>
-            <div class="poster-wrap" 
+            <div class="fav-poster-wrap" 
                  data-action="fav:open" 
                  data-type="${escapeHtml(item.media_type)}" 
                  data-id="${escapeHtml(item.content_id)}" 
                  data-slug="${escapeHtml(item.slug || '')}"
-                 style="position:relative; aspect-ratio:2/3; width:100%; cursor:pointer; background:#111; overflow:hidden;">
+                 title="${escapeHtml(item.title)}">
               ${pUrl
-                ? `<img src="${encodeURI(pUrl)}" alt="${escapeHtml(item.title)}" loading="lazy" style="width:100%; height:100%; object-fit:cover; transition:transform 0.25s;">`
+                ? `<img src="${encodeURI(pUrl)}" alt="${escapeHtml(item.title)}" loading="lazy">`
                 : `<div class="poster-noimg" style="width:100%; height:100%; display:flex; align-items:center; justify-content:center; color:var(--text-sub);"><i class="ti ti-movie" style="font-size:32px;"></i></div>`}
-              <div class="poster-overlay" style="position:absolute; inset:0; background:linear-gradient(to top, rgba(0,0,0,0.85) 0%, transparent 50%); display:flex; align-items:flex-end; padding:10px;">
-                <button class="btn btn-success btn-sm w-100" 
-                        data-action="fav:play" 
-                        data-type="${escapeHtml(item.media_type)}" 
-                        data-id="${escapeHtml(item.content_id)}" 
-                        data-slug="${escapeHtml(item.slug || '')}"
-                        data-title="${escapeHtml(item.title)}"
-                        data-poster="${escapeHtml(item.poster || '')}"
-                        title="Guarda ora">
-                  <i class="ti ti-player-play-filled me-1"></i>Guarda
-                </button>
-              </div>
+              <button class="fav-quick-play" 
+                      data-action="fav:play" 
+                      data-type="${escapeHtml(item.media_type)}" 
+                      data-id="${escapeHtml(item.content_id)}" 
+                      data-slug="${escapeHtml(item.slug || '')}"
+                      data-title="${escapeHtml(item.title)}"
+                      data-poster="${escapeHtml(item.poster || '')}"
+                      title="Guarda ora">
+                <i class="ti ti-player-play-filled"></i>
+              </button>
             </div>
-            <div class="card-body" 
+            <div class="fav-card-body" 
                  data-action="fav:open" 
                  data-type="${escapeHtml(item.media_type)}" 
                  data-id="${escapeHtml(item.content_id)}" 
                  data-slug="${escapeHtml(item.slug || '')}"
-                 style="padding:10px; cursor:pointer;">
-              <div class="title" style="font-weight:600; font-size:13px; line-height:1.3; margin-bottom:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="${escapeHtml(item.title)}">
-                ${escapeHtml(item.title)}
-              </div>
-              <div class="d-flex align-items:center justify-content:space-between" style="font-size:11px;">
-                ${yearStr}
+                 title="${escapeHtml(item.title)}">
+              <div class="fav-card-title">${escapeHtml(item.title)}</div>
+              <div class="fav-card-meta">
+                <span class="fav-card-year">${yearStr}</span>
                 ${scoreBadge}
               </div>
             </div>

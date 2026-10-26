@@ -40,10 +40,10 @@
       roomCode: null,
       isHost: false,
       nickname: '',
-      clientId: `fv_${Math.random().toString(36).substring(2, 9)}`,
+      clientId: `fv_init_${Math.random().toString(36).substring(2, 9)}`,
       peers: new Map(), // clientId -> { nickname, isHost, pingMs, lastSeen, playing, currentTime }
-      driftThreshold: parseFloat(localStorage.getItem(STORAGE_KEYS.drift) || '1.5'),
-      showToasts: localStorage.getItem(STORAGE_KEYS.toasts) !== '0',
+      driftThreshold: 1.5,
+      showToasts: true,
       lastRemoteMedia: null,
       statusMessage: '',
       statusType: 'muted', // 'muted' | 'success' | 'warning' | 'danger'
@@ -52,13 +52,90 @@
       countdownActive: false,
     },
 
-    init() {
-      // Restore nickname
-      const savedNick = localStorage.getItem(STORAGE_KEYS.nickname);
+    _getUserKey() {
+      if (typeof _me !== 'undefined' && _me && _me.user) {
+        if (_me.user.id != null) return `u_${_me.user.id}`;
+        if (_me.user.username) return `u_${_me.user.username}`;
+      }
+      return 'guest';
+    },
+
+    _getStorage(key) {
+      const uKey = this._getUserKey();
+      return localStorage.getItem(`fv_jam_${uKey}_${key}`) || (uKey === 'guest' ? localStorage.getItem(STORAGE_KEYS[key] || `fv_jam_${key}`) : null);
+    },
+
+    _setStorage(key, val) {
+      const uKey = this._getUserKey();
+      localStorage.setItem(`fv_jam_${uKey}_${key}`, String(val));
+    },
+
+    _removeStorage(key) {
+      const uKey = this._getUserKey();
+      localStorage.removeItem(`fv_jam_${uKey}_${key}`);
+    },
+
+    onUserChanged() {
+      const uKey = this._getUserKey();
+      const savedNick = this._getStorage('nickname');
       const userNick = (typeof _me !== 'undefined' && _me && _me.user && _me.user.username) ? _me.user.username : '';
       this.state.nickname = savedNick || userNick || 'Ospite';
+      this.state.clientId = `fv_${uKey}_${Math.random().toString(36).substring(2, 9)}`;
 
-      // Check URL parameters for direct room join (e.g., #/settings/jam?code=123456)
+      const driftVal = this._getStorage('drift');
+      if (driftVal) this.state.driftThreshold = parseFloat(driftVal);
+      const toastVal = this._getStorage('toasts');
+      if (toastVal != null) this.state.showToasts = toastVal !== '0';
+
+      const userRoom = this._getStorage('roomCode');
+      const wasHost = this._getStorage('isHost') === '1';
+
+      if (userRoom && /^[0-9]{6}$/.test(userRoom)) {
+        if (this.state.roomCode !== userRoom || !this.isActive()) {
+          this.joinRoom(userRoom, wasHost, true);
+        }
+      } else if (this.isActive()) {
+        this.leaveRoom();
+      }
+
+      this.updateSidebarBadge();
+      this.renderSettings();
+    },
+
+    updateSidebarBadge() {
+      const badge = document.getElementById('sb-jam-badge');
+      if (!badge) return;
+      if (this.isActive()) {
+        const count = this.state.peers.size;
+        badge.style.display = 'inline-block';
+        if (count > 0) {
+          badge.className = 'badge bg-success ms-auto';
+          badge.textContent = `${count + 1}`;
+          badge.title = `JAM attiva con ${count} amic${count === 1 ? 'o' : 'i'}`;
+        } else {
+          badge.className = 'badge bg-purple ms-auto';
+          badge.textContent = 'LIVE';
+          badge.title = `JAM attiva: stanza #${this.state.roomCode}`;
+        }
+      } else {
+        badge.style.display = 'none';
+      }
+    },
+
+    init() {
+      // User-scoped storage restoration
+      const uKey = this._getUserKey();
+      const savedNick = this._getStorage('nickname');
+      const userNick = (typeof _me !== 'undefined' && _me && _me.user && _me.user.username) ? _me.user.username : '';
+      this.state.nickname = savedNick || userNick || 'Ospite';
+      this.state.clientId = `fv_${uKey}_${Math.random().toString(36).substring(2, 9)}`;
+
+      const driftVal = this._getStorage('drift');
+      if (driftVal) this.state.driftThreshold = parseFloat(driftVal);
+      const toastVal = this._getStorage('toasts');
+      if (toastVal != null) this.state.showToasts = toastVal !== '0';
+
+      // Check URL parameters for direct room join (e.g., #/jam?code=123456)
       this._checkUrlCode();
 
       // Hook existing or future video players
@@ -80,6 +157,7 @@
           'jam:shareLink': (d, el) => this.shareLink(el),
           'jam:openSettings': () => this.openJamSettings(),
           'jam:openFullSettings': () => this.openFullSettings(),
+          'jam:render': () => this.renderSettings(),
           'jam:acceptProposal': () => this.acceptProposal(),
           'jam:rejectProposal': () => this.rejectProposal(),
           'jam:startNow': () => this.startNow(),
@@ -87,7 +165,7 @@
           'jam:toggleToasts': (d, el) => {
             const enabled = !!(el && el.checked);
             this.state.showToasts = enabled;
-            localStorage.setItem(STORAGE_KEYS.toasts, enabled ? '1' : '0');
+            this._setStorage('toasts', enabled ? '1' : '0');
           },
           'jam:saveNickname': () => {
             const input = document.getElementById('jam-nick-input');
@@ -100,12 +178,13 @@
         });
       }
 
-      // Check if we were previously in a room before reload
-      const prevRoom = localStorage.getItem(STORAGE_KEYS.roomCode);
+      // Check if this user was previously in a room before reload
+      const prevRoom = this._getStorage('roomCode');
       if (prevRoom && prevRoom.length === 6) {
-        const wasHost = localStorage.getItem(STORAGE_KEYS.isHost) === '1';
+        const wasHost = this._getStorage('isHost') === '1';
         this.joinRoom(prevRoom, wasHost, true);
       }
+      this.updateSidebarBadge();
     },
 
     isActive() {
@@ -120,7 +199,7 @@
     setNickname(name) {
       if (!name) return;
       this.state.nickname = name;
-      localStorage.setItem(STORAGE_KEYS.nickname, name);
+      this._setStorage('nickname', name);
       if (this.isActive()) {
         this.sendAction('NICK_CHANGE', { nickname: name });
       }
@@ -192,11 +271,12 @@
       this.state.statusMessage = 'Connessione al server JAM sicuro in corso...';
       this.state.statusType = 'warning';
 
-      localStorage.setItem(STORAGE_KEYS.roomCode, code);
-      localStorage.setItem(STORAGE_KEYS.isHost, isHost ? '1' : '0');
+      this._setStorage('roomCode', code);
+      this._setStorage('isHost', isHost ? '1' : '0');
 
       this.renderSettings();
       this._updatePlayerPills();
+      this.updateSidebarBadge();
 
       _activeBrokerIdx = 0;
       this._connectToBroker();
@@ -332,8 +412,9 @@
       this.state.statusMessage = 'Disconnesso';
       this.state.statusType = 'muted';
 
-      localStorage.removeItem(STORAGE_KEYS.roomCode);
-      localStorage.removeItem(STORAGE_KEYS.isHost);
+      this._removeStorage('roomCode');
+      this._removeStorage('isHost');
+      this.updateSidebarBadge();
 
       this.renderSettings();
       this._updatePlayerPills();
@@ -1159,7 +1240,7 @@
     getQuickLink() {
       if (!this.state.roomCode) return '';
       const base = window.location.origin + window.location.pathname;
-      return `${base.replace(/\/+$/, '')}/#/settings/jam?code=${this.state.roomCode}`;
+      return `${base.replace(/\/+$/, '')}/#/jam?code=${this.state.roomCode}`;
     },
 
     async copyRoomCode(btnEl) {
@@ -1275,13 +1356,10 @@
       if (typeof hideModal === 'function') {
         hideModal('jam-quick-modal');
       }
-      if (typeof openSettingsPage === 'function') {
-        openSettingsPage('jam');
-      } else if (typeof openSettings === 'function') {
-        openSettings();
-        setTimeout(() => {
-          if (typeof switchSettingsTab === 'function') switchSettingsTab('jam');
-        }, 50);
+      if (typeof navigate === 'function') {
+        navigate('jam');
+      } else if (typeof showPage === 'function') {
+        showPage('jam');
       }
     },
 
@@ -1363,40 +1441,34 @@
       `;
     },
 
-    // ── Render Settings Pane ──────────────────────────────────────────────────
+    // ── Render JAM Page & Settings Pane ───────────────────────────────────────
+
+    renderPage() {
+      this.renderSettings();
+    },
 
     renderSettings() {
-      const container = document.getElementById('jam-container');
-      if (!container) return;
+      const targets = [
+        document.getElementById('jam-page-container'),
+        document.getElementById('jam-container')
+      ].filter(Boolean);
+      if (!targets.length) return;
+
+      const setHtml = (html) => {
+        targets.forEach(el => { el.innerHTML = html; });
+      };
 
       const isLive = this.isActive();
       const code = this.state.roomCode;
       const isConnecting = this.state.connecting;
+      this.updateSidebarBadge();
 
       if (!isLive && !isConnecting) {
         // Disconnected view: Create or Join
         const pending = this._pendingCodeFromUrl || '';
         this._pendingCodeFromUrl = null;
 
-        container.innerHTML = `
-          <!-- Header Banner -->
-          <div class="jam-hero-banner mb-4">
-            <div class="d-flex align-items-center gap-3">
-              <div class="jam-icon-box">
-                <i class="ti ti-headphones fs-1 text-primary"></i>
-              </div>
-              <div>
-                <h3 class="mb-1 text-white fw-bold d-flex align-items-center gap-2">
-                  JAM Watch Party
-                  <span class="badge bg-purple-lt">P2P Cloud Sync</span>
-                </h3>
-                <p class="text-muted small mb-0">
-                  Guarda film e serie insieme a distanza, perfettamente sincronizzati secondo per secondo.
-                  Ciascuno esegue il proprio container Docker in locale (es. Londra e Stoccarda): nessuna porta da aprire sul router, basta un codice a 6 cifre o un link rapido.
-                </p>
-              </div>
-            </div>
-          </div>
+        setHtml(`
 
           ${pending ? `
             <div class="alert alert-info d-flex flex-wrap align-items-center justify-content-between gap-3 p-3 mb-4" style="background:rgba(61,107,245,0.15); border:1px solid var(--accent-ring); border-radius:12px;">
@@ -1500,20 +1572,23 @@
               </ul>
             </div>
           </div>
-        `;
+        `);
 
-        const joinInput = document.getElementById('jam-join-code-input');
-        if (joinInput) {
-          joinInput.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') this.joinFromInput();
-          });
-        }
+        targets.forEach(t => {
+          const joinInput = t.querySelector('#jam-join-code-input') || document.getElementById('jam-join-code-input');
+          if (joinInput && !joinInput._bound) {
+            joinInput._bound = true;
+            joinInput.addEventListener('keydown', (e) => {
+              if (e.key === 'Enter') this.joinFromInput();
+            });
+          }
+        });
         return;
       }
 
       // Connecting State
       if (isConnecting) {
-        container.innerHTML = `
+        setHtml(`
           <div class="card text-center p-5" style="background:var(--bg-surface); border:1px solid var(--border);">
             <div class="spinner-border text-primary mb-3" style="width:3rem; height:3rem;" role="status"></div>
             <h4 class="text-white fw-bold mb-1">Connessione alla Stanza #${code}...</h4>
@@ -1522,7 +1597,7 @@
               <button type="button" class="btn btn-outline-secondary btn-sm" data-action="jam:leave">Annulla</button>
             </div>
           </div>
-        `;
+        `);
         return;
       }
 
@@ -1531,7 +1606,7 @@
       const peerCount = this.state.peers.size;
       const quickLink = this.getQuickLink();
 
-      container.innerHTML = `
+      setHtml(`
         <!-- Active Room Header Card -->
         <div class="card mb-4" style="background:linear-gradient(135deg, rgba(61,107,245,0.12), rgba(16,21,31,0.95)); border:1px solid var(--accent-ring); border-radius:12px;">
           <div class="card-body p-4">
@@ -1632,20 +1707,23 @@
             </div>
           </div>
         </div>
-      `;
+      `);
 
-      const peersListEl = document.getElementById('jam-peers-list');
-      if (peersListEl) this._renderPeersList(peersListEl);
+      targets.forEach(t => {
+        const peersListEl = t.querySelector('#jam-peers-list') || document.getElementById('jam-peers-list');
+        if (peersListEl) this._renderPeersList(peersListEl);
 
-      const driftSelect = document.getElementById('jam-drift-select');
-      if (driftSelect) {
-        driftSelect.addEventListener('change', (e) => {
-          const val = parseFloat(e.target.value);
-          this.state.driftThreshold = val;
-          localStorage.setItem(STORAGE_KEYS.drift, String(val));
-          if (typeof showToast === 'function') showToast(`Tolleranza sincronizzazione impostata a ${val}s`, 'success');
-        });
-      }
+        const driftSelect = t.querySelector('#jam-drift-select') || document.getElementById('jam-drift-select');
+        if (driftSelect && !driftSelect._bound) {
+          driftSelect._bound = true;
+          driftSelect.addEventListener('change', (e) => {
+            const val = parseFloat(e.target.value);
+            this.state.driftThreshold = val;
+            this._setStorage('drift', String(val));
+            if (typeof showToast === 'function') showToast(`Tolleranza sincronizzazione impostata a ${val}s`, 'success');
+          });
+        }
+      });
     },
 
     _renderPeersList(container) {
@@ -1735,6 +1813,15 @@
 
   // Expose globally
   window.Jam = Jam;
+
+  if (typeof registerPageHash === 'function') {
+    registerPageHash('jam', {
+      read: () => ({ params: Jam.state.roomCode ? { code: Jam.state.roomCode } : {} }),
+      apply: (params) => {
+        if (params && params.code) Jam.setPendingCode(params.code);
+      },
+    });
+  }
 
   // Initialize on DOM load
   if (document.readyState === 'loading') {

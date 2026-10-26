@@ -54,11 +54,25 @@ _STREAM_TTL = 4 * 3600  # 4 hours
 
 _SEGMENT_CACHE: dict[str, tuple[float, bytes]] = {}
 _SEGMENT_CACHE_LOCK = threading.Lock()
-_MAX_SEGMENTS_CACHE = 60
+_MAX_SEGMENTS_CACHE = 250
 _SEGMENT_TTL = 600.0  # 10 minutes
 
 _TV_DEFAULT_EP_CACHE: dict[str, tuple[str, str, str]] = {}
 _TV_DEFAULT_EP_LOCK = threading.Lock()
+
+
+def _prefetch_key_bg(token: str, json_win_video, json_win_param, embed_referer: str):
+    """Fetch encryption key in background immediately so /prepare returns with zero delay."""
+    def _run():
+        try:
+            key_hex = _get_m3u8_key(json_win_video, json_win_param, embed_referer)
+            session = _get_stream_session(token)
+            if session and not session.get("key_hex"):
+                session["key_hex"] = key_hex
+        except Exception as e:
+            logger.debug("Background key prefetch for token %s: %s", token, e)
+    threading.Thread(target=_run, daemon=True).start()
+
 
 
 def _create_stream_session(m3u8_url: str, referer: str, key_hex: Optional[str], meta: dict) -> str:
@@ -196,14 +210,10 @@ async def prepare_stream(req: StreamPrepareRequest, request: Request):
             embed_content, embed_referer = _get_film_iframe(int(req.id), domain)
             json_win_video, json_win_param = _parse_content(embed_content, embed_referer)
             m3u8_url = _get_m3u8_url(json_win_video, json_win_param)
-            try:
-                key_hex = _get_m3u8_key(json_win_video, json_win_param, embed_referer)
-            except Exception as e:
-                logger.warning("Could not pre-fetch key during prepare: %s", e)
-                key_hex = None
-            token = _create_stream_session(m3u8_url, embed_referer, key_hex, {
+            token = _create_stream_session(m3u8_url, embed_referer, None, {
                 "type": "movie", "id": req.id, "slug": req.slug
             })
+            _prefetch_key_bg(token, json_win_video, json_win_param, embed_referer)
             return token, None, None, None
         elif c_type in ("tv", "series"):
             episode_id = req.episode_id
@@ -289,15 +299,11 @@ async def prepare_stream(req: StreamPrepareRequest, request: Request):
             embed_content, embed_referer = _get_tv_iframe(int(req.id), int(episode_id), domain, sc_token)
             json_win_video, json_win_param = _parse_content(embed_content, embed_referer)
             m3u8_url = _get_m3u8_url(json_win_video, json_win_param)
-            try:
-                key_hex = _get_m3u8_key(json_win_video, json_win_param, embed_referer)
-            except Exception as e:
-                logger.warning("Could not pre-fetch key during prepare: %s", e)
-                key_hex = None
-            token = _create_stream_session(m3u8_url, embed_referer, key_hex, {
+            token = _create_stream_session(m3u8_url, embed_referer, None, {
                 "type": "tv", "id": req.id, "episode_id": episode_id, "slug": req.slug,
                 "episode_number": episode_num, "episode_title": resolved_title,
             })
+            _prefetch_key_bg(token, json_win_video, json_win_param, embed_referer)
             return token, episode_id, episode_num, resolved_title
         else:
             raise ValueError(f"Tipo di contenuto non supportato: {c_type}")
@@ -471,6 +477,14 @@ async def get_stream_key(token: str):
         raise HTTPException(status_code=404, detail="Sessione di streaming non trovata o scaduta")
 
     key_hex = session.get("key_hex")
+    if not key_hex:
+        # Await background prefetch briefly if already in-flight
+        for _ in range(15):
+            await asyncio.sleep(0.1)
+            key_hex = session.get("key_hex")
+            if key_hex:
+                break
+
     if not key_hex:
         def _fetch_key():
             referer = session.get("referer", "")

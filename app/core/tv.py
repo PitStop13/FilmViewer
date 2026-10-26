@@ -17,6 +17,7 @@ from app.core._shared import (
     _parse_content,
     _get_m3u8_key,
     _get_m3u8_url,
+    _shared_get,
 )
 from app.core.paths import episode_path, fmt_ep  # noqa: F401  (fmt_ep re-exported)
 
@@ -157,7 +158,7 @@ def _get_iframe(tv_id, ep_id, domain, token):
     req = None
     for path in (f"/it/iframe/{tv_id}", f"/iframe/{tv_id}"):
         try:
-            req = requests.get(
+            req = _shared_get(
                 f"https://{domain}{path}",
                 params=params,
                 cookies=cookies,

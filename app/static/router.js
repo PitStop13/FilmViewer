@@ -122,7 +122,7 @@ function routeFromHash() {
   }
 
   if (route.page === 'settings') { openSettingsPage(route.extra[0] || null, route.params); return; }
-  if (route.page === 'jam') { openSettingsPage('jam', route.params); return; }
+  if (route.page === 'jam') { showPage('jam', route.params); return; }
 
   // A link to a page this user cannot open lands them somewhere real, with the
   // address corrected, rather than on a blank pane fed by 403s.

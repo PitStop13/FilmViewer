@@ -187,7 +187,7 @@ function showPage(page, params = null) {
   closeMobileMenu();
   document.querySelectorAll('.modal.show, .modal[style*="display: block"]').forEach(m => hideModal(m.id));
   if (params) PAGE_HASH[page]?.apply?.(params);
-  ['search','downloads','files','requests','my-requests','watches','favorites','users','detail','settings'].forEach(p => {
+  ['search','downloads','files','requests','my-requests','watches','favorites','users','detail','settings','jam'].forEach(p => {
     const el = document.getElementById(`page-${p}`);
     if (el) el.style.display = (p === page || (page === 'watches' && p === 'favorites') || (page === 'favorites' && p === 'watches')) ? '' : 'none';
   });
@@ -195,6 +195,7 @@ function showPage(page, params = null) {
     search:'Home', downloads:'Download', files:'File',
     requests:'Coda richieste', 'my-requests':'Le mie richieste',
     watches:'I miei Preferiti', favorites:'I miei Preferiti', users:'Utenti', detail:'', settings:'Impostazioni',
+    jam:'JAM Watch Party',
   }[page] ?? 'Home';
   document.querySelectorAll('.nav-link[data-page]').forEach(el =>
     el.classList.toggle('active', el.dataset.page === page || (page === 'watches' && el.dataset.page === 'favorites') || (page === 'favorites' && el.dataset.page === 'watches')));
@@ -208,6 +209,7 @@ function showPage(page, params = null) {
   if (page === 'my-requests') loadMyRequests();
   if (page === 'watches' || page === 'favorites') loadFavorites();
   if (page === 'users') loadUsersPage();
+  if (page === 'jam' && window.Jam && typeof window.Jam.renderPage === 'function') window.Jam.renderPage();
   // Every page has an address now. This used to do the opposite — strip the
   // hash on the way out of the two pages that had one — because they were the
   // only two, and leaving a stale title in the bar meant the next reload

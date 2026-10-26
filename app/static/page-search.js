@@ -373,6 +373,10 @@ function renderContinueWatchingRail() {
       typeBadgeCls = 'bg-green';
     }
 
+    const subInfo = item.content_type === 'tv'
+      ? (item.episode_title || (item.season_number ? `Stagione ${item.season_number}` : 'Serie TV'))
+      : (item.year ? `Film • ${item.year}` : 'Film');
+
     col.innerHTML = `
       <div class="result-card cw-card" data-action="cw:open-details" data-cw-id="${escapeHtml(item.id)}" title="${escapeHtml(item.title)}">
         <div class="poster-wrap">
@@ -388,17 +392,15 @@ function renderContinueWatchingRail() {
             <div class="cw-progress-bar" style="width: ${pct}%"></div>
           </div>
         </div>
-        <div class="card-meta">
-          <div class="card-title-text">${escapeHtml(item.title)}</div>
-          <div class="d-flex align-items-center justify-content-between" style="font-size:11px; color:var(--text-dim);">
+        <div class="card-meta cw-meta">
+          <div class="card-title-text" title="${escapeHtml(item.title)}">${escapeHtml(item.title)}</div>
+          <div class="cw-sub-text text-truncate" title="${escapeHtml(subInfo)}">
+            ${escapeHtml(subInfo)}
+          </div>
+          <div class="d-flex align-items-center justify-content-between cw-time-row" style="font-size:11px; color:var(--text-dim);">
             <span>${remStr}</span>
             <span class="text-success fw-bold">${pct}%</span>
           </div>
-          ${item.content_type === 'tv' && item.episode_title ? `
-            <div class="text-truncate mt-1" style="font-size:11px; color:var(--text-muted);" title="${escapeHtml(item.episode_title)}">
-              ${escapeHtml(item.episode_title)}
-            </div>
-          ` : ''}
         </div>
       </div>
     `;

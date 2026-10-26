@@ -12,6 +12,28 @@ logger = logging.getLogger(__name__)
 _scraper = None
 
 
+_core_session = None
+_ORIGINAL_REQUESTS_GET = requests.get
+
+
+def _get_core_session() -> requests.Session:
+    """Shared requests.Session with connection pooling for core resolution calls."""
+    global _core_session
+    if _core_session is None:
+        _core_session = requests.Session()
+        adapter = requests.adapters.HTTPAdapter(pool_connections=64, pool_maxsize=64, max_retries=2)
+        _core_session.mount("https://", adapter)
+        _core_session.mount("http://", adapter)
+    return _core_session
+
+
+def _shared_get(url: str, **kwargs):
+    """Perform GET request via shared connection pool, falling back to requests.get when patched."""
+    if requests.get is not _ORIGINAL_REQUESTS_GET:
+        return requests.get(url, **kwargs)
+    return _get_core_session().get(url, **kwargs)
+
+
 def _get_scraper():
     """Shared cloudscraper session for vixcloud.co pages behind Cloudflare.
 
@@ -28,6 +50,7 @@ def _get_scraper():
             logger.warning("cloudscraper not installed, falling back to requests.Session")
             _scraper = requests.Session()
     return _scraper
+
 
 
 # How many times a resolution request is worth sending. This is the phase before
@@ -91,10 +114,10 @@ def _fetch_vixcloud_embed(url_embed, referer=None):
     /storage/enc.key and CDN segment URLs are NOT Cloudflare-gated.)
     """
     from bs4 import BeautifulSoup
-    headers = {"user-agent": get_headers()}
+    headers = {}
     if referer:
         headers["referer"] = referer
-    req = _get_scraper().get(url_embed, headers=headers, timeout=15)
+    req = _get_scraper().get(url_embed, headers=headers, timeout=10)
     req.raise_for_status()
     body = BeautifulSoup(req.text, "lxml").find("body")
     if body is None:
@@ -191,7 +214,7 @@ def _get_m3u8_key(json_win_video, json_win_param, referer):
 
     url = f"{base_url}/storage/enc.key"
     headers = {"user-agent": get_headers(), "referer": referer}
-    req = with_retry(lambda: requests.get(url, headers=headers, timeout=15),
+    req = with_retry(lambda: _shared_get(url, headers=headers, timeout=15),
                      what="enc.key")
     if req.ok:
         return "".join([f"{c:02x}" for c in req.content])

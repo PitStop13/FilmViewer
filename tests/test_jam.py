@@ -36,11 +36,11 @@ def test_router_handles_jam_and_params():
     assert "if (route.page === 'jam')" in router
 
 
-def test_page_settings_preserves_jam_params():
-    page_settings = (Path(__file__).parent.parent / "app" / "static" / "page-settings.js").read_text(encoding="utf-8")
-    assert "async function openSettingsPage(tab, params = null)" in page_settings
-    assert "window.Jam.setPendingCode" in page_settings
-    assert "code: window.Jam.state.roomCode" in page_settings
+def test_page_jam_handles_hash_params():
+    jam = (Path(__file__).parent.parent / "app" / "static" / "jam.js").read_text(encoding="utf-8")
+    assert "registerPageHash('jam'" in jam
+    assert "Jam.setPendingCode(params.code)" in jam
+    assert "code: Jam.state.roomCode" in jam
 
 
 def test_jam_proposal_elements_in_modals():
@@ -189,7 +189,7 @@ def test_jam_node_runtime_simulation():
       jam.state.roomCode = '654321';
 
       const link = jam.getQuickLink();
-      assert.strictEqual(link, 'http://192.168.1.125:8000/#/settings/jam?code=654321');
+      assert.strictEqual(link, 'http://192.168.1.125:8000/#/jam?code=654321');
 
       // 3. Test copyRoomCode
       await jam.copyRoomCode();

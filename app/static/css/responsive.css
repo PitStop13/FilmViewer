@@ -128,6 +128,18 @@
       .btn-sm { min-height: 34px; }
       .fm-check { width: 18px !important; height: 18px !important; }
 
+      /* Prevent horizontal shelf rails from cutting off first card on left */
+      .shelf-rail-wrap {
+        margin-left: 0 !important;
+        margin-right: -12px !important;
+      }
+      .shelf-rail {
+        padding-left: 4px !important;
+        padding-right: 16px !important;
+        scroll-padding-left: 4px !important;
+        scroll-padding-right: 16px !important;
+        scroll-snap-type: x proximity;
+      }
     }
 
     @media (max-width: 575px) {
@@ -184,7 +196,289 @@
       }
     }
 
-    /* Touch devices: always show file manager actions */
+    /* ═══════════════════════════════════════════════════════
+       SMART TV & ACCESSIBILITY: D-PAD & KEYBOARD FOCUS
+       ═══════════════════════════════════════════════════════ */
+    :focus-visible {
+      outline: 3px solid #2ed573 !important;
+      outline-offset: 3px !important;
+      border-radius: var(--radius-sm, 6px);
+      z-index: 10;
+    }
+
+    .fav-card:focus-visible,
+    .fav-card:focus-within {
+      outline: 3px solid #ff4757 !important;
+      outline-offset: 4px !important;
+      transform: translateY(-5px) scale(1.03) !important;
+      box-shadow: 0 14px 34px rgba(255, 71, 87, 0.45) !important;
+      z-index: 12 !important;
+    }
+
+    .result-card:focus-visible,
+    .cw-card:focus-visible,
+    .shelf-item:focus-within .result-card {
+      outline: 3px solid #2ed573 !important;
+      outline-offset: 4px !important;
+      transform: translateY(-5px) scale(1.03) !important;
+      box-shadow: 0 14px 34px rgba(46, 213, 115, 0.45) !important;
+      z-index: 12 !important;
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       LARGE DISPLAYS & SMART TV (1400px, 1800px+, 4K)
+       ═══════════════════════════════════════════════════════ */
+    @media (min-width: 1400px) {
+      .container-xl {
+        max-width: 1360px !important;
+      }
+      #search-results > [class*="col-"] {
+        flex: 0 0 14.285714%;
+        max-width: 14.285714%;
+      }
+      .fav-grid {
+        grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)) !important;
+        gap: 14px;
+      }
+      .shelf-item {
+        flex-basis: 148px;
+        width: 148px;
+      }
+      .cw-item {
+        flex-basis: 168px;
+        width: 168px;
+      }
+      .th-hero {
+        min-height: 320px;
+      }
+      .th-name {
+        font-size: 38px;
+      }
+      .th-plot {
+        font-size: 13.5px;
+        -webkit-line-clamp: 3;
+      }
+    }
+
+    @media (min-width: 1800px) {
+      /* Smart TV / 4K UI with high-density compact cards */
+      .container-xl {
+        max-width: 1460px !important;
+        padding-left: 1.5rem !important;
+        padding-right: 1.5rem !important;
+      }
+      #search-results > [class*="col-"] {
+        flex: 0 0 12.5%;
+        max-width: 12.5%;
+      }
+      .fav-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
+        gap: 15px;
+      }
+      .shelf-item {
+        flex-basis: 154px;
+        width: 154px;
+      }
+      .cw-item {
+        flex-basis: 174px;
+        width: 174px;
+      }
+      .th-hero {
+        min-height: 360px;
+      }
+      .th-name {
+        font-size: 44px;
+      }
+      .th-plot {
+        font-size: 14.5px;
+        line-height: 1.6;
+        max-width: 74ch;
+      }
+      .th-cta .btn {
+        height: 40px;
+        padding: 0 18px;
+        font-size: 13.5px;
+      }
+      .th-cta .th-sched {
+        height: 40px;
+      }
+      .th-cta .th-icon-btn {
+        width: 40px;
+        height: 40px;
+      }
+      .shelf-title {
+        font-size: 19px;
+      }
+      .pg-h1 {
+        font-size: 24px;
+      }
+    }
+
+    /* ═══════════════════════════════════════════════════════
+       MOBILE & TABLET RESPONSIVE REFINEMENTS
+       ═══════════════════════════════════════════════════════ */
+    @media (max-width: 767.98px) {
+      /* Page headers stack gracefully */
+      .pg-head {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+        margin-bottom: 14px;
+      }
+      .pg-head-main {
+        width: 100%;
+        flex: none;
+      }
+      .pg-stats {
+        width: 100%;
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 8px;
+      }
+      .pg-actions {
+        margin-left: 0 !important;
+        width: 100%;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+      .pg-actions .btn-group {
+        width: 100%;
+        display: flex;
+      }
+      .pg-actions .btn-group .btn {
+        flex: 1 1 0;
+        text-align: center;
+        padding: 7px 4px;
+      }
+      .pg-actions > .btn {
+        flex: 1 1 auto;
+      }
+
+      /* Title CTA wrapping and touch friendly */
+      .th-cta {
+        width: 100%;
+        gap: 8px;
+      }
+      .th-cta .btn {
+        flex: 1 1 auto;
+        min-width: 135px;
+        height: 42px;
+        font-size: 13px;
+      }
+      .th-cta .th-sched {
+        width: 100%;
+        flex: 1 1 100%;
+        height: 42px;
+      }
+      .th-cta .th-icon-btn {
+        width: 42px;
+        height: 42px;
+        flex: 0 0 42px;
+      }
+
+      /* Hero adjustments */
+      .th-hero {
+        min-height: auto;
+      }
+      .th-art {
+        inset: 0 !important;
+        opacity: 0.35 !important;
+      }
+      .th-art::after {
+        background: linear-gradient(180deg, rgba(16,21,31,0.82) 0%, rgba(16,21,31,0.96) 100%) !important;
+      }
+      .th-name {
+        font-size: clamp(24px, 6.5vw, 34px);
+        line-height: 1.15;
+      }
+
+      /* Tabs horizontal touch scroll */
+      .th-tabs {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+        margin-bottom: 14px;
+      }
+      .th-tabs::-webkit-scrollbar { display: none; }
+    }
+
+    @media (max-width: 575.98px) {
+      /* Favorites 2-column mobile layout */
+      .fav-grid {
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px;
+        margin-top: 12px;
+      }
+      .fav-card-body {
+        padding: 7px 8px 8px;
+      }
+      .fav-card-title {
+        font-size: 11.5px;
+      }
+      .fav-card-year {
+        font-size: 10.5px;
+      }
+      .fav-card-score {
+        font-size: 9.5px;
+        padding: 1px 4px;
+      }
+      .fav-quick-play {
+        width: 36px;
+        height: 36px;
+        font-size: 15px;
+      }
+      .fav-heart-btn {
+        width: 26px;
+        height: 26px;
+        font-size: 12px;
+        top: 6px;
+        right: 6px;
+      }
+      .fav-type-badge {
+        top: 6px;
+        left: 6px;
+        font-size: 9px;
+        padding: 2px 5px;
+      }
+
+      /* Shelves touch optimization */
+      .shelf-rail-wrap {
+        margin-left: 0 !important;
+        margin-right: -10px !important;
+      }
+      .shelf-rail {
+        padding-left: 4px !important;
+        padding-right: 16px !important;
+        scroll-padding-left: 4px !important;
+        scroll-padding-right: 16px !important;
+        gap: 10px;
+        scroll-snap-type: x proximity;
+      }
+      .shelf-item {
+        scroll-snap-align: start;
+      }
+      .cw-item {
+        scroll-snap-align: start;
+        flex-basis: 145px;
+        width: 145px;
+      }
+    }
+
+    /* Touch devices: accessibility & ergonomic interactions */
     @media (hover: none) {
       .fm-actions { opacity: 1 !important; }
+      .shelf-arrow { display: none !important; }
+      .fav-quick-play {
+        opacity: 0.92;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      .cw-quick-play {
+        opacity: 0.92;
+        transform: translate(-50%, -50%) scale(1);
+      }
+      .poster-play {
+        opacity: 0.9;
+      }
     }

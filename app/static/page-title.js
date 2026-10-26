@@ -344,7 +344,7 @@ function _tpRenderCta() {
     ${sched}
     ${primary}
     ${watchBtn}
-    <button id="th-favorite-btn" class="btn btn-sm ${!_tp?.isFavorite ? 'btn-outline-danger' : 'btn-danger'}" data-action="tp:favorite" title="${!_tp?.isFavorite ? 'Aggiungi ai Preferiti' : 'Rimuovi dai Preferiti'}">
+    <button id="th-favorite-btn" class="btn ${!_tp?.isFavorite ? 'btn-outline-danger' : 'btn-danger'}" data-action="tp:favorite" title="${!_tp?.isFavorite ? 'Aggiungi ai Preferiti' : 'Rimuovi dai Preferiti'}">
       <i class="ti ${_tp?.isFavorite ? 'ti-heart-filled' : 'ti-heart'} me-1"></i>${_tp?.isFavorite ? 'Ti piace' : 'Mi piace'}
     </button>
     <button class="th-icon-btn" data-action="tp:tab" data-tab="tracks" title="Scegli audio e sottotitoli">
@@ -556,7 +556,7 @@ function _tpRenderFavoriteButton() {
   const btn = document.getElementById('th-favorite-btn');
   if (!btn || !_tp) return;
   const isFav = !!_tp.isFavorite;
-  btn.className = `btn btn-sm ${isFav ? 'btn-danger' : 'btn-outline-danger'}`;
+  btn.className = `btn ${isFav ? 'btn-danger' : 'btn-outline-danger'}`;
   btn.innerHTML = `<i class="ti ${isFav ? 'ti-heart-filled' : 'ti-heart'} me-1"></i>${isFav ? 'Ti piace' : 'Mi piace'}`;
   btn.title = isFav ? 'Rimuovi dai Preferiti' : 'Aggiungi ai Preferiti';
 }
@@ -883,10 +883,6 @@ function _savePlaybackProgress(isFinish = false) {
     episode_title: _currentStreamTracking.episodeTitle || null,
     position_seconds: positionSec,
     duration_seconds: durationSec,
-  }).then(() => {
-    if (typeof refreshContinueWatching === 'function') {
-      refreshContinueWatching();
-    }
   }).catch((err) => {
     console.warn('Errore salvataggio progresso continue-watching:', err);
   });
@@ -987,6 +983,8 @@ async function openStreamPlayer(opts) {
       videoEl.tabIndex = 0;
       try { videoEl.focus({ preventScroll: true }); } catch (_) {}
     }
+    const clickSurf = document.getElementById('stream-video-click-surface');
+    if (clickSurf) clickSurf.style.display = 'block';
 
     videoEl.onended = () => _savePlaybackProgress(true);
     videoEl.onpause = () => _savePlaybackProgress(false);
@@ -996,10 +994,12 @@ async function openStreamPlayer(opts) {
         xhrSetup: (xhr) => {
           xhr.withCredentials = true;
         },
-        maxBufferLength: 20,
-        maxMaxBufferLength: 40,
-        maxBufferSize: 30 * 1000 * 1000,
-        backBufferLength: 15,
+        startFragPrefetch: true,
+        lowLatencyMode: false,
+        maxBufferLength: 60,
+        maxMaxBufferLength: 120,
+        maxBufferSize: 60 * 1000 * 1000,
+        backBufferLength: 30,
         enableWorker: true,
         fragLoadingTimeOut: 35000,
         fragLoadingMaxRetry: 4,
@@ -1135,6 +1135,8 @@ async function openStreamPlayer(opts) {
       throw new Error("Il tuo browser non supporta la riproduzione HLS.");
     }
   } catch (err) {
+    const clickSurf = document.getElementById('stream-video-click-surface');
+    if (clickSurf) clickSurf.style.display = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
     if (videoEl) videoEl.style.display = 'none';
     if (errorEl) {
