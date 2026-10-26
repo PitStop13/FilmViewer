@@ -204,16 +204,19 @@ docker compose up -d --build
 ### 🪟 Windows (10 / 11)
 
 #### Opzione 1: Con Docker Desktop (Consigliato)
-1. Apri **PowerShell** e clona il repository:
-   ```powershell
-   git clone https://github.com/PitStop13/FilmViewer.git
-   cd FilmViewer
-   ```
-2. Avvia il container:
-   ```powershell
-   docker compose up -d --build
-   ```
-3. Apri il browser su: 👉 **`http://localhost:9876`**
+Puoi avviare FilmViewer con un semplice doppio clic sullo script **`avvia_filmviewer.bat`**:
+- Esegue in automatico `git pull` per verificare nuovi aggiornamenti.
+- Avvia Docker Desktop e il container.
+- Apre automaticamente FilmViewer nel tuo browser predefinito (`http://localhost:9876`).
+- Quando hai finito di guardare il film, premi **INVIO** nel terminale per arrestare i container e chiudere Docker Desktop liberando immediatamente tutta la memoria RAM.
+
+In alternativa, da terminale PowerShell:
+```powershell
+git clone https://github.com/PitStop13/FilmViewer.git
+cd FilmViewer
+docker compose up -d --build
+```
+Apri il browser su: 👉 **`http://localhost:9876`**
 
 #### Opzione 2: Senza Docker (Python)
 1. Installa **Python 3.11+** e **FFmpeg** (assicurandoti che `ffmpeg` sia aggiunto al PATH di sistema).
