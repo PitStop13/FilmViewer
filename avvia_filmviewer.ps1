@@ -26,16 +26,16 @@ Clear-Host
 
 # Banner iniziale moderno
 Write-Host ""
-Write-Host "  $cPurple╭─────────────────────────────────────────────────────────────────────────╮$cReset"
-Write-Host "  $cPurple│$cReset  $cNeon$cBold  ███████╗██╗██╗     ███╗   ███╗██╗   ██╗██╗███████╗██╗    ██╗      $cReset  $cPurple│$cReset"
-Write-Host "  $cPurple│$cReset  $cNeon$cBold  ██╔════╝██║██║     ████╗ ████║██║   ██║██║██╔════╝██║    ██║      $cReset  $cPurple│$cReset"
-Write-Host "  $cPurple│$cReset  $cNeon$cBold  █████╗  ██║██║     ██╔████╔██║██║   ██║██║█████╗  ██║ █╗ ██║      $cReset  $cPurple│$cReset"
-Write-Host "  $cPurple│$cReset  $cNeon$cBold  ██╔══╝  ██║██║     ██║╚██╔╝██║╚██╗ ██╔╝██║██╔══╝  ██║███╗██║      $cReset  $cPurple│$cReset"
-Write-Host "  $cPurple│$cReset  $cNeon$cBold  ██║     ██║███████╗██║ ╚═╝ ██║ ╚████╔╝ ██║███████╗╚███╔███╔╝      $cReset  $cPurple│$cReset"
-Write-Host "  $cPurple│$cReset  $cNeon$cBold  ╚═╝     ╚═╝╚══════╝╚═╝     ╚═╝  ╚═══╝  ╚═╝╚══════╝ ╚══╝╚══╝       $cReset  $cPurple│$cReset"
-Write-Host "  $cPurple│                                                                         │$cReset"
-Write-Host "  $cPurple│$cReset            $cCyan$cBold🎬  CENTRO MULTIMEDIALE  •  AVVIO AUTOMATICO$cReset             $cPurple│$cReset"
-Write-Host "  $cPurple╰─────────────────────────────────────────────────────────────────────────╯$cReset"
+Write-Host "  $cPurple╭────────────────────────────────────────────────────────────────────────────────╮$cReset"
+Write-Host "  $cPurple│$cReset  $cNeon$cBold███████╗██╗██╗     ███╗   ███╗██╗   ██╗██╗███████╗██╗    ██╗███████╗██████╗  $cReset  $cPurple│$cReset"
+Write-Host "  $cPurple│$cReset  $cNeon$cBold██╔════╝██║██║     ████╗ ████║██║   ██║██║██╔════╝██║    ██║██╔════╝██╔══██╗$cReset  $cPurple│$cReset"
+Write-Host "  $cPurple│$cReset  $cNeon$cBold█████╗  ██║██║     ██╔████╔██║██║   ██║██║█████╗  ██║ █╗ ██║█████╗  ██████╔╝$cReset  $cPurple│$cReset"
+Write-Host "  $cPurple│$cReset  $cNeon$cBold██╔══╝  ██║██║     ██║╚██╔╝██║╚██╗ ██╔╝██║██╔══╝  ██║███╗██║██╔══╝  ██╔══██╗$cReset  $cPurple│$cReset"
+Write-Host "  $cPurple│$cReset  $cNeon$cBold██║     ██║███████╗██║ ╚═╝ ██║ ╚████╔╝ ██║███████╗╚███╔███╔╝███████╗██║  ██║$cReset  $cPurple│$cReset"
+Write-Host "  $cPurple│$cReset  $cNeon$cBold╚═╝     ╚═╝╚══════╝╚═╝     ╚═╝  ╚═══╝  ╚═╝╚══════╝ ╚══╝╚══╝ ╚══════╝╚═╝  ╚═╝$cReset  $cPurple│$cReset"
+Write-Host "  $cPurple│                                                                                │$cReset"
+Write-Host "  $cPurple│$cReset                  $cCyan$cBold🎬  CENTRO MULTIMEDIALE  •  AVVIO AUTOMATICO$cReset                  $cPurple│$cReset"
+Write-Host "  $cPurple╰────────────────────────────────────────────────────────────────────────────────╯$cReset"
 Write-Host ""
 
 # 1. Determinazione cartella del progetto
