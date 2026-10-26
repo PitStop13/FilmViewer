@@ -203,29 +203,84 @@ docker compose up -d --build
 
 ### 🪟 Windows (10 / 11)
 
-#### Opzione 1: Con Docker Desktop (Consigliato)
-Puoi avviare FilmViewer con un semplice doppio clic sullo script **`avvia_filmviewer.bat`**:
-- Esegue in automatico `git pull` per verificare nuovi aggiornamenti.
-- Avvia Docker Desktop e il container.
-- Apre automaticamente FilmViewer nel tuo browser predefinito (`http://localhost:9876`).
-- Quando hai finito di guardare il film, premi **INVIO** nel terminale per arrestare i container e chiudere Docker Desktop liberando immediatamente tutta la memoria RAM.
+#### 🌟 Opzione 1: Con Docker Desktop e Script Automatico (Consigliato per Tutti)
 
-In alternativa, da terminale PowerShell:
+Grazie allo script **`avvia_filmviewer.bat`**, non serve alcuna conoscenza tecnica o uso del terminale: una volta posizionato il progetto, basta un semplice doppio clic per avviare l'intera applicazione e premere INVIO per spegnere tutto liberando la memoria del computer.
+
+##### 1. Prerequisiti
+- **Docker Desktop per Windows**: scaricalo e installalo dal sito ufficiale [docker.com](https://www.docker.com/products/docker-desktop/) (durante l'installazione mantieni abilitato l'uso del motore WSL 2).
+- **Git per Windows** (consigliato per aggiornamenti automatici del codice): scaricalo da [git-scm.com](https://git-scm.com/download/win).
+
+---
+
+##### 2. Posizionamento del Progetto nella cartella `C:\Film`
+Per consentire allo script di funzionare ovunque tu decida di collocarlo (es. sul Desktop), il progetto deve risiedere nella cartella principale **`C:\Film`**.
+
+Apri **PowerShell** o il **Prompt dei comandi** (CMD) ed esegui:
 ```powershell
-git clone https://github.com/PitStop13/FilmViewer.git
-cd FilmViewer
+git clone https://github.com/PitStop13/FilmViewer.git C:\Film
+```
+*(In alternativa: se scarichi il pacchetto ZIP da GitHub, estrailo in modo che i file del progetto si trovino direttamente all'interno della cartella `C:\Film`).*
+
+---
+
+##### 3. Copia lo Script `avvia_filmviewer.bat` dove preferisci (es. Desktop)
+- Entra nella cartella `C:\Film`.
+- Individua il file **`avvia_filmviewer.bat`**.
+- **Copia o crea un collegamento** di `avvia_filmviewer.bat` sul tuo **Desktop** (o in qualsiasi altra cartella ti sia comoda, o aggiungilo alla barra delle applicazioni).
+- In questo modo potrai avviare FilmViewer comodamente con un doppio clic dalla scrivania senza mai dover navigare dentro `C:\Film`.
+
+---
+
+##### 4. Avvio con Doppio Clic (Cosa fa in automatico lo script)
+Fai semplicemente **doppio clic su `avvia_filmviewer.bat`**:
+1. 📂 **Punta automaticamente alla directory**: lo script si sposta in automatico su `C:\Film` anche se è stato avviato dal Desktop o da un'altra cartella.
+2. 🐳 **Avvia Docker Desktop**: se Docker Desktop non è ancora in esecuzione, lo avvia in automatico e attende che il motore di virtualizzazione sia pronto.
+3. 🔄 **Verifica gli aggiornamenti**: esegue in background `git pull` per scaricare automaticamente eventuali correzioni o nuove funzionalità rilasciate.
+4. ⚙️ **Avvia il container**: compila e attiva il container FilmViewer tramite `docker compose up -d --build`.
+5. 🌐 **Apre il browser**: apre in automatico Google Chrome (o il tuo browser predefinito) all'indirizzo 👉 **`http://localhost:9876`**.
+6. ⏳ **Rimane aperto e pronto**: la finestra nera del terminale rimane aperta durante la visione indicando che FilmViewer è attivo.
+
+---
+
+##### 5. Spegnimento Corretto e Rilascio Completo della RAM
+> 💡 **PERCHÉ QUESTA FINESTRA DEL TERMINALE RESTA APERTA?**  
+> Docker Desktop e i container (processo `vmmem` di Windows) possono occupare diversi gigabyte di memoria RAM se lasciati attivi in background quando non servono.
+
+Quando hai finito di guardare il tuo film o la serie TV:
+1. Torna sulla finestra del terminale di **FilmViewer**.
+2. **Premi INVIO sulla tastiera**.
+3. Lo script provvederà in automatico a:
+   - Spegnere e rimuovere il container (`docker compose down`).
+   - Chiudere completamente Docker Desktop.
+   - Spegnere il sottosistema WSL (`wsl --shutdown`), **liberando istantaneamente il 100% della memoria RAM** utilizzata.
+
+---
+
+#### 💻 Opzione 2: Avvio Manuale da Terminale (Docker Compose)
+Se preferisci gestire manualmente Docker da riga di comando senza lo script automatico:
+```powershell
+cd C:\Film
 docker compose up -d --build
 ```
-Apri il browser su: 👉 **`http://localhost:9876`**
+Apri il browser su: 👉 **`http://localhost:9876`**  
+Per spegnere quando hai terminato:
+```powershell
+docker compose down
+```
 
-#### Opzione 2: Senza Docker (Python)
+---
+
+#### 🐍 Opzione 3: Senza Docker (Python Locale)
 1. Installa **Python 3.11+** e **FFmpeg** (assicurandoti che `ffmpeg` sia aggiunto al PATH di sistema).
-2. Nel terminale esegui:
+2. Nel terminale posizionati nella cartella ed esegui:
    ```powershell
+   cd C:\Film
    pip install -r requirements.txt
    python main.py
    ```
 3. Apri il browser su: 👉 **`http://localhost:9876`**
+
 
 ---
 

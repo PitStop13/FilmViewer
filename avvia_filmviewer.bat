@@ -3,54 +3,91 @@ chcp 65001 >nul
 setlocal enabledelayedexpansion
 title FilmViewer - Avvio e Gestione
 
-:: Spostati nella cartella del progetto (C:\Film se esiste, altrimenti la cartella dello script)
-if exist "C:\Film" (
+:: 1. Cerca lo script PowerShell avanzato (avvia_filmviewer.ps1) per la grafica moderna
+set "SCRIPT_PS1=%~dp0avvia_filmviewer.ps1"
+if not exist "!SCRIPT_PS1!" (
+    if exist "C:\Film\FilmViewer\avvia_filmviewer.ps1" (
+        set "SCRIPT_PS1=C:\Film\FilmViewer\avvia_filmviewer.ps1"
+    ) else if exist "C:\Film\avvia_filmviewer.ps1" (
+        set "SCRIPT_PS1=C:\Film\avvia_filmviewer.ps1"
+    ) else if exist "%USERPROFILE%\Music\Crack\FilmViewer\avvia_filmviewer.ps1" (
+        set "SCRIPT_PS1=%USERPROFILE%\Music\Crack\FilmViewer\avvia_filmviewer.ps1"
+    )
+)
+
+if exist "!SCRIPT_PS1!" (
+    powershell.exe -NoProfile -ExecutionPolicy Bypass -File "!SCRIPT_PS1!"
+    exit /b !errorlevel!
+)
+
+:: ==============================================================================
+:: FALLBACK BATCH (se PowerShell non fosse disponibile)
+:: ==============================================================================
+
+:: Cerca cartella del progetto
+if exist "%~dp0docker-compose.yml" (
+    cd /d "%~dp0"
+) else if exist "C:\Film\docker-compose.yml" (
     cd /d "C:\Film"
+) else if exist "C:\Film\FilmViewer\docker-compose.yml" (
+    cd /d "C:\Film\FilmViewer"
 ) else (
     cd /d "%~dp0"
 )
 
+cls
 echo =======================================================================
-echo                     AVVIO DI FILMVIEWER
+echo          FILMVIEWER - CENTRO MULTIMEDIALE (AVVIO AUTOMATICO)
 echo =======================================================================
 echo  Cartella di lavoro: %CD%
 echo.
 
-:: 1. Verifica se Docker Desktop e' in esecuzione
+:: Rilevamento automatico di Docker Desktop su tutti i percorsi noti
 docker info >nul 2>&1
 if %errorlevel% neq 0 (
-    echo [!] Docker Desktop non risulta avviato.
-    echo [*] Avvio automatico di Docker Desktop in corso...
-    if exist "C:\Program Files\Docker\Docker\Docker Desktop.exe" (
-        start "" "C:\Program Files\Docker\Docker\Docker Desktop.exe"
-    ) else (
-        echo [!] Percorso di Docker Desktop non trovato in Program Files.
-        echo     Per favore avvia Docker Desktop manualmente e premi un tasto.
-        pause
+    echo [*] Docker Desktop non risulta avviato.
+    echo [*] Ricerca e avvio automatico di Docker Desktop in corso...
+
+    set "DOCKER_EXE="
+    if exist "%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe" (
+        set "DOCKER_EXE=%LOCALAPPDATA%\Programs\DockerDesktop\Docker Desktop.exe"
+    ) else if exist "%ProgramFiles%\Docker\Docker\Docker Desktop.exe" (
+        set "DOCKER_EXE=%ProgramFiles%\Docker\Docker\Docker Desktop.exe"
+    ) else if exist "%LOCALAPPDATA%\Programs\Docker\Docker\Docker Desktop.exe" (
+        set "DOCKER_EXE=%LOCALAPPDATA%\Programs\Docker\Docker\Docker Desktop.exe"
+    ) else if exist "%ProgramFiles(x86)%\Docker\Docker\Docker Desktop.exe" (
+        set "DOCKER_EXE=%ProgramFiles(x86)%\Docker\Docker\Docker Desktop.exe"
     )
+
+    if defined DOCKER_EXE (
+        start "" "!DOCKER_EXE!"
+    ) else (
+        start "" "Docker Desktop" 2>nul
+    )
+
     echo [*] In attesa che il motore Docker sia pronto...
-    :wait_docker
-    timeout /t 3 /nobreak >nul
+    :wait_docker_loop
+    timeout /t 2 /nobreak >nul
     docker info >nul 2>&1
     if %errorlevel% neq 0 (
-        goto wait_docker
+        goto wait_docker_loop
     )
     echo [OK] Docker Desktop e' ora attivo e pronto!
     echo.
 )
 
-:: 2. Controllo aggiornamenti dal repository GitHub
+:: Controllo aggiornamenti git
 echo [*] Verifica aggiornamenti del codice (git pull)...
-git pull
+git pull >nul 2>&1
+echo [OK] Controllo completato.
 echo.
 
-:: 3. Avvio / build del container FilmViewer
+:: Avvio container
 echo [*] Avvio del container FilmViewer...
 docker compose up -d --build
 if %errorlevel% neq 0 (
     echo.
     echo [ERRORE] Impossibile avviare il container FilmViewer.
-    echo Assicurati che Docker Desktop sia completamente avviato.
     pause
     exit /b 1
 )
@@ -58,12 +95,12 @@ if %errorlevel% neq 0 (
 echo [OK] Container avviato con successo!
 echo.
 
-:: 4. Apertura del browser
+:: Apertura browser
 echo [*] Apertura dell'interfaccia su http://localhost:9876...
 timeout /t 2 /nobreak >nul
 start http://localhost:9876
 
-:: 5. Schermata di attesa
+:: Dashboard di esecuzione
 cls
 echo =======================================================================
 echo                     FILMVIEWER E' IN ESECUZIONE
@@ -82,15 +119,15 @@ echo -----------------------------------------------------------------------
 echo.
 pause >nul
 
-:: 6. Chiusura del container e di Docker per liberare risorse
+:: Chiusura e rilascio RAM
 cls
 echo =======================================================================
 echo                     ARRESTO E PULIZIA RISORSE
 echo =======================================================================
 echo.
 echo [*] Spegnimento del container FilmViewer in corso...
-docker compose down
-echo [OK] Container arrestato e rimosso con successo.
+docker compose down >nul 2>&1
+echo [OK] Container arrestato.
 echo.
 
 echo [*] Chiusura di Docker Desktop e rilascio memoria RAM (vmmem/WSL)...
