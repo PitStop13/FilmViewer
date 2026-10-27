@@ -293,4 +293,9 @@ async def set_domain(body: DomainUpdate):
         clear_image_cache()
     except Exception:
         pass
+    try:
+        from app.jobs import job_manager
+        job_manager.broadcast({"type": "domain_updated", "domain": domain})
+    except Exception:
+        pass
     return {"domain": domain, "version": version, "valid": True}

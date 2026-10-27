@@ -653,21 +653,26 @@ async function checkDomainNow() {
   const btn = document.getElementById('domain-check-btn');
   btn.disabled = true;
   _feedback('domain-recovery-feedback', 'Controllo in corso...');
+  setConnectionStatus('connecting', 'Connessione...');
   try {
     let data;
     try {
       data = await api.post('/api/domain/check');
     } catch (e) {
       _feedback('domain-recovery-feedback', errText(e, 'Controllo fallito.'), 'danger');
+      setConnectionStatus('missing', 'Mancante');
       return;
     }
     if (data.applied) {
       _feedback('domain-recovery-feedback', `Applicato ${data.candidate}.`, 'success');
       await loadDomainStatus();
+      setConnectionStatus('live', 'Live');
     } else if (data.candidate) {
       _feedback('domain-recovery-feedback', `Trovato ${data.candidate}: da applicare.`, 'success');
+      setConnectionStatus('connecting', 'Connessione...');
     } else if (data.current_ok) {
       _feedback('domain-recovery-feedback', 'Il dominio attuale risponde.', 'success');
+      setConnectionStatus('live', 'Live');
     } else {
       // Rejections are shown rather than swallowed: a rebranded source and an
       // edited page look identical from here, and only a person can tell them
@@ -676,9 +681,13 @@ async function checkDomainNow() {
       _feedback('domain-recovery-feedback',
         why ? `Nessun dominio adottabile. Scartati: ${why}` : 'Nessun dominio trovato.',
         'danger');
+      setConnectionStatus('missing', 'Mancante');
     }
     await loadDomainCandidate();
-  } catch (e) { _feedback('domain-recovery-feedback', 'Errore di rete.', 'danger'); }
+  } catch (e) {
+    _feedback('domain-recovery-feedback', 'Errore di rete.', 'danger');
+    setConnectionStatus('missing', 'Mancante');
+  }
   finally { btn.disabled = false; }
 }
 
@@ -716,6 +725,7 @@ async function saveDomain() {
   document.getElementById('domain-input').value = domain;
   btn.disabled = true;
   _feedback('domain-feedback', 'Verifica in corso...');
+  setConnectionStatus('connecting', 'Connessione...');
   try {
     const data = await api.put('/api/domain', {domain});
     currentDomain = data.domain; currentVersion = data.version;
@@ -723,9 +733,11 @@ async function saveDomain() {
     const badge = document.getElementById('domain-badge');
     badge.className = 'badge bg-success';
     badge.textContent = data.domain;
+    setConnectionStatus('live', 'Live');
     showToast('Dominio salvato', 'success');
   } catch(e) {
     _feedback('domain-feedback', errText(e, 'Errore di rete o dominio non raggiungibile'), 'danger');
+    setConnectionStatus('missing', 'Mancante');
   } finally { btn.disabled = false; }
 }
 

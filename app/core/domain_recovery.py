@@ -281,6 +281,11 @@ def apply_candidate(host: str) -> str:
         pass
     clear_pending()
     logger.info("Source domain set to %s (version %s)", host, version)
+    try:
+        from app.jobs import job_manager
+        job_manager.broadcast({"type": "domain_updated", "domain": host})
+    except Exception:
+        pass
     return version
 
 

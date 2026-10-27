@@ -155,6 +155,32 @@ async function logout() {
   window.location.href = '/login';
 }
 
+// ── Connection status indicator ────────────────────────────────────────────────
+
+function setConnectionStatus(state, label) {
+  const lbl = document.getElementById('stream-label');
+  const dot = document.querySelector('.stream-dot');
+  if (!lbl || !dot) return;
+
+  dot.classList.remove('ready', 'missing');
+
+  if (state === 'live' || state === 'ready') {
+    lbl.textContent = label || 'Live';
+    dot.classList.add('ready');
+    dot.style.background = '#2fb344';
+  } else if (state === 'missing' || state === 'mancante') {
+    lbl.textContent = label || 'Mancante';
+    dot.classList.add('missing');
+    dot.style.background = '#d63939';
+  } else if (state === 'connecting' || state === 'searching') {
+    lbl.textContent = label || 'Connessione...';
+    dot.style.background = '';
+  } else if (state === 'error' || state === 'reconnecting') {
+    lbl.textContent = label || 'Connessione...';
+    dot.style.background = '#d63939';
+  }
+}
+
 // ── Utilities ──────────────────────────────────────────────────────────────────
 
 function scConfirm(msg) {

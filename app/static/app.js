@@ -81,15 +81,20 @@ async function loadDomainStatus() {
     if (data.valid) {
       badge.className = 'badge bg-success';
       badge.textContent = currentDomain;
+      setConnectionStatus('live', 'Live');
     } else {
       badge.className = 'badge bg-danger';
       badge.textContent = 'Domain non configurato';
+      setConnectionStatus('missing', 'Mancante');
       // Only when the visitor did not ask for somewhere in particular. This
       // resolves after routing now, and a link to #/files must not be
       // overruled by a domain check that finished late.
       if (!parseHash()) openSettings();
     }
-  } catch(e) { console.error('loadDomainStatus:', e); }
+  } catch(e) {
+    console.error('loadDomainStatus:', e);
+    setConnectionStatus('missing', 'Mancante');
+  }
 }
 
 // ── Source domain moved ────────────────────────────────────────────────────────
@@ -120,6 +125,7 @@ async function applyDomainCandidate() {
   if (!_domainCandidate) return;
   const btn = document.getElementById('domain-banner-apply');
   btn.disabled = true;
+  setConnectionStatus('connecting', 'Connessione...');
   try {
     // The host is echoed back as a confirmation token: the server compares it
     // with what it found and refuses a mismatch rather than trusting it.
@@ -128,6 +134,7 @@ async function applyDomainCandidate() {
     _domainCandidate = null;
     renderDomainBanner();
     await loadDomainStatus();
+    setConnectionStatus('live', 'Live');
   } catch (e) {
     showToast(errText(e, 'Impossibile applicare il dominio'), 'danger');
   } finally { btn.disabled = false; }

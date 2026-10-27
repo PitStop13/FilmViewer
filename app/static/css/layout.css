@@ -140,6 +140,7 @@
       border-radius: 50%;
       flex-shrink: 0;
       background: var(--accent);
+      transition: background-color .3s ease;
     }
 
     @keyframes dot-pulse {
@@ -147,6 +148,14 @@
       50%       { opacity: .35; transform: scale(.75); }
     }
     .stream-dot { animation: dot-pulse 2.6s ease-in-out infinite; }
+    .stream-dot.ready {
+      animation: none !important;
+      background: #2fb344 !important;
+    }
+    .stream-dot.missing {
+      animation: none !important;
+      background: #d63939 !important;
+    }
 
     /* Domain badge */
     #domain-badge {

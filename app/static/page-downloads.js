@@ -11,8 +11,7 @@ function connectGlobalStream() {
   const es = new EventSource('/api/progress/stream');
 
   es.onopen = () => {
-    document.getElementById('stream-label').textContent='Live';
-    document.querySelector('.stream-dot').style.background='#2fb344';
+    setConnectionStatus('live', 'Live');
   };
 
   es.onmessage = (e) => {
@@ -96,6 +95,11 @@ function connectGlobalStream() {
       case 'domain_candidate':
         loadDomainCandidate();
         break;
+      case 'domain_updated':
+        if (typeof loadDomainStatus === 'function') {
+          loadDomainStatus();
+        }
+        break;
       case 'notification':
         // A bare signal: the payload lives behind /api/notifications, which is
         // scoped to the caller, so a shared stream leaks nothing.
@@ -111,10 +115,7 @@ function connectGlobalStream() {
 
   es.onerror = () => {
     es.close();
-    const lbl = document.getElementById('stream-label');
-    const dot = document.querySelector('.stream-dot');
-    if (lbl) lbl.textContent = 'Riconnessione...';
-    if (dot) dot.style.background = '#d63939';
+    setConnectionStatus('connecting', 'Connessione...');
     setTimeout(async () => {
       try {
         const res = await fetch('/api/auth/status', { credentials: 'same-origin' });
