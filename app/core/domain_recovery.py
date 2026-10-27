@@ -40,10 +40,16 @@ logger = logging.getLogger(__name__)
 
 # Where candidates come from. Overridable because the page is somebody else's
 # and may be deleted, renamed, or replaced by a better source.
+# Where candidates come from. Overridable because the page is somebody else's
+# and may be deleted, renamed, or replaced by a better source.
 CANDIDATES_URL = os.getenv(
     "DOMAIN_SOURCE_URL",
     "https://t.me/s/Streaming_community_sito",
 )
+CANDIDATE_SOURCES = [
+    CANDIDATES_URL,
+    "https://telegra.ph/Link-Aggiornato-StreamingCommunity-09-29",
+]
 
 # Which registrable names may ever be adopted automatically.
 #
@@ -83,11 +89,14 @@ def _now() -> float:
 
 # ── Candidates ────────────────────────────────────────────────────────────────
 
-def fetch_candidates(url: str | None = None) -> list[str]:
-    """Hosts linked from the source-of-truth page, in order, deduplicated."""
-    target = url or CANDIDATES_URL
-    response = requests.get(target, headers={"user-agent": get_headers()}, timeout=10)
-    response.raise_for_status()
+def _scrape_page_candidates(target: str) -> list[str]:
+    """Scrape and extract potential source domains from a single URL."""
+    try:
+        response = requests.get(target, headers={"user-agent": get_headers()}, timeout=10)
+        response.raise_for_status()
+    except Exception as e:
+        logger.debug("Failed to fetch domain candidates from %s: %s", target, e)
+        return []
 
     soup = BeautifulSoup(response.text, "lxml")
     hosts: list[str] = []
@@ -102,8 +111,6 @@ def fetch_candidates(url: str | None = None) -> list[str]:
         if not href:
             continue
         parsed = urlparse(href)
-        # Keep the scheme: is_plausible refuses anything but https, and it must
-        # see what the page actually published rather than an assumed default.
         host = (parsed.hostname or "").lower().strip(".")
         if not host or parsed.scheme != "https":
             continue
@@ -123,7 +130,29 @@ def fetch_candidates(url: str | None = None) -> list[str]:
         non_tg.reverse()
         return non_tg[:_MAX_CANDIDATES]
 
-    return hosts[:_MAX_CANDIDATES]
+    telegram_domains = {"t.me", "telegram.org", "core.telegram.org"}
+    clean_hosts = [h for h in hosts if h not in telegram_domains]
+    return clean_hosts[:_MAX_CANDIDATES]
+
+
+def fetch_candidates(url: str | None = None) -> list[str]:
+    """Hosts linked from the source-of-truth page(s), in order, deduplicated."""
+    if url:
+        return _scrape_page_candidates(url)
+
+    all_hosts: list[str] = []
+    for source_url in CANDIDATE_SOURCES:
+        try:
+            candidates = _scrape_page_candidates(source_url)
+            for c in candidates:
+                if c not in all_hosts:
+                    all_hosts.append(c)
+            if all_hosts:
+                break
+        except Exception as exc:
+            logger.debug("Error querying candidate source %s: %s", source_url, exc)
+
+    return all_hosts[:_MAX_CANDIDATES]
 
 
 # ── The guard ─────────────────────────────────────────────────────────────────
@@ -355,7 +384,7 @@ def run_check(force: bool = False) -> dict:
     if result["candidate"] is None:
         return result
 
-    if _settings().get("domain_auto_apply"):
+    if _settings().get("domain_auto_apply", True) or not result["current"]:
         try:
             apply_candidate(result["candidate"])
             result["applied"] = True
@@ -427,10 +456,21 @@ def _broadcast_candidate() -> None:
 async def domain_watch_loop():
     """Check periodically, shaped exactly like the followed-series poller.
 
-    Sleeps first for the same reason that one does: the lifespan must not do
-    network I/O, and a fresh install has no domain to check yet.
+    Runs an immediate check on startup if no domain is configured or if
+    the current domain does not respond, ensuring FilmViewer works right away.
     """
     import asyncio
+
+    # Immediate startup check: if domain is missing or invalid, resolve immediately
+    await asyncio.sleep(1)
+    if _settings().get("domain_auto_check_enabled", True):
+        try:
+            curr = config.configured_domain()
+            if not curr or verify(curr) is None:
+                logger.info("Startup domain check: current domain missing or unresponsive, running recovery...")
+                await asyncio.to_thread(run_check, force=True)
+        except Exception as e:
+            logger.warning("Startup domain auto-check encountered an error: %s", e)
 
     while True:
         try:

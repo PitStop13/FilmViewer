@@ -58,11 +58,17 @@ async def get_domain():
             valid = False
 
     if not valid and get_settings().get("domain_auto_check_enabled", True):
-        # The domain is dead, so start looking for its replacement now rather
-        # than waiting up to six hours for the periodic check. This fires on
-        # every page load of every user while the panel is broken, which is
-        # exactly what the throttle inside run_check() is there to absorb.
-        asyncio.create_task(asyncio.to_thread(domain_recovery.run_check))
+        # The domain is dead or unconfigured: run recovery check right away
+        try:
+            rec = await asyncio.to_thread(domain_recovery.run_check, True)
+            if rec.get("applied") and rec.get("candidate"):
+                domain = rec["candidate"]
+                version = rec.get("version")
+                valid = True
+            elif not rec.get("applied"):
+                asyncio.create_task(asyncio.to_thread(domain_recovery.run_check))
+        except Exception as e:
+            logger.warning("On-demand domain recovery error: %s", e)
 
     return {"domain": domain, "valid": valid, "version": version}
 

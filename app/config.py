@@ -78,7 +78,7 @@ SETTINGS_DEFAULTS = {
     # Whether to look for a replacement when the source domain stops answering.
     "domain_auto_check_enabled": True,
     # Whether to adopt the replacement without asking.
-    "domain_auto_apply": False,
+    "domain_auto_apply": True,
     "domain_check_interval_minutes": 360,
     # The container every download is written into, and whether subtitles are
     # muxed in or left beside the video as .vtt. The vocabulary and the
