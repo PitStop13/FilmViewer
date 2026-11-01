@@ -109,7 +109,7 @@
         </div>
       </div>
       <div class="modal-body p-0 position-relative" style="background:#000; min-height:420px; display:flex; align-items:center; justify-content:center;">
-        <video id="video-player" controls preload="metadata" tabindex="0"
+        <video id="video-player" controls preload="metadata" tabindex="-1"
                class="player-video"></video>
 
         <!-- JAM Party Wait / Status Overlay -->
@@ -140,7 +140,7 @@
       </div>
       <div class="modal-footer py-2 px-3 justify-content-between" style="background:rgba(255,255,255,0.02); border-top:1px solid rgba(255,255,255,0.06);">
         <small class="text-muted d-none d-md-inline">
-          <i class="ti ti-keyboard me-1"></i>Scorciatoie: <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">Spazio</kbd> Play/Pausa &bull; <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">&larr;</kbd> <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">&rarr;</kbd> &plusmn;10s &bull; <span role="button" class="cursor-pointer" data-action="player:toggleFullscreen" title="Clicca per schermo intero"><kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">F</kbd> Schermo intero</span>
+          <i class="ti ti-keyboard me-1"></i>Scorciatoie: <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">Spazio</kbd> Play/Pausa &bull; <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">&larr;</kbd> <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">&rarr;</kbd> &plusmn;10s &bull; <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">0-9</kbd> Vai a % &bull; <span role="button" class="cursor-pointer" data-action="player:toggleFullscreen" title="Clicca per schermo intero"><kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">F</kbd> Schermo intero</span>
         </small>
         <button type="button" class="btn btn-sm btn-secondary ms-auto" data-bs-dismiss="modal">Chiudi</button>
       </div>
@@ -207,8 +207,8 @@
         </div>
 
         <!-- Video player element -->
-        <video id="stream-video-player" controls preload="auto" playsinline tabindex="0"
-               style="width:100%; height:70vh; max-height:760px; object-fit:contain; display:none; background:#000;"></video>
+        <video id="stream-video-player" controls preload="auto" playsinline tabindex="-1"
+               class="player-video" style="display:none;"></video>
 
         <!-- JAM Party Wait / Status Overlay -->
         <div id="stream-player-jam-overlay" class="jam-player-overlay" style="display:none;">
@@ -239,7 +239,7 @@
 
       <div class="modal-footer py-2 px-3 justify-content-between" style="background:rgba(255,255,255,0.02); border-top:1px solid rgba(255,255,255,0.06);">
         <small class="text-muted d-none d-md-inline">
-          <i class="ti ti-keyboard me-1"></i>Scorciatoie: <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">Spazio</kbd> Play/Pausa &bull; <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">&larr;</kbd> <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">&rarr;</kbd> &plusmn;10s &bull; <span role="button" class="cursor-pointer" data-action="player:toggleFullscreen" title="Clicca per schermo intero"><kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">F</kbd> Schermo intero</span>
+          <i class="ti ti-keyboard me-1"></i>Scorciatoie: <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">Spazio</kbd> Play/Pausa &bull; <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">&larr;</kbd> <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">&rarr;</kbd> &plusmn;10s &bull; <kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">0-9</kbd> Vai a % &bull; <span role="button" class="cursor-pointer" data-action="player:toggleFullscreen" title="Clicca per schermo intero"><kbd class="bg-dark text-light border border-secondary px-1 py-0" style="font-size:10px;">F</kbd> Schermo intero</span>
         </small>
         <button type="button" class="btn btn-sm btn-secondary ms-auto" data-bs-dismiss="modal">Chiudi</button>
       </div>

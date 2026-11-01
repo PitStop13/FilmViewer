@@ -444,11 +444,13 @@ function playFile(path, name) {
   if (titleEl) titleEl.textContent = name;
   const video = document.getElementById('video-player');
   if (video) {
-    video.tabIndex = 0;
+    video.tabIndex = -1;
     video.src = `/api/files/stream/${encodeURI(path)}`;
     video.load();
     video.play().catch(() => {});
-    try { video.focus({ preventScroll: true }); } catch (_) {}
+    if (document.activeElement && document.activeElement !== document.body) {
+      try { document.activeElement.blur(); } catch (_) {}
+    }
   }
   showModal('player-modal');
 }

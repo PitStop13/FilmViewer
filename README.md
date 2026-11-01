@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>Un'interfaccia web moderna, veloce e intuitiva per esplorare, guardare e scaricare film e serie TV per uso personale.</b><br/>
-  Watch Party JAM sincronizzato in tempo reale, streaming player HLS integrato, catalogo dinamico con raccomandazioni personalizzate, auto-recovery intelligente del dominio, motore di download ad alte prestazioni con pausa/ripresa/cancellazione pulita, I miei Preferiti con Mi piace (❤️) e gestione multi-utenza con ruoli e richieste.
+  Watch Party JAM sincronizzato in tempo reale, streaming player HLS a schermo intero pulito, catalogo dinamico di Film, Serie TV e Anime, auto-recovery intelligente del dominio, motore di download ultra-rapido con pausa/ripresa/cancellazione pulita, I miei Preferiti (❤️), temi personalizzati (incluso Nero OLED) e gestione multi-utenza con ruoli e richieste.
 </p>
 
 <p align="center">
@@ -83,20 +83,28 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
 
 ### 🎬 Catalogo Dinamico & Raccomandazioni Intelligenti
 - **Home Page Sempre Nuova:** Classifiche aggiornate (Top 10 settimanale e mensile) e caroselli a rotazione che pescano continuamente dal catalogo per non mostrare mai una pagina statica.
+- **Supporto Completo per Film, Serie TV e Anime:** Motore di ricerca universale e visualizzazione schede dettagliate con trame, generi, stagioni ed episodi anche per anime (AnimeUnity).
 - **"Perché hai guardato...":** Algoritmo di raccomandazione personalizzato basato sulla reale cronologia di visione dell'utente.
 - **Navigazione a Zero Latenza (Stale-While-Revalidate):** I dati del catalogo e le locandine vengono pre-risolti e serviti con latenza percepita di 0 ms.
 
 ---
 
 ### ▶️ Web Player HLS Integrato & "Continua a Guardare"
-- **Streaming Diretto nel Browser:** Guarda film e serie TV con un click senza dover attendere il completamento del download.
-- **Controlli Nativi & Puliti:** Player ottimizzato senza overlay invasivi; riproduzione e pausa native immediate tramite tasto e barra spaziatrice.
+- **Streaming Diretto nel Browser:** Guarda film, serie TV e anime con un click senza dover attendere il completamento del download.
+- **Schermo Intero Reale & Auto-Hide Intelligente:** Espansione nativa a tutto schermo (100vw x 100vh) senza bordi né limitazioni. I controlli del player e il puntatore del mouse si nascondono automaticamente dopo 2 secondi di inattività (anche dopo aver saltato via tastiera o aver usato la barra temporale) per una visione completamente immersiva e pulita.
+- **Controlli Nativi & Puliti:** Player ottimizzato senza overlay invasivi; riproduzione e pausa native immediate tramite tasto o barra spaziatrice.
 - **Risoluzione Automatica per Serie TV:** Seleziona in automatico l'ultimo episodio guardato o avvia il primo episodio di default, con passaggio fluido all'episodio successivo.
-- **Selettore Risoluzione & Audio:** Scelta rapida della risoluzione (Auto, 1080p, 720p, 480p) e della traccia audio.
-- **Scorciatoie da Tastiera:**
-  - `Spazio`: Play / Pausa.
-  - `Freccia Destra` / `Freccia Sinistra`: Salto rapido di 10 secondi avanti/indietro.
-  - `F`: Modalità a schermo intero reale (HTML5 Fullscreen).
+- **Selettore Risoluzione & Audio:** Scelta rapida della qualità video (Auto, 1080p, 720p, 480p) e selezione delle tracce audio disponibili.
+- **Set Completo di Scorciatoie da Tastiera:**
+  - `Spazio` o `K`: Play / Pausa.
+  - `Freccia Destra` / `Freccia Sinistra` o `L` / `J`: Salto rapido di ±10 secondi avanti/indietro.
+  - `Shift + Frecce`: Salto rapido di ±30 secondi avanti/indietro.
+  - `0` - `9`: Salto rapido a percentuale del film (`0` = inizio/riavvia, `1` = 10%, `5` = 50%, `8` = 80%, ecc.).
+  - `Home` / `End`: Salto immediato all'inizio o alla fine del film.
+  - `Freccia Su` / `Freccia Giù`: Regolazione volume a passi di ±10%.
+  - `M`: Disattiva o riattiva l'audio (Muto / Unmute).
+  - `F`: Attiva/disattiva la modalità a schermo intero (HTML5 Fullscreen reale).
+  - `Doppio Clic` sul video: Entra o esce rapidamente dallo schermo intero.
 - **Continua a Guardare Persistente:** Progresso salvato automaticamente alla pausa e alla chiusura (senza spam di polling di rete durante la riproduzione), con visualizzazione immediata in Home Page e pulsanti per riprendere con precisione o ricominciare dall'inizio. Rimozione automatica a visione ultimata (≥95%).
 
 ---
@@ -112,7 +120,9 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
 ---
 
 ### 🎨 Design Moderno & Reattivo (Smart TV, PC & Mobile)
-- **Aestetica Premium:** Interfaccia scura raffinata con palette armoniose, trasparenze in stile glassmorphism, badge di stato chiari e micro-animazioni fluide.
+- **Aestetica Premium:** Interfaccia raffinata con palette armoniose, trasparenze in stile glassmorphism, badge di stato chiari e micro-animazioni fluide.
+- **Selettore Temi Personalizzati (6 Stili, Incluso Nero OLED):** Personalizza l'aspetto dell'applicazione con un clic dall'icona nella barra superiore o dalle Impostazioni. Temi disponibili: *Scuro Classico* (Default), *Bianco Perla* (Luminoso), *Viola Galassia* (Cosmico), *Ciano Abissale* (Vaporwave), *Nero OLED* (100% nero assoluto perfetto per TV e display OLED/AMOLED con risparmio energetico) e *Rosso Rubino*.
+- **Indicatore di Stato della Connessione in Tempo Reale:** Badge dinamico nella barra superiore che mostra costantemente lo stato operativo della connessione: *Live* (verde), *Connessione in corso* (arancione/pulsante) o *Mancante/Disconnesso* (rosso) con riconnessione automatica in background.
 - **Card e Locandine Perfettamente Proporzionate:** Dimensioni uniformi e bilanciate in stile cinema/Netflix su tutte le sezioni (Home, Ricerca, Preferiti).
 - **Completamente Responsive:** Layout ottimizzato per l'uso da smartphone, tablet, computer e browser per Smart TV. Sui display mobili le card non vengono tagliate sui bordi e garantiscono uno scroll orizzontale tattile perfetto.
 - **DNS Cache In-Memory:** Cache interna ad alta velocità che elimina i ritardi di risoluzione DNS tipici dei container Docker su Windows e Linux.

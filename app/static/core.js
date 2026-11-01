@@ -315,9 +315,7 @@ function showModal(id) {
 
   const v = el.querySelector('video');
   if (v) {
-    setTimeout(() => {
-      try { v.focus(); } catch (_) {}
-    }, 100);
+    v.tabIndex = -1;
   }
 }
 function hideModal(id) {
@@ -420,18 +418,13 @@ function getActiveVideoPlayer() {
   return null;
 }
 
-function refocusActivePlayer() {
-  const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
-  const video = fsEl ? (fsEl.tagName === 'VIDEO' ? fsEl : fsEl.querySelector('video')) : getActiveVideoPlayer();
-  if (video) {
-    if (document.activeElement && document.activeElement !== video) {
-      try { document.activeElement.blur(); } catch (_) {}
-    }
-    try {
-      video.focus({ preventScroll: true });
-    } catch (_) {
-      try { video.focus(); } catch (_) {}
-    }
+function clearPlayerFocus(specificVideo) {
+  if (document.activeElement && !isTypingContext(document.activeElement) && document.activeElement !== document.body) {
+    try { document.activeElement.blur(); } catch (_) {}
+  }
+  const video = specificVideo || getActiveVideoPlayer();
+  if (video && typeof video.blur === 'function') {
+    try { video.blur(); } catch (_) {}
   }
 }
 
@@ -449,6 +442,8 @@ function togglePlayerFullscreen(specificVideo) {
       video.webkitRequestFullscreen();
     } else if (video.msRequestFullscreen) {
       video.msRequestFullscreen();
+    } else if (video.webkitEnterFullscreen) {
+      video.webkitEnterFullscreen();
     } else if (document.documentElement.requestFullscreen) {
       document.documentElement.requestFullscreen().catch(() => {});
     }
@@ -461,23 +456,21 @@ function togglePlayerFullscreen(specificVideo) {
       document.msExitFullscreen();
     }
   }
+  clearPlayerFocus(video);
 }
 
-// When entering or exiting fullscreen, refocus the video and update UI button icons
+// When entering or exiting fullscreen, update UI button icons and clear focus so browser native controls auto-hide cleanly
 ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
   document.addEventListener(evt, () => {
     const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
     document.querySelectorAll('#stream-player-fs-btn i, #player-fs-btn i').forEach(icon => {
       icon.className = isFullscreen ? 'ti ti-minimize' : 'ti ti-maximize';
     });
-    refocusActivePlayer();
-    setTimeout(refocusActivePlayer, 50);
-    setTimeout(refocusActivePlayer, 150);
+    clearPlayerFocus();
+    setTimeout(clearPlayerFocus, 50);
+    setTimeout(clearPlayerFocus, 150);
   });
 });
-
-let _lastHandledKeyTime = 0;
-let _lastHandledKey = '';
 
 function handlePlayerKeyDown(e) {
   if (isTypingContext(e.target)) return;
@@ -492,8 +485,11 @@ function handlePlayerKeyDown(e) {
   const isVolDown = key === 'ArrowDown';
   const isMute = key === 'm' || key === 'M';
   const isFs = key === 'f' || key === 'F';
+  const isDigit = !e.ctrlKey && !e.altKey && !e.metaKey && /^[0-9]$/.test(key);
+  const isHome = key === 'Home';
+  const isEnd = key === 'End';
 
-  if (!isPlayPause && !isSeekRight && !isSeekLeft && !isVolUp && !isVolDown && !isMute && !isFs) {
+  if (!isPlayPause && !isSeekRight && !isSeekLeft && !isVolUp && !isVolDown && !isMute && !isFs && !isDigit && !isHome && !isEnd) {
     return;
   }
 
@@ -509,10 +505,6 @@ function handlePlayerKeyDown(e) {
   e.preventDefault();
   e.stopImmediatePropagation();
 
-  if (document.activeElement && document.activeElement !== video && document.activeElement.tagName === 'BUTTON') {
-    try { document.activeElement.blur(); } catch (_) {}
-  }
-
   // Spacebar or 'k' / 'K': Play / Pause toggle
   if (isPlayPause) {
     if (video.paused) {
@@ -520,18 +512,49 @@ function handlePlayerKeyDown(e) {
     } else {
       video.pause();
     }
+    clearPlayerFocus(video);
     return;
   }
 
-  // ArrowRight or 'l' / 'L': Seek +10 seconds
+  // ArrowRight or 'l' / 'L': Seek +10s (or +30s with Shift)
   if (isSeekRight) {
-    video.currentTime = Math.min(video.duration || Infinity, video.currentTime + 10);
+    const step = e.shiftKey ? 30 : 10;
+    video.currentTime = Math.min(video.duration || Infinity, video.currentTime + step);
+    clearPlayerFocus(video);
     return;
   }
 
-  // ArrowLeft or 'j' / 'J': Seek -10 seconds
+  // ArrowLeft or 'j' / 'J': Seek -10s (or -30s with Shift)
   if (isSeekLeft) {
-    video.currentTime = Math.max(0, video.currentTime - 10);
+    const step = e.shiftKey ? 30 : 10;
+    video.currentTime = Math.max(0, video.currentTime - step);
+    clearPlayerFocus(video);
+    return;
+  }
+
+  // Number keys 0-9: Seek to percentage (0 = 0%, 5 = 50%, etc.)
+  if (isDigit) {
+    if (video.duration && isFinite(video.duration) && video.duration > 0) {
+      const pct = parseInt(key, 10) * 0.1;
+      video.currentTime = video.duration * pct;
+    }
+    clearPlayerFocus(video);
+    return;
+  }
+
+  // Home: Seek to beginning
+  if (isHome) {
+    video.currentTime = 0;
+    clearPlayerFocus(video);
+    return;
+  }
+
+  // End: Seek to end
+  if (isEnd) {
+    if (video.duration && isFinite(video.duration) && video.duration > 0) {
+      video.currentTime = Math.max(0, video.duration - 1);
+    }
+    clearPlayerFocus(video);
     return;
   }
 
@@ -539,24 +562,28 @@ function handlePlayerKeyDown(e) {
   if (isVolUp) {
     video.volume = Math.min(1, Math.round((video.volume + 0.1) * 10) / 10);
     video.muted = false;
+    clearPlayerFocus(video);
     return;
   }
 
   // ArrowDown: Volume -10%
   if (isVolDown) {
     video.volume = Math.max(0, Math.round((video.volume - 0.1) * 10) / 10);
+    clearPlayerFocus(video);
     return;
   }
 
   // 'm' or 'M': Mute / Unmute
   if (isMute) {
     video.muted = !video.muted;
+    clearPlayerFocus(video);
     return;
   }
 
-  // 'f' or 'F': Fullscreen toggle directly on the video element (pure video, full screen)
+  // 'f' or 'F': Fullscreen toggle directly on the video element
   if (isFs) {
     togglePlayerFullscreen(video);
+    clearPlayerFocus(video);
     return;
   }
 }
@@ -564,18 +591,39 @@ function handlePlayerKeyDown(e) {
 // Intercept hotkeys on window in capture phase
 window.addEventListener('keydown', handlePlayerKeyDown, true);
 
-// Focus video on pointerdown to guarantee it receives keyboard input
+// Clear button focus on pointerdown without locking focus on video
 document.addEventListener('pointerdown', (e) => {
   if (e.target && e.target.tagName === 'VIDEO') {
-    try { e.target.focus({ preventScroll: true }); } catch (_) {}
+    if (document.activeElement && document.activeElement !== document.body && document.activeElement !== e.target) {
+      try { document.activeElement.blur(); } catch (_) {}
+    }
   }
 }, true);
 
-// Auto-focus video when a modal opens
+// When seek finishes (e.g. mouse scrub or key seek), clear focus so controls auto-hide cleanly
+document.addEventListener('seeked', (e) => {
+  if (e.target && e.target.tagName === 'VIDEO') {
+    setTimeout(() => {
+      clearPlayerFocus(e.target);
+    }, 120);
+  }
+}, true);
+
+// When mouse click/touch is released in fullscreen, ensure focus is cleared
+document.addEventListener('pointerup', (e) => {
+  if (e.target && (e.target.tagName === 'VIDEO' || (e.target.closest && e.target.closest('#stream-player-modal, #player-modal')))) {
+    setTimeout(() => {
+      if (document.fullscreenElement || document.webkitFullscreenElement) {
+        clearPlayerFocus();
+      }
+    }, 120);
+  }
+}, true);
+
+// Auto-focus suppression when modal opens (blur any background buttons)
 document.addEventListener('shown.bs.modal', (e) => {
-  const vid = e.target && e.target.querySelector ? e.target.querySelector('video') : null;
-  if (vid) {
-    try { vid.focus({ preventScroll: true }); } catch (_) {}
+  if (document.activeElement && document.activeElement !== document.body) {
+    try { document.activeElement.blur(); } catch (_) {}
   }
 });
 

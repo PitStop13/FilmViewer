@@ -980,8 +980,10 @@ async function openStreamPlayer(opts) {
     if (loadingEl) loadingEl.style.display = 'none';
     if (videoEl) {
       videoEl.style.display = 'block';
-      videoEl.tabIndex = 0;
-      try { videoEl.focus({ preventScroll: true }); } catch (_) {}
+      videoEl.tabIndex = -1;
+      if (document.activeElement && document.activeElement !== document.body) {
+        try { document.activeElement.blur(); } catch (_) {}
+      }
     }
     const clickSurf = document.getElementById('stream-video-click-surface');
     if (clickSurf) clickSurf.style.display = 'block';
