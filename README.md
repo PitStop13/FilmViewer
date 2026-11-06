@@ -57,7 +57,7 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
   2. *Anti-SSRF su IP Pubblici:* Risolve il DNS e rifiuta rigorosamente IP locali, loopback (localhost) o reti private.
   3. *Verifica Runtime della Firma:* Interroga il server e verifica che risponda con la versione e l'architettura autentica prima di prenderlo in considerazione.
 - **Due Modalità di Applicazione:**
-  - *Con Notifica e Banner (Default):* Propone il nuovo dominio con un banner in cima all'interfaccia; basta un clic su **"Applica"** per confermarlo.
+  - *Con Notifica e Banner (Default):* Propone il nuovo dominio con un banner in cima all'interfaccia; basta un clic su **"Applica"** per confermarlo e aggiornare all'istante l'intero catalogo, le ricerche e lo stato di connessione in tempo reale **senza bisogno di ricaricare la pagina (Zero F5)**.
   - *Zero-Click (`domain_auto_apply`):* Se abilitato nelle Impostazioni, FilmViewer aggiorna il dominio da solo non appena quello vecchio scade, svuotando all'istante le cache DNS, immagini e catalogo senza interruzioni.
 - **Trigger Reattivo & Pulsante "Controlla ora":** Il controllo scatta automaticamente se una richiesta fallisce (con protezione anti-stampede di 10 minuti) oppure manualmente su richiesta dell'amministratore.
 
@@ -93,6 +93,15 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
 - **Streaming Diretto nel Browser:** Guarda film, serie TV e anime con un click senza dover attendere il completamento del download.
 - **Schermo Intero Reale & Auto-Hide Intelligente:** Espansione nativa a tutto schermo (100vw x 100vh) senza bordi né limitazioni. I controlli del player e il puntatore del mouse si nascondono automaticamente dopo 2 secondi di inattività (anche dopo aver saltato via tastiera o aver usato la barra temporale) per una visione completamente immersiva e pulita.
 - **Controlli Nativi & Puliti:** Player ottimizzato senza overlay invasivi; riproduzione e pausa native immediate tramite tasto o barra spaziatrice.
+- **"Prossimo Episodio" Intelligente sui Titoli di Coda (anche a Schermo Intero):**
+  - Durante la visione delle serie TV, non appena partono i titoli di coda (negli ultimi ~85 secondi o al 94% del video), compare in basso a destra un overlay interattivo in stile Netflix con thumbnail, stagione, numero e titolo del prossimo episodio (con gestione automatica del cambio stagione).
+  - Countdown animato di 15 secondi con barra temporale fluida (in pausa automatica al passaggio del mouse per consentire la lettura o la decisione).
+  - Pulsante dedicato **"Vai al prossimo episodio"** per il passaggio immediato al flusso successivo, mantenendo attiva la modalità a tutto schermo senza ricaricare la pagina.
+  - Disponibile anche per la riproduzione sequenziale dei file locali (`#/files`).
+- **Intestazione a Schermo Intero (Fullscreen Header) ad Alta Leggibilità:**
+  - Intestazione superiore moderna in stile streaming con titolo dell'opera in 22px ultra-bold, badge pill ad alto contrasto per la serie (`S1 : E2`) o per il film (`Film`), titolo della puntata e pulsante rapido **"Esci (F)"** affiancato dal tasto freccia.
+  - Sfumatura superiore cinematografica con `backdrop-filter: blur(8px)` che garantisce contrasto e leggibilità assoluta su qualsiasi scena.
+  - Comportamento mouse intelligente: l'intestazione si mostra all'avvio a schermo intero e sui movimenti del mouse, rimanendo permanentemente visibile finché il cursore staziona sopra di essa.
 - **Risoluzione Automatica per Serie TV:** Seleziona in automatico l'ultimo episodio guardato o avvia il primo episodio di default, con passaggio fluido all'episodio successivo.
 - **Selettore Risoluzione & Audio:** Scelta rapida della qualità video (Auto, 1080p, 720p, 480p) e selezione delle tracce audio disponibili.
 - **Set Completo di Scorciatoie da Tastiera:**

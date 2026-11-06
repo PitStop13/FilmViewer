@@ -434,14 +434,15 @@ function togglePlayerFullscreen(specificVideo) {
 
   const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
   if (!isFullscreen) {
-    if (video.requestFullscreen) {
-      video.requestFullscreen().catch(() => {
-        if (document.documentElement.requestFullscreen) document.documentElement.requestFullscreen().catch(() => {});
+    const target = video.closest('.player-container') || video;
+    if (target.requestFullscreen) {
+      target.requestFullscreen().catch(() => {
+        if (video.requestFullscreen) video.requestFullscreen().catch(() => {});
       });
-    } else if (video.webkitRequestFullscreen) {
-      video.webkitRequestFullscreen();
-    } else if (video.msRequestFullscreen) {
-      video.msRequestFullscreen();
+    } else if (target.webkitRequestFullscreen) {
+      target.webkitRequestFullscreen();
+    } else if (target.msRequestFullscreen) {
+      target.msRequestFullscreen();
     } else if (video.webkitEnterFullscreen) {
       video.webkitEnterFullscreen();
     } else if (document.documentElement.requestFullscreen) {
@@ -460,16 +461,78 @@ function togglePlayerFullscreen(specificVideo) {
 }
 
 // When entering or exiting fullscreen, update UI button icons and clear focus so browser native controls auto-hide cleanly
+let _fsControlsTimer = null;
+let _fsHeaderHovered = false;
+
+function _triggerFsControls() {
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+  if (!fsEl) return;
+  const container = fsEl.classList.contains('player-container') ? fsEl : fsEl.closest('.player-container');
+  if (!container) return;
+
+  container.classList.add('show-fs-controls');
+  if (_fsControlsTimer) clearTimeout(_fsControlsTimer);
+  _fsControlsTimer = setTimeout(() => {
+    if (!_fsHeaderHovered) container.classList.remove('show-fs-controls');
+  }, 3800);
+}
+
 ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
   document.addEventListener(evt, () => {
-    const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+    const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+    const isFullscreen = !!fsEl;
     document.querySelectorAll('#stream-player-fs-btn i, #player-fs-btn i').forEach(icon => {
       icon.className = isFullscreen ? 'ti ti-minimize' : 'ti ti-maximize';
     });
+    document.querySelectorAll('.player-container').forEach(c => {
+      const active = isFullscreen && (c === fsEl || c.contains(fsEl) || (fsEl && fsEl.contains(c)));
+      c.classList.toggle('is-fullscreen', !!active);
+      if (active) {
+        c.classList.add('show-fs-controls');
+        if (_fsControlsTimer) clearTimeout(_fsControlsTimer);
+        _fsControlsTimer = setTimeout(() => {
+          if (!_fsHeaderHovered) c.classList.remove('show-fs-controls');
+        }, 3800);
+      } else {
+        c.classList.remove('show-fs-controls');
+      }
+    });
+    if (!isFullscreen && _fsControlsTimer) {
+      clearTimeout(_fsControlsTimer);
+      _fsControlsTimer = null;
+      _fsHeaderHovered = false;
+    }
     clearPlayerFocus();
     setTimeout(clearPlayerFocus, 50);
     setTimeout(clearPlayerFocus, 150);
   });
+});
+
+// Show floating header controls in fullscreen on mouse movement
+document.addEventListener('mousemove', _triggerFsControls);
+
+// Prevent hiding while hovering over fullscreen header
+document.addEventListener('mouseover', (e) => {
+  if (e.target && e.target.closest && e.target.closest('.player-fs-header')) {
+    _fsHeaderHovered = true;
+    const c = e.target.closest('.player-container');
+    if (c) c.classList.add('show-fs-controls');
+  }
+});
+document.addEventListener('mouseout', (e) => {
+  if (e.target && e.target.closest && e.target.closest('.player-fs-header')) {
+    const rel = e.relatedTarget;
+    if (!rel || !rel.closest || !rel.closest('.player-fs-header')) {
+      _fsHeaderHovered = false;
+      const c = e.target.closest('.player-container');
+      if (c) {
+        if (_fsControlsTimer) clearTimeout(_fsControlsTimer);
+        _fsControlsTimer = setTimeout(() => {
+          if (!_fsHeaderHovered) c.classList.remove('show-fs-controls');
+        }, 2500);
+      }
+    }
+  }
 });
 
 function handlePlayerKeyDown(e) {

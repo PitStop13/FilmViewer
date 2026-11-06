@@ -29,7 +29,10 @@ from app.core.film import _get_iframe as _get_film_iframe
 from app.core.tv import (
     get_token as _get_tv_token,
     _get_iframe as _get_tv_iframe,
+    get_info_season as _get_info_season,
+    get_info_tv as _get_info_tv,
 )
+from app.core.page import get_domain_version
 
 logger = logging.getLogger(__name__)
 
@@ -198,6 +201,105 @@ async def get_watch_info(
         }
 
     raise HTTPException(status_code=400, detail=f"Tipo di contenuto non valido: {content_type}")
+
+
+@router.get("/next-episode")
+async def get_next_episode(
+    request: Request,
+    id: str = Query(...),
+    slug: str = Query(""),
+    season_number: int = Query(1),
+    episode_number: Optional[int] = Query(None),
+    episode_id: Optional[str] = Query(None),
+):
+    """Find the next episode for a TV series (same season or first episode of next season)."""
+    def _resolve_next():
+        domain = _sc_domain()
+        version = get_domain_version(domain)
+        token = _get_tv_token(int(id), domain)
+
+        cur_season = int(season_number or 1)
+        try:
+            season_eps = _get_info_season(int(id), slug or "series", domain, version, token, cur_season)
+        except Exception as e:
+            logger.warning("Could not fetch season %s for TV %s: %s", cur_season, id, e)
+            season_eps = []
+
+        if not season_eps:
+            return {"has_next": False, "next_episode": None}
+
+        # Find current episode index
+        cur_idx = -1
+        if episode_id:
+            for idx, ep in enumerate(season_eps):
+                if str(ep.get("id")) == str(episode_id):
+                    cur_idx = idx
+                    break
+
+        if cur_idx == -1 and episode_number is not None:
+            for idx, ep in enumerate(season_eps):
+                ep_n = ep.get("n")
+                if ep_n is not None and int(ep_n) == int(episode_number):
+                    cur_idx = idx
+                    break
+
+        # If not found, default to first episode
+        if cur_idx == -1:
+            cur_idx = 0
+
+        # Check if there is another episode in this season
+        if cur_idx + 1 < len(season_eps):
+            next_ep = season_eps[cur_idx + 1]
+            return {
+                "has_next": True,
+                "next_episode": {
+                    "id": str(next_ep["id"]),
+                    "episode_id": str(next_ep["id"]),
+                    "episode_number": int(next_ep.get("n") or (cur_idx + 2)),
+                    "season_number": cur_season,
+                    "name": next_ep.get("name") or f"Episodio {next_ep.get('n') or (cur_idx + 2)}",
+                    "episode_title": next_ep.get("name") or f"Episodio {next_ep.get('n') or (cur_idx + 2)}",
+                    "still": next_ep.get("still"),
+                    "duration": next_ep.get("duration"),
+                },
+            }
+
+        # Current episode was the last of the season: check for next season
+        try:
+            seasons_count = _get_info_tv(int(id), slug or "series", version, domain)
+        except Exception:
+            seasons_count = cur_season
+
+        if cur_season < seasons_count:
+            next_season = cur_season + 1
+            try:
+                next_season_eps = _get_info_season(int(id), slug or "series", domain, version, token, next_season)
+                if next_season_eps:
+                    first_ep = next_season_eps[0]
+                    return {
+                        "has_next": True,
+                        "next_episode": {
+                            "id": str(first_ep["id"]),
+                            "episode_id": str(first_ep["id"]),
+                            "episode_number": int(first_ep.get("n") or 1),
+                            "season_number": next_season,
+                            "name": first_ep.get("name") or f"Episodio {first_ep.get('n') or 1}",
+                            "episode_title": first_ep.get("name") or f"Episodio {first_ep.get('n') or 1}",
+                            "still": first_ep.get("still"),
+                            "duration": first_ep.get("duration"),
+                        },
+                    }
+            except Exception as e:
+                logger.warning("Could not fetch next season %s for TV %s: %s", next_season, id, e)
+
+        return {"has_next": False, "next_episode": None}
+
+    try:
+        res = await asyncio.to_thread(_resolve_next)
+        return res
+    except Exception as e:
+        logger.warning("Error resolving next episode for TV %s: %s", id, e)
+        return {"has_next": False, "next_episode": None}
 
 
 @router.post("/prepare")

@@ -814,6 +814,210 @@ let _streamHls = null;
 let _streamProgressTimer = null;
 let _currentStreamTracking = null;
 
+let _nextEpisodeData = null;
+let _nextEpDismissed = false;
+let _nextEpAutoTriggered = false;
+let _nextEpPaused = false;
+let _nextEpCountdownTimer = null;
+let _nextEpRemainingSeconds = 15;
+
+function _clearNextEpCountdown() {
+  if (_nextEpCountdownTimer) {
+    clearInterval(_nextEpCountdownTimer);
+    _nextEpCountdownTimer = null;
+  }
+}
+
+function hideNextEpisodeOverlay() {
+  _clearNextEpCountdown();
+  const overlay = document.getElementById('stream-next-episode-overlay');
+  if (overlay) {
+    overlay.style.display = 'none';
+  }
+}
+
+function dismissNextEpisode() {
+  _nextEpDismissed = true;
+  hideNextEpisodeOverlay();
+}
+
+async function prepareNextEpisode(opts) {
+  _nextEpisodeData = null;
+  _nextEpDismissed = false;
+  _nextEpAutoTriggered = false;
+  hideNextEpisodeOverlay();
+
+  if (!opts) return;
+  const cType = (opts.type || '').toLowerCase();
+  if (cType !== 'tv' && cType !== 'series') return;
+
+  const seriesId = String(opts.id);
+  const curSeason = parseInt(opts.seasonNumber || 1, 10);
+  const curEpNum = opts.episodeNumber != null ? parseInt(opts.episodeNumber, 10) : null;
+  const curEpId = opts.episodeId ? String(opts.episodeId) : null;
+
+  // 1. Fast in-memory check if _tp has this series and current season episodes loaded
+  if (_tp && String(_tp.id) === seriesId && _tp.season === curSeason && Array.isArray(_tp.episodes) && _tp.episodes.length > 0) {
+    let curIdx = -1;
+    if (curEpId) {
+      curIdx = _tp.episodes.findIndex(e => String(e.id) === curEpId);
+    }
+    if (curIdx === -1 && curEpNum != null) {
+      curIdx = _tp.episodes.findIndex(e => Number(e.n ?? e.number) === curEpNum);
+    }
+    if (curIdx >= 0 && curIdx + 1 < _tp.episodes.length) {
+      const nextEp = _tp.episodes[curIdx + 1];
+      const nextNum = nextEp.number ?? nextEp.n ?? (curIdx + 2);
+      _nextEpisodeData = {
+        seriesId,
+        slug: opts.slug || _tp.slug || '',
+        seriesTitle: opts.title || _tp.name || '',
+        poster: opts.poster || _tp.poster || null,
+        id: String(nextEp.id),
+        episode_id: String(nextEp.id),
+        episode_number: nextNum,
+        season_number: curSeason,
+        episode_title: nextEp.name || `Episodio ${nextNum}`,
+        still: nextEp.still || null,
+      };
+      return;
+    }
+  }
+
+  // 2. Query backend /api/stream/next-episode
+  try {
+    const q = {
+      id: seriesId,
+      slug: opts.slug || '',
+      season_number: curSeason,
+    };
+    if (curEpNum != null) q.episode_number = curEpNum;
+    if (curEpId) q.episode_id = curEpId;
+
+    const res = await api.get('/api/stream/next-episode', q);
+    if (res && res.has_next && res.next_episode) {
+      const n = res.next_episode;
+      _nextEpisodeData = {
+        seriesId,
+        slug: opts.slug || '',
+        seriesTitle: opts.title || '',
+        poster: opts.poster || null,
+        id: String(n.episode_id || n.id),
+        episode_id: String(n.episode_id || n.id),
+        episode_number: n.episode_number,
+        season_number: n.season_number,
+        episode_title: n.episode_title || n.name || `Episodio ${n.episode_number}`,
+        still: n.still || null,
+      };
+    }
+  } catch (err) {
+    console.debug('Could not resolve next episode:', err);
+  }
+}
+
+function showNextEpisodeOverlay() {
+  if (!_nextEpisodeData || _nextEpDismissed) return;
+  const overlay = document.getElementById('stream-next-episode-overlay');
+  if (!overlay) return;
+
+  if (overlay.style.display !== 'none' && overlay.style.display !== '') return;
+
+  const metaEl = document.getElementById('next-ep-meta');
+  const titleEl = document.getElementById('next-ep-title');
+  const thumbWrapper = document.getElementById('next-ep-thumb-container');
+  const thumbImg = document.getElementById('next-ep-thumb');
+  const countdownEl = document.getElementById('next-ep-countdown');
+  const progressCont = document.getElementById('next-ep-progress-container');
+  const progressFill = document.getElementById('next-ep-progress-bar');
+
+  if (metaEl) {
+    metaEl.textContent = `Stagione ${_nextEpisodeData.season_number} \u2022 Episodio ${_nextEpisodeData.episode_number}`;
+  }
+  if (titleEl) {
+    titleEl.textContent = _nextEpisodeData.episode_title;
+  }
+  if (thumbWrapper && thumbImg) {
+    if (_nextEpisodeData.still) {
+      thumbImg.src = _nextEpisodeData.still;
+      thumbWrapper.style.display = 'block';
+    } else {
+      thumbWrapper.style.display = 'none';
+    }
+  }
+
+  overlay.style.display = 'block';
+  overlay.classList.remove('anim-enter');
+  void overlay.offsetWidth;
+  overlay.classList.add('anim-enter');
+
+  // Start countdown: 15 seconds
+  _clearNextEpCountdown();
+  _nextEpRemainingSeconds = 15;
+  if (progressCont) progressCont.style.display = 'block';
+  if (progressFill) progressFill.style.width = '100%';
+
+  const updateCountdownDisplay = () => {
+    if (countdownEl) {
+      countdownEl.textContent = `Prossimo tra ${_nextEpRemainingSeconds}s...`;
+    }
+    if (progressFill) {
+      const pct = Math.max(0, (_nextEpRemainingSeconds / 15) * 100);
+      progressFill.style.width = `${pct}%`;
+    }
+  };
+  updateCountdownDisplay();
+
+  _nextEpCountdownTimer = setInterval(() => {
+    const video = document.getElementById('stream-video-player');
+    if (video && video.paused && !video.ended) return;
+    if (_nextEpPaused) return;
+    if (_nextEpDismissed) {
+      _clearNextEpCountdown();
+      return;
+    }
+
+    _nextEpRemainingSeconds--;
+    updateCountdownDisplay();
+
+    if (_nextEpRemainingSeconds <= 0) {
+      _clearNextEpCountdown();
+      playNextEpisode();
+    }
+  }, 1000);
+}
+
+async function playNextEpisode() {
+  if (!_nextEpisodeData) return;
+  const target = { ..._nextEpisodeData };
+  _nextEpAutoTriggered = true;
+  _clearNextEpCountdown();
+  hideNextEpisodeOverlay();
+
+  _savePlaybackProgress(true);
+
+  if (_tp && String(_tp.id) === String(target.seriesId)) {
+    if (target.season_number && _tp.season !== target.season_number) {
+      _tp.season = target.season_number;
+      if (typeof tpLoadSeason === 'function') {
+        tpLoadSeason(target.season_number).catch(() => {});
+      }
+    }
+  }
+
+  await openStreamPlayer({
+    type: 'tv',
+    id: target.seriesId,
+    slug: target.slug,
+    episodeId: target.episode_id || target.id,
+    episodeNumber: target.episode_number,
+    seasonNumber: target.season_number,
+    episodeTitle: target.episode_title,
+    title: target.seriesTitle,
+    poster: target.poster,
+    startTime: 0,
+  });
+}
+
 function _stopProgressTracking() {
   if (_streamProgressTimer) {
     clearInterval(_streamProgressTimer);
@@ -890,6 +1094,11 @@ function _savePlaybackProgress(isFinish = false) {
 
 function _cleanupStreamPlayer() {
   _stopProgressTracking();
+  hideNextEpisodeOverlay();
+  _nextEpisodeData = null;
+  _nextEpDismissed = false;
+  _nextEpAutoTriggered = false;
+  _nextEpPaused = false;
   _savePlaybackProgress(false);
   _currentStreamTracking = null;
 
@@ -910,6 +1119,38 @@ function _cleanupStreamPlayer() {
   }
   if (typeof refreshContinueWatching === 'function') {
     setTimeout(refreshContinueWatching, 300);
+  }
+}
+
+function updateStreamPlayerFullscreenHeader(opts, res) {
+  const fsTitleEl = document.getElementById('stream-player-fs-title');
+  const fsSubEl = document.getElementById('stream-player-fs-sub');
+  if (!fsTitleEl && !fsSubEl) return;
+
+  const title = (opts && opts.title) || 'Streaming';
+  if (fsTitleEl) {
+    fsTitleEl.textContent = title;
+    fsTitleEl.title = title;
+  }
+
+  if (fsSubEl) {
+    const isMovie = (opts && (opts.type === 'movie' || opts.type === 'film'));
+    if (isMovie) {
+      fsSubEl.innerHTML = `<span class="player-fs-badge player-fs-badge-movie"><i class="ti ti-movie me-1"></i>Film</span>`;
+    } else {
+      const sNum = (opts && opts.seasonNumber) || (res && res.season_number) || (window._tp && _tp.season) || 1;
+      const eNum = (res && res.episode_number) || (opts && opts.episodeNumber) || 1;
+      const epName = (res && res.episode_title) || (opts && opts.episodeTitle) || '';
+
+      const badge = `<span class="player-fs-badge player-fs-badge-tv"><i class="ti ti-device-tv me-1"></i>S${sNum} : E${eNum}</span>`;
+      let titleSpan = '';
+      if (epName && epName.trim().toLowerCase() !== `episodio ${eNum}`.toLowerCase()) {
+        titleSpan = `<span class="player-fs-ep-title">${typeof escapeHtml === 'function' ? escapeHtml(epName) : epName}</span>`;
+      } else {
+        titleSpan = `<span class="player-fs-ep-title">Episodio ${eNum}</span>`;
+      }
+      fsSubEl.innerHTML = `${badge} ${titleSpan}`;
+    }
   }
 }
 
@@ -941,7 +1182,17 @@ async function openStreamPlayer(opts) {
   const qualityLabel = document.getElementById('stream-player-quality-label');
 
   if (titleEl) titleEl.textContent = opts.title || 'Streaming';
-  if (subEl) subEl.textContent = opts.type === 'movie' ? 'Film' : (opts.episodeTitle || 'Episodio');
+  if (subEl) {
+    if (opts.type === 'movie' || opts.type === 'film') {
+      subEl.textContent = 'Film';
+    } else {
+      const s = opts.seasonNumber || (window._tp && _tp.season) || 1;
+      const e = opts.episodeNumber || 1;
+      subEl.textContent = opts.episodeTitle ? `S${s}:E${e} • ${opts.episodeTitle}` : `Stagione ${s} • Episodio ${e}`;
+    }
+  }
+  updateStreamPlayerFullscreenHeader(opts, null);
+
   if (loadingEl) loadingEl.style.display = 'block';
   if (errorEl) errorEl.style.display = 'none';
   if (videoEl) videoEl.style.display = 'none';
@@ -963,11 +1214,6 @@ async function openStreamPlayer(opts) {
     const res = await api.post('/api/stream/prepare', payload);
     const masterUrl = res.master_url;
 
-    if (res.episode_title && subEl) {
-      subEl.textContent = res.episode_title;
-    } else if (res.episode_number && subEl && opts.type !== 'movie') {
-      subEl.textContent = `Episodio ${res.episode_number}`;
-    }
     if (res.episode_id) opts.episodeId = res.episode_id;
     if (res.episode_number) opts.episodeNumber = res.episode_number;
     if (res.episode_title) opts.episodeTitle = res.episode_title;
@@ -975,6 +1221,23 @@ async function openStreamPlayer(opts) {
       _currentStreamTracking.episodeId = opts.episodeId;
       _currentStreamTracking.episodeNumber = opts.episodeNumber;
       _currentStreamTracking.episodeTitle = opts.episodeTitle;
+    }
+
+    if (subEl) {
+      if (opts.type === 'movie' || opts.type === 'film') {
+        subEl.textContent = 'Film';
+      } else {
+        const s = opts.seasonNumber || (res && res.season_number) || (window._tp && _tp.season) || 1;
+        const e = (res && res.episode_number) || opts.episodeNumber || 1;
+        const titleText = (res && res.episode_title) || opts.episodeTitle;
+        subEl.textContent = titleText ? `S${s}:E${e} • ${titleText}` : `Stagione ${s} • Episodio ${e}`;
+      }
+    }
+
+    updateStreamPlayerFullscreenHeader(opts, res);
+
+    if (opts.type === 'tv' || opts.type === 'series') {
+      prepareNextEpisode(_currentStreamTracking || opts);
     }
 
     if (loadingEl) loadingEl.style.display = 'none';
@@ -988,8 +1251,29 @@ async function openStreamPlayer(opts) {
     const clickSurf = document.getElementById('stream-video-click-surface');
     if (clickSurf) clickSurf.style.display = 'block';
 
-    videoEl.onended = () => _savePlaybackProgress(true);
+    videoEl.onended = () => {
+      _savePlaybackProgress(true);
+      if (_nextEpisodeData && !_nextEpAutoTriggered) {
+        playNextEpisode();
+      }
+    };
     videoEl.onpause = () => _savePlaybackProgress(false);
+    videoEl.ontimeupdate = () => {
+      if (!_nextEpisodeData || _nextEpDismissed) return;
+      const cur = videoEl.currentTime;
+      const dur = videoEl.duration;
+      if (!dur || isNaN(dur) || dur <= 0 || !isFinite(dur)) return;
+      if (!cur || isNaN(cur) || cur < 5) return;
+
+      const remaining = dur - cur;
+      const isCredits = (remaining <= 85) || (dur > 300 && cur / dur >= 0.94);
+
+      if (isCredits) {
+        showNextEpisodeOverlay();
+      } else if (remaining > 95 && (cur / dur < 0.92)) {
+        hideNextEpisodeOverlay();
+      }
+    };
 
     if (window.Hls && Hls.isSupported()) {
       const hlsConfig = {
@@ -1195,6 +1479,11 @@ document.addEventListener('DOMContentLoaded', () => {
       _cleanupStreamPlayer();
     });
   }
+  const nextOverlay = document.getElementById('stream-next-episode-overlay');
+  if (nextOverlay) {
+    nextOverlay.addEventListener('mouseenter', () => { _nextEpPaused = true; });
+    nextOverlay.addEventListener('mouseleave', () => { _nextEpPaused = false; });
+  }
 });
 
 
@@ -1273,6 +1562,8 @@ registerActions({
   'tp:requestSeason': () => tpRequestSeason(),
   'tp:batchSeason':   d => downloadWholeSeason(Number(d.season)),
   'tp:episode':       d => startEpisodeDownload(Number(d.index)),
+  'player:playNextEp':    () => playNextEpisode(),
+  'player:dismissNextEp': () => dismissNextEpisode(),
 });
 
 

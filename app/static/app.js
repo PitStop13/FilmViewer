@@ -124,7 +124,7 @@ function renderDomainBanner() {
 async function applyDomainCandidate() {
   if (!_domainCandidate) return;
   const btn = document.getElementById('domain-banner-apply');
-  btn.disabled = true;
+  if (btn) btn.disabled = true;
   setConnectionStatus('connecting', 'Connessione...');
   try {
     // The host is echoed back as a confirmation token: the server compares it
@@ -133,12 +133,39 @@ async function applyDomainCandidate() {
     showToast(`Dominio aggiornato: ${data.domain}`, 'success');
     _domainCandidate = null;
     renderDomainBanner();
-    await loadDomainStatus();
+    await onDomainChanged(data.domain);
     setConnectionStatus('live', 'Live');
   } catch (e) {
     showToast(errText(e, 'Impossibile applicare il dominio'), 'danger');
-  } finally { btn.disabled = false; }
+  } finally {
+    if (btn) btn.disabled = false;
+  }
 }
+
+window.onDomainChanged = async function(newDomain) {
+  _domainReady = null;
+  await ensureDomain();
+  if (typeof window.clearHomeCache === 'function') {
+    window.clearHomeCache();
+  }
+  const page = typeof _routePage !== 'undefined' ? _routePage : 'search';
+  if (page === 'search') {
+    const input = document.getElementById('search-input');
+    if (input && input.value.trim().length >= 2) {
+      if (typeof _rerunSearch === 'function') _rerunSearch();
+    } else {
+      if (typeof showStartPage === 'function') showStartPage(true);
+    }
+  } else if (page === 'detail') {
+    if (typeof loadTitlePage === 'function') loadTitlePage();
+  } else if (page === 'favorites' || page === 'watches') {
+    if (typeof loadFavorites === 'function') loadFavorites();
+  }
+  if (typeof loadContinueWatching === 'function') loadContinueWatching();
+  if (typeof refreshContinueWatching === 'function') refreshContinueWatching();
+  if (typeof loadSidebarDisk === 'function') loadSidebarDisk();
+  loadDomainCandidate();
+};
 
 async function dismissDomainCandidate() {
   if (!await scConfirm('Ignorare il dominio trovato? Il pannello resta sul dominio attuale.')) return;

@@ -665,7 +665,11 @@ async function checkDomainNow() {
     }
     if (data.applied) {
       _feedback('domain-recovery-feedback', `Applicato ${data.candidate}.`, 'success');
-      await loadDomainStatus();
+      if (typeof window.onDomainChanged === 'function') {
+        await window.onDomainChanged(data.candidate);
+      } else {
+        await loadDomainStatus();
+      }
       setConnectionStatus('live', 'Live');
     } else if (data.candidate) {
       _feedback('domain-recovery-feedback', `Trovato ${data.candidate}: da applicare.`, 'success');
@@ -735,6 +739,9 @@ async function saveDomain() {
     badge.textContent = data.domain;
     setConnectionStatus('live', 'Live');
     showToast('Dominio salvato', 'success');
+    if (typeof window.onDomainChanged === 'function') {
+      window.onDomainChanged(data.domain);
+    }
   } catch(e) {
     _feedback('domain-feedback', errText(e, 'Errore di rete o dominio non raggiungibile'), 'danger');
     setConnectionStatus('missing', 'Mancante');

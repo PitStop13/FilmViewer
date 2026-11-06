@@ -723,6 +723,11 @@ function refreshHome() {
   });
 }
 window.refreshHome = refreshHome;
+window.clearHomeCache = function() {
+  Object.keys(_homeCache).forEach(k => delete _homeCache[k]);
+};
+window.showStartPage = showStartPage;
+window._rerunSearch = _rerunSearch;
 
 // The start page's own backdrop: a handful of titles the source is showing
 // today, behind the headline. Decoration, so it is drawn from what has

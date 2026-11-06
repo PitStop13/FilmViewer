@@ -108,9 +108,48 @@
           <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
         </div>
       </div>
-      <div class="modal-body p-0 position-relative" style="background:#000; min-height:420px; display:flex; align-items:center; justify-content:center;">
-        <video id="video-player" controls preload="metadata" tabindex="-1"
+      <div class="modal-body p-0 position-relative player-container" id="player-modal-container" style="background:#000; min-height:420px; display:flex; align-items:center; justify-content:center;">
+        <!-- Floating header shown in fullscreen on mouse move -->
+        <div id="player-fs-header" class="player-fs-header">
+          <div class="d-flex align-items-center gap-3 text-truncate me-3" style="min-width:0; max-width:calc(100% - 150px);">
+            <button type="button" class="player-fs-back-btn" data-action="player:toggleFullscreen" title="Esci da schermo intero (Esc / F)">
+              <i class="ti ti-arrow-left"></i>
+            </button>
+            <div class="d-flex flex-column text-truncate" style="min-width:0;">
+              <div class="player-fs-title" id="player-fs-title">Riproduzione Locale</div>
+              <div class="player-fs-sub" id="player-fs-sub"></div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2 ms-auto flex-shrink-0">
+            <button type="button" class="player-fs-exit-pill" data-action="player:toggleFullscreen" title="Esci da schermo intero (F / Esc)">
+              <i class="ti ti-minimize me-1"></i>
+              <span>Esci (F)</span>
+            </button>
+          </div>
+        </div>
+
+        <video id="video-player" controls preload="metadata" tabindex="-1" controlslist="nofullscreen"
                class="player-video"></video>
+
+        <!-- Next Episode Overlay for local player -->
+        <div id="player-next-episode-overlay" class="next-episode-card" style="display:none;">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="d-inline-flex align-items-center gap-1 text-uppercase fw-bold text-primary" style="font-size:11px; letter-spacing:0.5px;">
+              <i class="ti ti-player-track-next-filled"></i> Prossimo File / Episodio
+            </span>
+            <button type="button" class="btn-close btn-close-white small p-0 opacity-75" data-action="player:dismissLocalNextEp" title="Chiudi avviso" style="font-size:10px; width:14px; height:14px;"></button>
+          </div>
+          <div class="next-ep-details text-truncate">
+            <div class="next-ep-title fw-bold text-white text-truncate" id="player-next-ep-title"></div>
+          </div>
+          <div class="mt-3 d-flex align-items-center justify-content-between gap-2">
+            <div class="next-ep-countdown text-muted small" id="player-next-ep-countdown"></div>
+            <button type="button" class="btn btn-primary btn-sm px-3 fw-bold d-inline-flex align-items-center gap-1" data-action="player:playLocalNextEp">
+              <i class="ti ti-player-track-next me-1"></i>
+              <span>Vai al prossimo</span>
+            </button>
+          </div>
+        </div>
 
         <!-- JAM Party Wait / Status Overlay -->
         <div id="player-jam-overlay" class="jam-player-overlay" style="display:none;">
@@ -186,7 +225,26 @@
         </div>
       </div>
 
-      <div class="modal-body p-0 position-relative" style="background:#000; min-height:460px; display:flex; align-items:center; justify-content:center;">
+      <div class="modal-body p-0 position-relative player-container" id="stream-player-container" style="background:#000; min-height:460px; display:flex; align-items:center; justify-content:center;">
+        <!-- Floating header shown in fullscreen on mouse move (Premium Streaming style) -->
+        <div id="stream-player-fs-header" class="player-fs-header">
+          <div class="d-flex align-items-center gap-3 text-truncate me-3" style="min-width:0; max-width:calc(100% - 150px);">
+            <button type="button" class="player-fs-back-btn" data-action="player:toggleFullscreen" title="Esci da schermo intero (Esc / F)">
+              <i class="ti ti-arrow-left"></i>
+            </button>
+            <div class="d-flex flex-column text-truncate" style="min-width:0;">
+              <div class="player-fs-title" id="stream-player-fs-title">Streaming</div>
+              <div class="player-fs-sub" id="stream-player-fs-sub"></div>
+            </div>
+          </div>
+          <div class="d-flex align-items-center gap-2 ms-auto flex-shrink-0">
+            <button type="button" class="player-fs-exit-pill" data-action="player:toggleFullscreen" title="Esci da schermo intero (F / Esc)">
+              <i class="ti ti-minimize me-1"></i>
+              <span>Esci (F)</span>
+            </button>
+          </div>
+        </div>
+
         <!-- Loading spinner -->
         <div id="stream-player-loading" class="text-center p-4">
           <div class="spinner-border text-success mb-3" style="width:3rem; height:3rem;" role="status"></div>
@@ -207,8 +265,40 @@
         </div>
 
         <!-- Video player element -->
-        <video id="stream-video-player" controls preload="auto" playsinline tabindex="-1"
+        <video id="stream-video-player" controls preload="auto" playsinline tabindex="-1" controlslist="nofullscreen"
                class="player-video" style="display:none;"></video>
+
+        <!-- Next Episode Overlay (Visible also in Fullscreen) -->
+        <div id="stream-next-episode-overlay" class="next-episode-card" style="display:none;">
+          <div class="d-flex align-items-center justify-content-between mb-2">
+            <span class="d-inline-flex align-items-center gap-1 text-uppercase fw-bold text-primary" style="font-size:11px; letter-spacing:0.5px;">
+              <i class="ti ti-player-track-next-filled"></i> Prossimo Episodio
+            </span>
+            <button type="button" class="btn-close btn-close-white small p-0 opacity-75" id="next-ep-close-btn" data-action="player:dismissNextEp" title="Chiudi avviso" style="font-size:10px; width:14px; height:14px;"></button>
+          </div>
+          <div class="d-flex align-items-center gap-3">
+            <div class="next-ep-thumb-wrapper" id="next-ep-thumb-container" data-action="player:playNextEp" title="Guarda subito" style="display:none;">
+              <img id="next-ep-thumb" src="" alt="Miniatura" class="next-ep-thumb">
+              <div class="next-ep-play-overlay">
+                <i class="ti ti-player-play-filled"></i>
+              </div>
+            </div>
+            <div class="next-ep-details text-truncate flex-grow-1">
+              <div class="next-ep-meta text-muted small text-truncate" id="next-ep-meta"></div>
+              <div class="next-ep-title fw-bold text-white text-truncate" id="next-ep-title"></div>
+            </div>
+          </div>
+          <div class="mt-3 d-flex align-items-center justify-content-between gap-2">
+            <div class="next-ep-countdown text-muted small" id="next-ep-countdown"></div>
+            <button type="button" class="btn btn-primary btn-sm px-3 fw-bold d-inline-flex align-items-center gap-1" id="next-ep-play-btn" data-action="player:playNextEp">
+              <i class="ti ti-player-track-next me-1"></i>
+              <span>Vai al prossimo episodio</span>
+            </button>
+          </div>
+          <div class="next-ep-progress-bar-track" id="next-ep-progress-container" style="display:none;">
+            <div class="next-ep-progress-bar-fill" id="next-ep-progress-bar"></div>
+          </div>
+        </div>
 
         <!-- JAM Party Wait / Status Overlay -->
         <div id="stream-player-jam-overlay" class="jam-player-overlay" style="display:none;">
