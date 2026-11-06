@@ -1136,6 +1136,7 @@ function _cleanupStreamPlayer() {
         video.load();
       }
     } catch (_) {}
+    if (typeof resetVideoZoom === 'function') resetVideoZoom(video);
   }
   if (window.Jam && typeof window.Jam._hidePartyOverlays === 'function') {
     window.Jam._hidePartyOverlays();

@@ -468,15 +468,17 @@ function togglePlayerFullscreen(specificVideo) {
 
   const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
   if (!isFullscreen) {
-    if (video.requestFullscreen) {
-      const p = video.requestFullscreen();
+    const container = video.closest('.player-container');
+    const target = (container && (container.requestFullscreen || container.webkitRequestFullscreen)) ? container : video;
+    if (target.requestFullscreen) {
+      const p = target.requestFullscreen();
       if (p && typeof p.then === 'function') {
         p.then(tryLockLandscape).catch(() => {});
       } else {
         tryLockLandscape();
       }
-    } else if (video.webkitRequestFullscreen) {
-      video.webkitRequestFullscreen();
+    } else if (target.webkitRequestFullscreen) {
+      target.webkitRequestFullscreen();
       tryLockLandscape();
     } else if (video.msRequestFullscreen) {
       video.msRequestFullscreen();
@@ -496,6 +498,258 @@ function togglePlayerFullscreen(specificVideo) {
   }
   clearPlayerFocus(video);
 }
+
+// ── Mobile Netflix-style Pinch-to-Zoom (Fill / Original) ──────────────────────
+
+let _pinchState = null;
+let _zoomPillTimer = null;
+
+function showNetflixZoomPill(container, type) {
+  if (!container) return;
+  let pill = container.querySelector('.player-zoom-pill');
+  if (!pill) {
+    pill = document.createElement('div');
+    pill.className = 'player-zoom-pill';
+    container.appendChild(pill);
+  }
+
+  if (type === 'fill') {
+    pill.innerHTML = '<i class="ti ti-arrows-maximize"></i><span>Riempi schermo</span>';
+  } else {
+    pill.innerHTML = '<i class="ti ti-arrows-minimize"></i><span>Originale</span>';
+  }
+
+  // Force reflow to restart CSS animation cleanly
+  void pill.offsetWidth;
+  pill.classList.add('is-visible');
+
+  if (_zoomPillTimer) {
+    clearTimeout(_zoomPillTimer);
+    _zoomPillTimer = null;
+  }
+
+  _zoomPillTimer = setTimeout(() => {
+    pill.classList.remove('is-visible');
+    _zoomPillTimer = null;
+  }, 1400);
+}
+
+function hideNetflixZoomPill(container) {
+  if (!container) return;
+  const pill = container.querySelector('.player-zoom-pill');
+  if (pill) {
+    pill.classList.remove('is-visible');
+  }
+  if (_zoomPillTimer) {
+    clearTimeout(_zoomPillTimer);
+    _zoomPillTimer = null;
+  }
+}
+
+function isVideoZoomed(video) {
+  if (!video) return false;
+  const container = video.closest('.player-container');
+  return video.classList.contains('player-zoom-fill') || (container && container.classList.contains('zoom-fill'));
+}
+
+function setVideoZoomFill(video, fill, specificContainer) {
+  if (!video) return;
+  const container = specificContainer || video.closest('.player-container');
+  const wasFilled = isVideoZoomed(video);
+
+  if (fill) {
+    video.classList.add('player-zoom-fill');
+    if (container) container.classList.add('zoom-fill');
+    video.style.setProperty('object-fit', 'cover', 'important');
+    if (!wasFilled) {
+      showNetflixZoomPill(container, 'fill');
+    }
+  } else {
+    video.classList.remove('player-zoom-fill');
+    if (container) container.classList.remove('zoom-fill');
+    video.style.setProperty('object-fit', 'contain', 'important');
+    if (wasFilled) {
+      showNetflixZoomPill(container, 'original');
+    }
+  }
+}
+
+function resetVideoZoom(video) {
+  if (!video) return;
+  const container = video.closest('.player-container');
+  video.classList.remove('player-zoom-fill', 'is-pinching');
+  if (container) container.classList.remove('zoom-fill');
+  video.style.transform = '';
+  video.style.removeProperty('object-fit');
+  hideNetflixZoomPill(container);
+  const pill = container?.querySelector('.player-zoom-pill');
+  if (pill) pill.remove();
+}
+
+function initMobilePlayerPinchZoom() {
+  const getDistance = (t1, t2) => Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+  const findTargetPlayer = (e) => {
+    if (!isMobileDevice()) return null;
+    const t1 = e.touches[0];
+    const t2 = e.touches[1];
+    if (!t1 || !t2) return null;
+
+    const target1 = document.elementFromPoint(t1.clientX, t1.clientY);
+    const target2 = document.elementFromPoint(t2.clientX, t2.clientY);
+
+    // Ignore interactive UI controls (buttons, links, sliders, next-ep card, jam pill)
+    const isInteractive = el => el && el.closest && el.closest('button, a, input, select, .dropdown-menu, .next-episode-card, .jam-pill');
+    if (isInteractive(target1) || isInteractive(target2)) return null;
+
+    const container = target1?.closest('.player-container') ||
+                      target2?.closest('.player-container') ||
+                      document.querySelector('.player-container.is-fullscreen') ||
+                      document.querySelector('.player-container');
+
+    let video = null;
+    if (container) {
+      video = container.querySelector('video');
+    }
+    if (!video && (target1?.tagName === 'VIDEO' || target2?.tagName === 'VIDEO')) {
+      video = target1?.tagName === 'VIDEO' ? target1 : target2;
+    }
+    if (!video) {
+      video = getActiveVideoPlayer();
+    }
+
+    if (!video || video.style.display === 'none') return null;
+
+    return { video, container: container || video.closest('.player-container') };
+  };
+
+  document.addEventListener('touchstart', (e) => {
+    if (!isMobileDevice()) return;
+
+    if (e.touches.length === 2) {
+      const playerInfo = findTargetPlayer(e);
+      if (!playerInfo) return;
+
+      const { video, container } = playerInfo;
+      const startDist = getDistance(e.touches[0], e.touches[1]);
+      if (startDist < 12) return;
+
+      const startZoomed = isVideoZoomed(video);
+
+      _pinchState = {
+        video,
+        container,
+        startDist,
+        startZoomed,
+        currentRatio: 1,
+        triggered: false,
+        targetZoomed: startZoomed
+      };
+
+      video.classList.add('is-pinching');
+      if (e.cancelable) e.preventDefault();
+    } else if (e.touches.length > 2 && _pinchState) {
+      _pinchState.video.classList.remove('is-pinching');
+      _pinchState.video.style.transform = '';
+      _pinchState = null;
+    }
+  }, { passive: false });
+
+  document.addEventListener('touchmove', (e) => {
+    if (!_pinchState) return;
+    if (e.touches.length !== 2) return;
+
+    const dist = getDistance(e.touches[0], e.touches[1]);
+    const ratio = dist / _pinchState.startDist;
+    _pinchState.currentRatio = ratio;
+
+    if (e.cancelable) e.preventDefault();
+
+    const { video, container, startZoomed } = _pinchState;
+
+    if (!startZoomed) {
+      // Normal (contain) -> User drags two fingers outward to expand (fill screen)
+      const liveScale = Math.max(1, Math.min(1.35, 1 + (ratio - 1) * 0.7));
+      video.style.transform = `scale(${liveScale})`;
+
+      if (ratio >= 1.15 && !_pinchState.triggered) {
+        _pinchState.triggered = true;
+        _pinchState.targetZoomed = true;
+        showNetflixZoomPill(container, 'fill');
+        if (navigator.vibrate) {
+          try { navigator.vibrate(20); } catch (_) {}
+        }
+      } else if (ratio < 1.05 && _pinchState.triggered && _pinchState.targetZoomed) {
+        _pinchState.triggered = false;
+        _pinchState.targetZoomed = false;
+        hideNetflixZoomPill(container);
+      }
+    } else {
+      // Zoomed (cover) -> User pinches two fingers inward to shrink (return to original)
+      const liveScale = Math.max(0.75, Math.min(1, 1 - (1 - ratio) * 0.7));
+      video.style.transform = `scale(${liveScale})`;
+
+      if (ratio <= 0.85 && !_pinchState.triggered) {
+        _pinchState.triggered = true;
+        _pinchState.targetZoomed = false;
+        showNetflixZoomPill(container, 'original');
+        if (navigator.vibrate) {
+          try { navigator.vibrate(20); } catch (_) {}
+        }
+      } else if (ratio > 0.95 && _pinchState.triggered && !_pinchState.targetZoomed) {
+        _pinchState.triggered = false;
+        _pinchState.targetZoomed = true;
+        hideNetflixZoomPill(container);
+      }
+    }
+  }, { passive: false });
+
+  const endGesture = (e) => {
+    if (!_pinchState) return;
+
+    const { video, container, startZoomed, currentRatio, triggered, targetZoomed } = _pinchState;
+    _pinchState = null;
+
+    let finalZoomed = startZoomed;
+    if (triggered) {
+      finalZoomed = targetZoomed;
+    } else {
+      // Quick gesture threshold detection
+      if (!startZoomed && currentRatio >= 1.10) {
+        finalZoomed = true;
+      } else if (startZoomed && currentRatio <= 0.90) {
+        finalZoomed = false;
+      }
+    }
+
+    setVideoZoomFill(video, finalZoomed, container);
+
+    video.classList.remove('is-pinching');
+    video.style.transform = 'scale(1)';
+    setTimeout(() => {
+      if (!_pinchState && video) {
+        video.style.transform = '';
+      }
+    }, 220);
+
+    if (e && e.cancelable) e.preventDefault();
+  };
+
+  document.addEventListener('touchend', endGesture, { passive: false });
+  document.addEventListener('touchcancel', endGesture, { passive: false });
+}
+
+// Initialize mobile player pinch gesture
+initMobilePlayerPinchZoom();
+
+// Reset zoom when player modals close
+document.addEventListener('hidden.bs.modal', (e) => {
+  const modal = e.target;
+  if (modal && (modal.id === 'player-modal' || modal.id === 'stream-player-modal')) {
+    const video = modal.querySelector('video');
+    if (video) resetVideoZoom(video);
+  }
+});
 
 // Floating fullscreen header controls auto-hide & quick dismiss
 let _fsControlsTimer = null;

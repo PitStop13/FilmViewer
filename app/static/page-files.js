@@ -505,6 +505,7 @@ function stopPlayer() {
       video.removeAttribute('src');
       video.load();
     } catch (e) {}
+    if (typeof resetVideoZoom === 'function') resetVideoZoom(video);
   }
 }
 

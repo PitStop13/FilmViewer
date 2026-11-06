@@ -4,7 +4,7 @@
 
 <p align="center">
   <b>Un'interfaccia web moderna, veloce e intuitiva per esplorare, guardare e scaricare film e serie TV per uso personale.</b><br/>
-  Watch Party JAM sincronizzato in tempo reale, streaming player HLS a schermo intero pulito, catalogo dinamico di Film, Serie TV e Anime, auto-recovery intelligente del dominio, motore di download ultra-rapido con pausa/ripresa/cancellazione pulita, I miei Preferiti (❤️), temi personalizzati (incluso Nero OLED) e gestione multi-utenza con ruoli e richieste.
+  Watch Party JAM sincronizzato in tempo reale, streaming player HLS con pinch-to-fill su mobile in stile Netflix, catalogo dinamico di Film, Serie TV e Anime, auto-recovery intelligente del dominio, motore di download ultra-rapido con pausa/ripresa/cancellazione pulita, I miei Preferiti (❤️), temi personalizzati (incluso Nero OLED) e gestione multi-utenza con ruoli e richieste.
 </p>
 
 <p align="center">
@@ -91,6 +91,11 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
 
 ### ▶️ Web Player HLS Integrato & "Continua a Guardare"
 - **Streaming Diretto nel Browser:** Guarda film, serie TV e anime con un click senza dover attendere il completamento del download.
+- **Pinch-to-Zoom / Zoom to Fill in Stile Netflix (Solo su Mobile):**
+  - **Trascina verso l'esterno con due dita:** Rimuove istantaneamente le barre nere (letterbox/pillarbox) forzando il video a occupare l'intero schermo del dispositivo (`object-fit: cover`).
+  - **Rimpicciolisci verso l'interno con due dita:** Torna alla visualizzazione normale proporzionata con le barre nere (`object-fit: contain`).
+  - **Feedback Visivo e Tattile:** Badge pill a comparsa dinamica in stile Netflix (*"Riempi schermo"* / *"Originale"*), feedback aptico con micro-vibrazione (`navigator.vibrate`) e scaling fluido a 60/120fps.
+  - **Zero conflitti:** Funziona esclusivamente sui dispositivi touch/mobile senza interferire con i controlli a tocco singolo (tap, scrub della timeline, seek) ed è compatibile al 100% con iOS Safari (`playsinline`), iPadOS e Android.
 - **Schermo Intero Nativo sul Tag `<video>`:**
   - Espansione nativa a tutto schermo del tag video sia su desktop (PC) che su dispositivi mobili (smartphone e tablet).
   - Rotazione orizzontale (landscape) fluida sui telefoni senza ostacoli visivi.

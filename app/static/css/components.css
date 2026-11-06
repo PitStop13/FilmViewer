@@ -612,6 +612,12 @@
       object-fit: contain;
       background: var(--video-bg);
       display: block;
+      transform-origin: center center;
+      transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.4, 1);
+    }
+    #stream-video-player {
+      transform-origin: center center;
+      transition: transform 0.22s cubic-bezier(0.2, 0.9, 0.4, 1);
     }
     .player-video:focus,
     .player-video:focus-visible,
@@ -779,6 +785,71 @@
       object-fit: contain !important;
       background: #000 !important;
       display: block !important;
+    }
+
+    /* ── Mobile Pinch-to-Zoom (Netflix-style Zoom to Fill) ────────────────── */
+    .player-container {
+      position: relative;
+      overflow: hidden;
+      touch-action: pan-x pan-y pinch-zoom;
+    }
+    .player-video.is-pinching,
+    #stream-video-player.is-pinching,
+    video.is-pinching {
+      transition: none !important;
+    }
+
+    /* Force video to fill entire screen / container and eliminate black bars */
+    .player-container.zoom-fill video,
+    .player-container.zoom-fill .player-video,
+    .player-container.zoom-fill #stream-video-player,
+    .player-container:fullscreen.zoom-fill video,
+    .player-container:fullscreen.zoom-fill .player-video,
+    .player-container:fullscreen.zoom-fill #stream-video-player,
+    .player-container:-webkit-full-screen.zoom-fill video,
+    .player-container:-webkit-full-screen.zoom-fill .player-video,
+    .player-container:-webkit-full-screen.zoom-fill #stream-video-player,
+    .player-container.is-fullscreen.zoom-fill video,
+    .player-container.is-fullscreen.zoom-fill .player-video,
+    .player-container.is-fullscreen.zoom-fill #stream-video-player,
+    video.player-zoom-fill,
+    video:fullscreen.player-zoom-fill,
+    video:-webkit-full-screen.player-zoom-fill {
+      object-fit: cover !important;
+    }
+
+    /* Netflix-style Zoom Feedback Pill */
+    .player-zoom-pill {
+      position: absolute;
+      top: 24px;
+      left: 50%;
+      transform: translate(-50%, -10px) scale(0.92);
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 18px;
+      background: rgba(10, 14, 23, 0.86);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      box-shadow: 0 10px 28px -4px rgba(0, 0, 0, 0.75), 0 0 1px 1px rgba(255, 255, 255, 0.08);
+      color: #ffffff;
+      font-size: 13.5px;
+      font-weight: 600;
+      letter-spacing: 0.3px;
+      border-radius: 9999px;
+      z-index: 2147483647;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.22s cubic-bezier(0.16, 1, 0.3, 1),
+                  transform 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    .player-zoom-pill i {
+      font-size: 16px;
+    }
+    .player-zoom-pill.is-visible {
+      opacity: 1;
+      transform: translate(-50%, 0) scale(1);
     }
 
     /* Floating Fullscreen Header (Sleek Streaming Vignette) */
