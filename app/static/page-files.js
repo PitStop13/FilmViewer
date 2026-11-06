@@ -429,8 +429,18 @@ async function batchDeletePaths(paths) {
 
 let _localNextFile = null;
 let _localNextDismissed = false;
+let _localNextCountdownTimer = null;
+let _localNextRemainingSeconds = 10;
+
+function _clearLocalNextCountdown() {
+  if (_localNextCountdownTimer) {
+    clearInterval(_localNextCountdownTimer);
+    _localNextCountdownTimer = null;
+  }
+}
 
 function _hideLocalNextOverlay() {
+  _clearLocalNextCountdown();
   const el = document.getElementById('player-next-episode-overlay');
   if (el) el.style.display = 'none';
 }
@@ -447,6 +457,40 @@ function _showLocalNextOverlay() {
   el.classList.remove('anim-enter');
   void el.offsetWidth;
   el.classList.add('anim-enter');
+
+  _clearLocalNextCountdown();
+  const video = document.getElementById('video-player');
+  const dur = video && video.duration;
+  const cur = video && video.currentTime;
+  let initSec = 15;
+  if (dur && cur && isFinite(dur) && isFinite(cur) && dur > cur) {
+    initSec = Math.max(1, Math.min(15, Math.ceil(dur - cur)));
+  }
+  _localNextRemainingSeconds = initSec;
+
+  const countEl = document.getElementById('player-next-ep-countdown');
+  const updateCount = () => {
+    if (countEl) countEl.textContent = `Avvio in ${_localNextRemainingSeconds}s`;
+  };
+  updateCount();
+
+  _localNextCountdownTimer = setInterval(() => {
+    const v = document.getElementById('video-player');
+    if (v && v.paused && !v.ended) return;
+    if (_localNextDismissed) {
+      _clearLocalNextCountdown();
+      return;
+    }
+    _localNextRemainingSeconds--;
+    updateCount();
+    if (_localNextRemainingSeconds <= 0) {
+      _clearLocalNextCountdown();
+      _hideLocalNextOverlay();
+      if (_localNextFile) {
+        playFile(_localNextFile.path, _localNextFile.name);
+      }
+    }
+  }, 1000);
 }
 
 function stopPlayer() {
@@ -501,25 +545,26 @@ function playFile(path, name) {
       try { document.activeElement.blur(); } catch (_) {}
     }
 
-    video.onended = () => {
-      if (_localNextFile) {
-        playFile(_localNextFile.path, _localNextFile.name);
-      }
-    };
-    video.ontimeupdate = () => {
-      if (!_localNextFile || _localNextDismissed) return;
+    let _localNextTriggered = false;
+    const checkLocalNext = () => {
+      if (!_localNextFile || _localNextTriggered) return;
       const cur = video.currentTime;
       const dur = video.duration;
       if (!dur || isNaN(dur) || dur <= 0 || !isFinite(dur)) return;
       if (!cur || isNaN(cur) || cur < 5) return;
-
-      const remaining = dur - cur;
-      if (remaining <= 85 || (dur > 300 && cur / dur >= 0.94)) {
-        _showLocalNextOverlay();
-      } else if (remaining > 95) {
-        _hideLocalNextOverlay();
+      if (dur - cur <= 1 || video.ended) {
+        _localNextTriggered = true;
+        playFile(_localNextFile.path, _localNextFile.name);
       }
     };
+    video.onended = () => {
+      if (_localNextFile && !_localNextTriggered) {
+        _localNextTriggered = true;
+        playFile(_localNextFile.path, _localNextFile.name);
+      }
+    };
+    video.ontimeupdate = checkLocalNext;
+    video.onseeked = checkLocalNext;
   }
   showModal('player-modal');
 }

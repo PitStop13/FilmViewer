@@ -317,7 +317,7 @@ async def prepare_stream(req: StreamPrepareRequest, request: Request):
             })
             _prefetch_key_bg(token, json_win_video, json_win_param, embed_referer)
             return token, None, None, None
-        elif c_type in ("tv", "series"):
+        elif c_type in ("tv", "series", "anime"):
             episode_id = req.episode_id
             episode_num = req.episode_number
             resolved_title = None
@@ -334,7 +334,7 @@ async def prepare_stream(req: StreamPrepareRequest, request: Request):
                             cw
                             for cw in cw_list
                             if str(cw.get("content_id")) == str(req.id)
-                            and cw.get("content_type") in ("tv", "series")
+                            and cw.get("content_type") in ("tv", "series", "anime")
                         ),
                         None,
                     )

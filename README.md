@@ -91,18 +91,19 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
 
 ### ▶️ Web Player HLS Integrato & "Continua a Guardare"
 - **Streaming Diretto nel Browser:** Guarda film, serie TV e anime con un click senza dover attendere il completamento del download.
-- **Schermo Intero Reale & Auto-Hide Intelligente:** Espansione nativa a tutto schermo (100vw x 100vh) senza bordi né limitazioni. I controlli del player e il puntatore del mouse si nascondono automaticamente dopo 2 secondi di inattività (anche dopo aver saltato via tastiera o aver usato la barra temporale) per una visione completamente immersiva e pulita.
-- **Controlli Nativi & Puliti:** Player ottimizzato senza overlay invasivi; riproduzione e pausa native immediate tramite tasto o barra spaziatrice.
-- **"Prossimo Episodio" Intelligente sui Titoli di Coda (anche a Schermo Intero):**
-  - Durante la visione delle serie TV, non appena partono i titoli di coda (negli ultimi ~85 secondi o al 94% del video), compare in basso a destra un overlay interattivo in stile Netflix con thumbnail, stagione, numero e titolo del prossimo episodio (con gestione automatica del cambio stagione).
-  - Countdown animato di 15 secondi con barra temporale fluida (in pausa automatica al passaggio del mouse per consentire la lettura o la decisione).
-  - Pulsante dedicato **"Vai al prossimo episodio"** per il passaggio immediato al flusso successivo, mantenendo attiva la modalità a tutto schermo senza ricaricare la pagina.
-  - Disponibile anche per la riproduzione sequenziale dei file locali (`#/files`).
+- **Schermo Intero Nativo sul Tag `<video>`:**
+  - Espansione nativa a tutto schermo del tag video sia su desktop (PC) che su dispositivi mobili (smartphone e tablet).
+  - Rotazione orizzontale (landscape) fluida sui telefoni senza ostacoli visivi.
+  - Interfaccia libera da pulsanti flottanti o elementi sovrapposti invasivi: controlli nativi del browser sempre accessibili e auto-hide dopo l'inattività.
+- **Passaggio Automatico al Prossimo Episodio ("Zero Interruzioni"):**
+  - Durante la visione di serie TV, anime e file locali (`#/files`), non appena l'episodio giunge al termine naturale o si scorre la barra di riproduzione fino al fondo della puntata (`remaining <= 1s`), il player avvia direttamente e in automatico il prossimo episodio.
+  - Nessun popup o conto alla rovescia che copre la scena finale: transizione fluida e continua anche rimanendo in modalità a schermo intero.
+  - Risoluzione intelligente della puntata successiva (incluso il cambio automatico alla stagione seguente al termine dell'ultima puntata).
 - **Intestazione a Schermo Intero (Fullscreen Header) ad Alta Leggibilità:**
   - Intestazione superiore moderna in stile streaming con titolo dell'opera in 22px ultra-bold, badge pill ad alto contrasto per la serie (`S1 : E2`) o per il film (`Film`), titolo della puntata e pulsante rapido **"Esci (F)"** affiancato dal tasto freccia.
   - Sfumatura superiore cinematografica con `backdrop-filter: blur(8px)` che garantisce contrasto e leggibilità assoluta su qualsiasi scena.
   - Comportamento mouse intelligente: l'intestazione si mostra all'avvio a schermo intero e sui movimenti del mouse, rimanendo permanentemente visibile finché il cursore staziona sopra di essa.
-- **Risoluzione Automatica per Serie TV:** Seleziona in automatico l'ultimo episodio guardato o avvia il primo episodio di default, con passaggio fluido all'episodio successivo.
+- **Risoluzione Automatica per Serie TV & Anime:** Seleziona in automatico l'ultimo episodio guardato o avvia il primo episodio di default, con passaggio fluido all'episodio successivo.
 - **Selettore Risoluzione & Audio:** Scelta rapida della qualità video (Auto, 1080p, 720p, 480p) e selezione delle tracce audio disponibili.
 - **Set Completo di Scorciatoie da Tastiera:**
   - `Spazio` o `K`: Play / Pausa.
@@ -114,7 +115,7 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
   - `M`: Disattiva o riattiva l'audio (Muto / Unmute).
   - `F`: Attiva/disattiva la modalità a schermo intero (HTML5 Fullscreen reale).
   - `Doppio Clic` sul video: Entra o esce rapidamente dallo schermo intero.
-- **Continua a Guardare Persistente:** Progresso salvato automaticamente alla pausa e alla chiusura (senza spam di polling di rete durante la riproduzione), con visualizzazione immediata in Home Page e pulsanti per riprendere con precisione o ricominciare dall'inizio. Rimozione automatica a visione ultimata (≥95%).
+- **Continua a Guardare Persistente:** Progresso salvato automaticamente alla pausa e alla chiusura (senza spam di polling di rete durante la riproduzione), con visualizzazione immediata in Home Page e pulsanti per riprendere con precisione o ricominciare dall'inizio. Rimozione automatica a visione ultimata (≥95%). Transizione hover stabilizzata senza sfarfallii o linee mancanti.
 
 ---
 
@@ -132,7 +133,7 @@ FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e
 - **Aestetica Premium:** Interfaccia raffinata con palette armoniose, trasparenze in stile glassmorphism, badge di stato chiari e micro-animazioni fluide.
 - **Selettore Temi Personalizzati (6 Stili, Incluso Nero OLED):** Personalizza l'aspetto dell'applicazione con un clic dall'icona nella barra superiore o dalle Impostazioni. Temi disponibili: *Scuro Classico* (Default), *Bianco Perla* (Luminoso), *Viola Galassia* (Cosmico), *Ciano Abissale* (Vaporwave), *Nero OLED* (100% nero assoluto perfetto per TV e display OLED/AMOLED con risparmio energetico) e *Rosso Rubino*.
 - **Indicatore di Stato della Connessione in Tempo Reale:** Badge dinamico nella barra superiore che mostra costantemente lo stato operativo della connessione: *Live* (verde), *Connessione in corso* (arancione/pulsante) o *Mancante/Disconnesso* (rosso) con riconnessione automatica in background.
-- **Card e Locandine Perfettamente Proporzionate:** Dimensioni uniformi e bilanciate in stile cinema/Netflix su tutte le sezioni (Home, Ricerca, Preferiti).
+- **Card e Locandine Perfettamente Proporzionate & Uniformi:** Dimensioni rigorosamente uniformi e bilanciate in stile cinema/Netflix su tutte le sezioni (Home, Ricerca, Preferiti), eliminando qualsiasi disparità di altezza o larghezza tra i titoli.
 - **Completamente Responsive:** Layout ottimizzato per l'uso da smartphone, tablet, computer e browser per Smart TV. Sui display mobili le card non vengono tagliate sui bordi e garantiscono uno scroll orizzontale tattile perfetto.
 - **DNS Cache In-Memory:** Cache interna ad alta velocità che elimina i ritardi di risoluzione DNS tipici dei container Docker su Windows e Linux.
 

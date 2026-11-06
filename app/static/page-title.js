@@ -834,6 +834,11 @@ function hideNextEpisodeOverlay() {
   if (overlay) {
     overlay.style.display = 'none';
   }
+  const playBtn = document.getElementById('next-ep-play-btn');
+  if (playBtn) {
+    const span = playBtn.querySelector('span');
+    if (span) span.textContent = 'Guarda ora';
+  }
 }
 
 function dismissNextEpisode() {
@@ -849,7 +854,7 @@ async function prepareNextEpisode(opts) {
 
   if (!opts) return;
   const cType = (opts.type || '').toLowerCase();
-  if (cType !== 'tv' && cType !== 'series') return;
+  if (cType !== 'tv' && cType !== 'series' && cType !== 'anime') return;
 
   const seriesId = String(opts.id);
   const curSeason = parseInt(opts.seasonNumber || 1, 10);
@@ -950,18 +955,33 @@ function showNextEpisodeOverlay() {
   void overlay.offsetWidth;
   overlay.classList.add('anim-enter');
 
-  // Start countdown: 15 seconds
+  // Start countdown: exactly 15 seconds (or remaining duration capped at 15s)
   _clearNextEpCountdown();
-  _nextEpRemainingSeconds = 15;
+  const video = document.getElementById('stream-video-player');
+  const dur = video && video.duration;
+  const cur = video && video.currentTime;
+  let initRemaining = 15;
+  if (dur && cur && isFinite(dur) && isFinite(cur) && dur > cur) {
+    initRemaining = Math.max(1, Math.min(15, Math.ceil(dur - cur)));
+  }
+  _nextEpRemainingSeconds = initRemaining;
+  const totalCountdown = 15;
   if (progressCont) progressCont.style.display = 'block';
   if (progressFill) progressFill.style.width = '100%';
 
   const updateCountdownDisplay = () => {
     if (countdownEl) {
-      countdownEl.textContent = `Prossimo tra ${_nextEpRemainingSeconds}s...`;
+      countdownEl.textContent = `Avvio in ${_nextEpRemainingSeconds}s`;
+    }
+    const playBtn = document.getElementById('next-ep-play-btn');
+    if (playBtn) {
+      const span = playBtn.querySelector('span');
+      if (span) {
+        span.textContent = `Guarda ora (${_nextEpRemainingSeconds}s)`;
+      }
     }
     if (progressFill) {
-      const pct = Math.max(0, (_nextEpRemainingSeconds / 15) * 100);
+      const pct = Math.max(0, (_nextEpRemainingSeconds / totalCountdown) * 100);
       progressFill.style.width = `${pct}%`;
     }
   };
@@ -1110,8 +1130,11 @@ function _cleanupStreamPlayer() {
   if (video) {
     try {
       video.pause();
-      video.removeAttribute('src');
-      video.load();
+      const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
+      if (!isFs) {
+        video.removeAttribute('src');
+        video.load();
+      }
     } catch (_) {}
   }
   if (window.Jam && typeof window.Jam._hidePartyOverlays === 'function') {
@@ -1193,9 +1216,10 @@ async function openStreamPlayer(opts) {
   }
   updateStreamPlayerFullscreenHeader(opts, null);
 
+  const isFs = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
   if (loadingEl) loadingEl.style.display = 'block';
   if (errorEl) errorEl.style.display = 'none';
-  if (videoEl) videoEl.style.display = 'none';
+  if (videoEl && !isFs) videoEl.style.display = 'none';
   if (audioContainer) audioContainer.style.display = 'none';
   if (qualityContainer) qualityContainer.style.display = 'none';
   if (extBtnEl) extBtnEl.style.display = 'none';
@@ -1231,12 +1255,14 @@ async function openStreamPlayer(opts) {
         const e = (res && res.episode_number) || opts.episodeNumber || 1;
         const titleText = (res && res.episode_title) || opts.episodeTitle;
         subEl.textContent = titleText ? `S${s}:E${e} • ${titleText}` : `Stagione ${s} • Episodio ${e}`;
+        opts.seasonNumber = s;
+        if (_currentStreamTracking) _currentStreamTracking.seasonNumber = s;
       }
     }
 
     updateStreamPlayerFullscreenHeader(opts, res);
 
-    if (opts.type === 'tv' || opts.type === 'series') {
+    if (opts.type === 'tv' || opts.type === 'series' || opts.type === 'anime') {
       prepareNextEpisode(_currentStreamTracking || opts);
     }
 
@@ -1251,29 +1277,32 @@ async function openStreamPlayer(opts) {
     const clickSurf = document.getElementById('stream-video-click-surface');
     if (clickSurf) clickSurf.style.display = 'block';
 
-    videoEl.onended = () => {
-      _savePlaybackProgress(true);
-      if (_nextEpisodeData && !_nextEpAutoTriggered) {
-        playNextEpisode();
-      }
-    };
-    videoEl.onpause = () => _savePlaybackProgress(false);
-    videoEl.ontimeupdate = () => {
-      if (!_nextEpisodeData || _nextEpDismissed) return;
+    const checkAutoNextEpisode = () => {
+      if (!_nextEpisodeData || _nextEpAutoTriggered) return;
       const cur = videoEl.currentTime;
       const dur = videoEl.duration;
       if (!dur || isNaN(dur) || dur <= 0 || !isFinite(dur)) return;
       if (!cur || isNaN(cur) || cur < 5) return;
 
       const remaining = dur - cur;
-      const isCredits = (remaining <= 85) || (dur > 300 && cur / dur >= 0.94);
-
-      if (isCredits) {
-        showNextEpisodeOverlay();
-      } else if (remaining > 95 && (cur / dur < 0.92)) {
-        hideNextEpisodeOverlay();
+      // Quando si va al fondo dell'episodio (a 1 secondo dalla fine o a fine video)
+      if (remaining <= 1 || videoEl.ended) {
+        _nextEpAutoTriggered = true;
+        _savePlaybackProgress(true);
+        playNextEpisode();
       }
     };
+
+    videoEl.onended = () => {
+      _savePlaybackProgress(true);
+      if (_nextEpisodeData && !_nextEpAutoTriggered) {
+        _nextEpAutoTriggered = true;
+        playNextEpisode();
+      }
+    };
+    videoEl.onpause = () => _savePlaybackProgress(false);
+    videoEl.ontimeupdate = checkAutoNextEpisode;
+    videoEl.onseeked = checkAutoNextEpisode;
 
     if (window.Hls && Hls.isSupported()) {
       const hlsConfig = {

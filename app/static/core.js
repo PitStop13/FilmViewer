@@ -339,6 +339,14 @@ function hideModal(id) {
     } catch (err) {}
   });
 
+  // If player modal is closed while in fullscreen, cleanly exit fullscreen and unlock orientation
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+  if (fsEl && (fsEl === el || el.contains(fsEl))) {
+    tryUnlockOrientation();
+    if (document.exitFullscreen) document.exitFullscreen().catch(() => {});
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+  }
+
   el.style.display = 'none';
   el.classList.remove('show');
   el.setAttribute('aria-hidden', 'true');
@@ -428,27 +436,56 @@ function clearPlayerFocus(specificVideo) {
   }
 }
 
+function isMobileDevice() {
+  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)
+    || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches)
+    || ('ontouchstart' in window && window.innerWidth <= 1024);
+}
+
+function tryLockLandscape() {
+  if (!isMobileDevice()) return;
+  try {
+    if (screen.orientation && typeof screen.orientation.lock === 'function') {
+      screen.orientation.lock('landscape').catch(() => {
+        screen.orientation.lock('sensor-landscape').catch(() => {});
+      });
+    }
+  } catch (_) {}
+}
+
+function tryUnlockOrientation() {
+  if (!isMobileDevice()) return;
+  try {
+    if (screen.orientation && typeof screen.orientation.unlock === 'function') {
+      screen.orientation.unlock();
+    }
+  } catch (_) {}
+}
+
 function togglePlayerFullscreen(specificVideo) {
   const video = specificVideo || getActiveVideoPlayer();
   if (!video) return;
 
   const isFullscreen = !!(document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement);
   if (!isFullscreen) {
-    const target = video.closest('.player-container') || video;
-    if (target.requestFullscreen) {
-      target.requestFullscreen().catch(() => {
-        if (video.requestFullscreen) video.requestFullscreen().catch(() => {});
-      });
-    } else if (target.webkitRequestFullscreen) {
-      target.webkitRequestFullscreen();
-    } else if (target.msRequestFullscreen) {
-      target.msRequestFullscreen();
+    if (video.requestFullscreen) {
+      const p = video.requestFullscreen();
+      if (p && typeof p.then === 'function') {
+        p.then(tryLockLandscape).catch(() => {});
+      } else {
+        tryLockLandscape();
+      }
+    } else if (video.webkitRequestFullscreen) {
+      video.webkitRequestFullscreen();
+      tryLockLandscape();
+    } else if (video.msRequestFullscreen) {
+      video.msRequestFullscreen();
+      tryLockLandscape();
     } else if (video.webkitEnterFullscreen) {
       video.webkitEnterFullscreen();
-    } else if (document.documentElement.requestFullscreen) {
-      document.documentElement.requestFullscreen().catch(() => {});
     }
   } else {
+    tryUnlockOrientation();
     if (document.exitFullscreen) {
       document.exitFullscreen().catch(() => {});
     } else if (document.webkitExitFullscreen) {
@@ -460,11 +497,20 @@ function togglePlayerFullscreen(specificVideo) {
   clearPlayerFocus(video);
 }
 
-// When entering or exiting fullscreen, update UI button icons and clear focus so browser native controls auto-hide cleanly
+// Floating fullscreen header controls auto-hide & quick dismiss
 let _fsControlsTimer = null;
-let _fsHeaderHovered = false;
 
-function _triggerFsControls() {
+function _hideFsControls() {
+  if (_fsControlsTimer) {
+    clearTimeout(_fsControlsTimer);
+    _fsControlsTimer = null;
+  }
+  document.querySelectorAll('.player-container.show-fs-controls').forEach(c => {
+    c.classList.remove('show-fs-controls');
+  });
+}
+
+function _triggerFsControls(duration = 2000) {
   const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
   if (!fsEl) return;
   const container = fsEl.classList.contains('player-container') ? fsEl : fsEl.closest('.player-container');
@@ -473,14 +519,24 @@ function _triggerFsControls() {
   container.classList.add('show-fs-controls');
   if (_fsControlsTimer) clearTimeout(_fsControlsTimer);
   _fsControlsTimer = setTimeout(() => {
-    if (!_fsHeaderHovered) container.classList.remove('show-fs-controls');
-  }, 3800);
+    container.classList.remove('show-fs-controls');
+    _fsControlsTimer = null;
+  }, duration);
 }
 
 ['fullscreenchange', 'webkitfullscreenchange', 'mozfullscreenchange', 'MSFullscreenChange'].forEach(evt => {
   document.addEventListener(evt, () => {
     const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
     const isFullscreen = !!fsEl;
+    if (isFullscreen) {
+      tryLockLandscape();
+    } else {
+      tryUnlockOrientation();
+      if (_fsControlsTimer) {
+        clearTimeout(_fsControlsTimer);
+        _fsControlsTimer = null;
+      }
+    }
     document.querySelectorAll('#stream-player-fs-btn i, #player-fs-btn i').forEach(icon => {
       icon.className = isFullscreen ? 'ti ti-minimize' : 'ti ti-maximize';
     });
@@ -491,49 +547,49 @@ function _triggerFsControls() {
         c.classList.add('show-fs-controls');
         if (_fsControlsTimer) clearTimeout(_fsControlsTimer);
         _fsControlsTimer = setTimeout(() => {
-          if (!_fsHeaderHovered) c.classList.remove('show-fs-controls');
-        }, 3800);
+          c.classList.remove('show-fs-controls');
+          _fsControlsTimer = null;
+        }, 2000);
       } else {
         c.classList.remove('show-fs-controls');
       }
     });
-    if (!isFullscreen && _fsControlsTimer) {
-      clearTimeout(_fsControlsTimer);
-      _fsControlsTimer = null;
-      _fsHeaderHovered = false;
-    }
     clearPlayerFocus();
     setTimeout(clearPlayerFocus, 50);
     setTimeout(clearPlayerFocus, 150);
   });
 });
 
-// Show floating header controls in fullscreen on mouse movement
-document.addEventListener('mousemove', _triggerFsControls);
-
-// Prevent hiding while hovering over fullscreen header
-document.addEventListener('mouseover', (e) => {
-  if (e.target && e.target.closest && e.target.closest('.player-fs-header')) {
-    _fsHeaderHovered = true;
-    const c = e.target.closest('.player-container');
-    if (c) c.classList.add('show-fs-controls');
-  }
+// Show floating header controls in fullscreen on mouse movement (throttled)
+let _lastFsMouseMove = 0;
+document.addEventListener('mousemove', () => {
+  const now = Date.now();
+  if (now - _lastFsMouseMove < 200) return;
+  _lastFsMouseMove = now;
+  _triggerFsControls(2000);
 });
-document.addEventListener('mouseout', (e) => {
-  if (e.target && e.target.closest && e.target.closest('.player-fs-header')) {
-    const rel = e.relatedTarget;
-    if (!rel || !rel.closest || !rel.closest('.player-fs-header')) {
-      _fsHeaderHovered = false;
-      const c = e.target.closest('.player-container');
-      if (c) {
-        if (_fsControlsTimer) clearTimeout(_fsControlsTimer);
-        _fsControlsTimer = setTimeout(() => {
-          if (!_fsHeaderHovered) c.classList.remove('show-fs-controls');
-        }, 2500);
-      }
+
+// Tap or click on video area dismisses the fullscreen header immediately
+document.addEventListener('click', (e) => {
+  const fsEl = document.fullscreenElement || document.webkitFullscreenElement || document.mozFullScreenElement || document.msFullscreenElement;
+  if (!fsEl) return;
+  if (e.target && e.target.closest && (
+    e.target.closest('button') ||
+    e.target.closest('a') ||
+    e.target.closest('.dropdown-menu') ||
+    e.target.closest('.next-episode-card')
+  )) {
+    return;
+  }
+  const container = fsEl.classList.contains('player-container') ? fsEl : fsEl.closest('.player-container');
+  if (container) {
+    if (container.classList.contains('show-fs-controls')) {
+      _hideFsControls();
+    } else {
+      _triggerFsControls(2000);
     }
   }
-});
+}, true);
 
 function handlePlayerKeyDown(e) {
   if (isTypingContext(e.target)) return;

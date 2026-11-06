@@ -781,36 +781,28 @@
       display: block !important;
     }
 
-    /* Floating Fullscreen Header (Premium Streaming Style) */
+    /* Floating Fullscreen Header (Sleek Streaming Vignette) */
     .player-fs-header {
       display: none;
       position: absolute;
       top: 0;
       left: 0;
       right: 0;
-      padding: 24px 36px 48px;
-      background: linear-gradient(180deg, rgba(5, 10, 20, 0.95) 0%, rgba(5, 10, 20, 0.72) 45%, rgba(5, 10, 20, 0.25) 80%, transparent 100%);
-      backdrop-filter: blur(8px);
-      -webkit-backdrop-filter: blur(8px);
+      padding: 14px 28px 26px;
+      background: linear-gradient(180deg, rgba(5, 8, 15, 0.88) 0%, rgba(5, 8, 15, 0.45) 60%, transparent 100%);
       z-index: 2147483640;
       opacity: 0;
       transform: translateY(-8px);
-      transition: opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+      transition: opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1), transform 0.25s cubic-bezier(0.16, 1, 0.3, 1);
       pointer-events: none;
       user-select: none;
     }
     .player-fs-header * {
       pointer-events: auto;
     }
-    .player-container:fullscreen .player-fs-header {
-      display: flex !important;
-    }
-    .player-container:-webkit-full-screen .player-fs-header {
-      display: flex !important;
-    }
-    .player-container:-moz-full-screen .player-fs-header {
-      display: flex !important;
-    }
+    .player-container:fullscreen .player-fs-header,
+    .player-container:-webkit-full-screen .player-fs-header,
+    .player-container:-moz-full-screen .player-fs-header,
     .player-container.is-fullscreen .player-fs-header {
       display: flex !important;
     }
@@ -821,49 +813,49 @@
     }
 
     .player-fs-back-btn {
-      width: 44px;
-      height: 44px;
-      min-width: 44px;
+      width: 38px;
+      height: 38px;
+      min-width: 38px;
       border-radius: 50%;
-      background: rgba(255, 255, 255, 0.15);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.28);
+      background: rgba(255, 255, 255, 0.12);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.22);
       color: #ffffff;
       display: flex;
       align-items: center;
       justify-content: center;
-      font-size: 22px;
+      font-size: 20px;
       cursor: pointer;
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
     }
     .player-fs-back-btn:hover {
-      background: rgba(255, 255, 255, 0.28);
-      border-color: rgba(255, 255, 255, 0.5);
-      transform: scale(1.08);
+      background: rgba(255, 255, 255, 0.24);
+      border-color: rgba(255, 255, 255, 0.4);
+      transform: scale(1.06);
       color: #ffffff;
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.7);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
     }
 
     .player-fs-title {
-      font-size: 22px;
-      font-weight: 800;
+      font-size: 18px;
+      font-weight: 700;
       color: #ffffff !important;
-      line-height: 1.2;
+      line-height: 1.25;
       letter-spacing: -0.2px;
-      text-shadow: 0 2px 4px rgba(0, 0, 0, 0.8), 0 4px 16px rgba(0, 0, 0, 0.95), 0 0 1px rgba(0, 0, 0, 1);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8), 0 3px 10px rgba(0, 0, 0, 0.9);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     .player-fs-sub {
-      font-size: 14.5px;
+      font-size: 13px;
       font-weight: 500;
-      color: #f1f5f9 !important;
-      line-height: 1.35;
-      margin-top: 4px;
+      color: rgba(241, 245, 249, 0.88) !important;
+      line-height: 1.3;
+      margin-top: 3px;
       letter-spacing: 0.1px;
       display: flex;
       align-items: center;
@@ -871,92 +863,101 @@
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      text-shadow: 0 1px 6px rgba(0, 0, 0, 0.9);
+      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
     }
 
     .player-fs-badge {
       display: inline-flex;
       align-items: center;
-      font-size: 11px;
+      font-size: 10.5px;
       font-weight: 700;
-      letter-spacing: 0.6px;
+      letter-spacing: 0.5px;
       text-transform: uppercase;
-      padding: 2.5px 8.5px;
-      border-radius: 6px;
+      padding: 2px 7px;
+      border-radius: 5px;
       line-height: 1.2;
       flex-shrink: 0;
     }
     .player-fs-badge-tv {
       background: rgba(32, 107, 196, 0.35);
       color: #70b4ff;
-      border: 1px solid rgba(112, 180, 255, 0.45);
-      box-shadow: 0 2px 8px rgba(32, 107, 196, 0.25);
+      border: 1px solid rgba(112, 180, 255, 0.4);
+      box-shadow: 0 2px 6px rgba(32, 107, 196, 0.2);
     }
     .player-fs-badge-movie {
       background: rgba(168, 85, 247, 0.3);
       color: #d8b4fe;
-      border: 1px solid rgba(168, 85, 247, 0.45);
-      box-shadow: 0 2px 8px rgba(168, 85, 247, 0.2);
+      border: 1px solid rgba(168, 85, 247, 0.4);
+      box-shadow: 0 2px 6px rgba(168, 85, 247, 0.2);
     }
     .player-fs-ep-title {
-      color: #ffffff;
-      font-weight: 600;
+      color: rgba(255, 255, 255, 0.9);
+      font-weight: 500;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
-      text-shadow: 0 1px 4px rgba(0, 0, 0, 0.9);
+      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
     }
 
     .player-fs-exit-pill {
-      background: rgba(15, 23, 42, 0.7);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.24);
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 9999px;
-      padding: 8px 18px;
+      padding: 6px 14px;
       color: #ffffff;
-      font-size: 13px;
+      font-size: 12px;
       font-weight: 600;
       display: inline-flex;
       align-items: center;
-      gap: 7px;
+      gap: 6px;
       cursor: pointer;
-      box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
       transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
     }
     .player-fs-exit-pill:hover {
-      background: rgba(255, 255, 255, 0.22);
-      border-color: rgba(255, 255, 255, 0.5);
+      background: rgba(255, 255, 255, 0.2);
+      border-color: rgba(255, 255, 255, 0.4);
       transform: scale(1.04);
-      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.6);
+      box-shadow: 0 6px 16px rgba(0, 0, 0, 0.5);
       color: #ffffff;
     }
 
     /* Next Episode Card Overlay */
     .next-episode-card {
       position: absolute;
-      bottom: 36px;
-      right: 32px;
-      width: 380px;
-      max-width: calc(100% - 48px);
-      background: rgba(13, 20, 36, 0.95);
-      backdrop-filter: blur(16px);
-      -webkit-backdrop-filter: blur(16px);
-      border: 1px solid rgba(255, 255, 255, 0.18);
+      bottom: 28px;
+      right: 28px;
+      width: 350px;
+      max-width: calc(100% - 32px);
+      background: rgba(13, 18, 30, 0.95);
+      backdrop-filter: blur(20px);
+      -webkit-backdrop-filter: blur(20px);
+      border: 1px solid rgba(255, 255, 255, 0.16);
       border-radius: 14px;
-      padding: 16px 18px;
-      box-shadow: 0 20px 45px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      padding: 14px 16px;
+      box-shadow: 0 16px 38px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08);
       z-index: 2147483647 !important;
       pointer-events: auto !important;
       color: #fff;
-      animation: nextEpFadeIn 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+      animation: nextEpFadeIn 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards;
       user-select: none;
+      opacity: 1 !important;
+    }
+
+    .player-container:fullscreen .next-episode-card,
+    .player-container:-webkit-full-screen .next-episode-card,
+    .player-container:-moz-full-screen .next-episode-card,
+    .player-container.is-fullscreen .next-episode-card {
+      z-index: 2147483647 !important;
+      pointer-events: auto !important;
     }
 
     @keyframes nextEpFadeIn {
       from {
         opacity: 0;
-        transform: translateY(20px) scale(0.96);
+        transform: translateY(14px) scale(0.97);
       }
       to {
         opacity: 1;
@@ -964,16 +965,40 @@
       }
     }
 
+    .next-ep-close-btn {
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      color: rgba(255, 255, 255, 0.8);
+      width: 28px;
+      height: 28px;
+      min-width: 28px;
+      border-radius: 50%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 14px;
+      padding: 0;
+      line-height: 1;
+    }
+    .next-ep-close-btn:hover {
+      background: rgba(255, 255, 255, 0.22);
+      color: #fff;
+      transform: scale(1.08);
+    }
+
     .next-ep-thumb-wrapper {
-      width: 96px;
-      height: 56px;
-      min-width: 96px;
-      border-radius: 8px;
+      width: 88px;
+      height: 50px;
+      min-width: 88px;
+      border-radius: 7px;
       overflow: hidden;
       background: #111;
       border: 1px solid rgba(255, 255, 255, 0.15);
       position: relative;
       cursor: pointer;
+      flex-shrink: 0;
     }
 
     .next-ep-thumb {
@@ -1016,7 +1041,7 @@
     }
 
     .next-ep-title {
-      font-size: 14px;
+      font-size: 13.5px;
       font-weight: 600;
       color: #fff;
       line-height: 1.3;
@@ -1029,11 +1054,11 @@
 
     .next-ep-progress-bar-track {
       width: 100%;
-      height: 3px;
-      background: rgba(255, 255, 255, 0.15);
+      height: 2.5px;
+      background: rgba(255, 255, 255, 0.12);
       border-radius: 2px;
       overflow: hidden;
-      margin-top: 10px;
+      margin-top: 9px;
     }
 
     .next-ep-progress-bar-fill {
@@ -1041,6 +1066,81 @@
       width: 100%;
       background: var(--tblr-primary, #206bc4);
       transition: width 1s linear;
+    }
+
+    /* Mobile responsive & landscape refinements for player fullscreen header & next episode */
+    @media (max-width: 768px), (max-height: 520px) {
+      .player-fs-header {
+        padding: 8px 14px 14px;
+        background: linear-gradient(180deg, rgba(5, 8, 15, 0.94) 0%, rgba(5, 8, 15, 0.5) 65%, transparent 100%);
+      }
+      .player-fs-back-btn {
+        width: 32px;
+        height: 32px;
+        min-width: 32px;
+        font-size: 16px;
+      }
+      .player-fs-title {
+        font-size: 14px;
+      }
+      .player-fs-sub {
+        font-size: 11px;
+        margin-top: 1px;
+      }
+      .player-fs-exit-pill {
+        padding: 4px 10px;
+        font-size: 11px;
+      }
+
+      /* Non-intrusive compact Next Episode overlay: positioned above video controls in landscape */
+      .next-episode-card {
+        bottom: 56px;
+        right: 16px;
+        left: auto;
+        width: 330px;
+        max-width: calc(100vw - 32px);
+        margin: 0;
+        padding: 10px 12px;
+        border-radius: 12px;
+        background: rgba(10, 15, 26, 0.95);
+        box-shadow: 0 12px 32px rgba(0, 0, 0, 0.85), 0 0 0 1px rgba(255, 255, 255, 0.08);
+      }
+      .next-episode-card .next-ep-thumb-wrapper {
+        width: 68px;
+        height: 38px;
+        min-width: 68px;
+      }
+      .next-episode-card .next-ep-title {
+        font-size: 12px;
+      }
+      .next-episode-card .next-ep-meta {
+        font-size: 10px;
+      }
+      .next-episode-card .next-ep-close-btn {
+        width: 28px;
+        height: 28px;
+        min-width: 28px;
+        font-size: 14px;
+      }
+      .next-episode-card .next-ep-action-btn {
+        padding: 4px 12px !important;
+        font-size: 11.5px !important;
+      }
+    }
+
+    /* Small phone portrait overlay */
+    @media (max-width: 576px) and (orientation: portrait) {
+      .next-episode-card {
+        bottom: 20px;
+        left: 10px;
+        right: 10px;
+        width: auto;
+        max-width: calc(100% - 20px);
+        margin: 0 auto;
+      }
+      .next-episode-card .next-ep-thumb-wrapper {
+        display: none !important;
+      }
     }
 
     /* ═══════════════════════════════════════════════════════
@@ -1239,7 +1339,7 @@
     }
 
     .fav-card:hover {
-      transform: translateY(-4px) scale(1.02);
+      transform: translateY(-4px);
       border-color: rgba(255, 71, 87, 0.4);
       box-shadow: 0 10px 24px rgba(0, 0, 0, 0.45), 0 0 14px rgba(255, 71, 87, 0.15);
     }
@@ -1249,7 +1349,7 @@
     .fav-card:focus-within {
       outline: 3px solid #ff4757 !important;
       outline-offset: 3px !important;
-      transform: translateY(-4px) scale(1.02);
+      transform: translateY(-4px);
       box-shadow: 0 10px 24px rgba(255, 71, 87, 0.4);
     }
 

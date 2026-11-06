@@ -227,12 +227,14 @@
     /* Grid cards are sized by their Bootstrap column; a rail item has to bring
        its own width. Everything inside the card reuses unchanged. */
     .shelf-item {
-      flex: 0 0 132px;
-      width: 132px;
+      flex: 0 0 136px;
+      width: 136px;
+      display: flex;
+      flex-direction: column;
       contain: layout style;
     }
     @media (min-width: 992px) {
-      .shelf-item { flex-basis: 158px; width: 158px; }
+      .shelf-item { flex-basis: 156px; width: 156px; }
     }
 
     /* ═══════════════════════════════════════════════════════
@@ -244,17 +246,30 @@
       background: var(--bg-surface) !important;
       border: 1px solid var(--border) !important;
       overflow: hidden !important;
-      transition: transform .18s ease-out, box-shadow .18s ease-out, border-color .18s ease-out !important;
+      transition: transform .18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .18s cubic-bezier(0.16, 1, 0.3, 1), border-color .18s cubic-bezier(0.16, 1, 0.3, 1) !important;
       display: flex;
       flex-direction: column;
+      height: 100% !important;
+      flex: 1 1 auto;
       transform: translateZ(0);
       backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      outline: 1px solid transparent;
     }
 
     .result-card:hover {
-      transform: translateY(-5px) scale(1.02) !important;
-      box-shadow: 0 10px 28px rgba(0,0,0,.45) !important;
+      transform: translateY(-4px) !important;
+      box-shadow: 0 10px 24px rgba(0,0,0,.45) !important;
       border-color: var(--border-strong) !important;
+    }
+
+    #search-results > [class*="col-"] {
+      display: flex;
+      flex-direction: column;
+    }
+    #search-results > [class*="col-"] > .result-card {
+      height: 100% !important;
+      flex: 1;
     }
 
     .poster-wrap {
@@ -317,8 +332,14 @@
     }
 
     .card-meta {
-      padding: 10px 11px 12px;
-      flex: 1;
+      padding: 9px 10px 10px;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      flex: 1 0 auto;
+      min-height: 64px;
+      max-height: 64px;
+      box-sizing: border-box;
     }
 
     .card-meta .card-title-text {
@@ -329,14 +350,30 @@
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-      margin-bottom: 5px;
+      margin-bottom: 3px;
     }
 
     .card-meta .card-badges {
       display: flex;
       align-items: center;
       gap: 4px;
-      flex-wrap: wrap;
+      flex-wrap: nowrap;
+      white-space: nowrap;
+      overflow: hidden;
+      height: 20px;
+      min-height: 20px;
+    }
+
+    .card-meta .card-badges .badge {
+      flex-shrink: 0;
+      font-size: 10px;
+      padding: 2px 5px;
+    }
+
+    .card-meta .card-badges > span:not(.badge) {
+      flex-shrink: 0;
+      font-size: 10px;
+      color: var(--text-muted);
     }
 
     /* ═══════════════════════════════════════════════════════
@@ -1394,34 +1431,42 @@
     }
 
     .cw-item {
-      flex: 0 0 148px;
-      width: 148px;
+      flex: 0 0 136px;
+      width: 136px;
       display: flex;
       flex-direction: column;
+      contain: layout style;
     }
     @media (min-width: 992px) {
-      .cw-item { flex-basis: 165px; width: 165px; }
+      .cw-item { flex-basis: 156px; width: 156px; }
     }
 
     .cw-card {
       position: relative;
       display: flex;
       flex-direction: column;
-      height: 100%;
+      height: 100% !important;
+      flex: 1 1 auto;
       background: var(--bg-surface) !important;
-      border: 1px solid var(--border-mid) !important;
+      border: 1px solid var(--border) !important;
       border-radius: var(--radius) !important;
       overflow: hidden !important;
-      transition: transform .2s ease-out, box-shadow .2s ease-out, border-color .2s ease-out !important;
+      transform: translateZ(0);
+      backface-visibility: hidden;
+      -webkit-backface-visibility: hidden;
+      outline: 1px solid transparent;
+      transition: transform .18s cubic-bezier(0.16, 1, 0.3, 1), box-shadow .18s cubic-bezier(0.16, 1, 0.3, 1), border-color .18s cubic-bezier(0.16, 1, 0.3, 1) !important;
     }
 
     .cw-meta {
       display: flex;
       flex-direction: column;
       justify-content: space-between;
-      flex: 1;
+      flex: 1 0 auto;
       padding: 9px 10px 10px !important;
       min-height: 64px;
+      max-height: 64px;
+      box-sizing: border-box;
     }
 
     .cw-meta .card-title-text {
@@ -1433,16 +1478,16 @@
       color: var(--text-muted);
       line-height: 1.3;
       height: 15px;
-      margin-bottom: 5px;
+      margin-bottom: 3px;
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
     }
 
     .cw-card:hover {
-      transform: translateY(-5px) scale(1.02) !important;
-      box-shadow: 0 12px 30px rgba(0,0,0,.55) !important;
-      border-color: rgba(46, 213, 115, 0.4) !important;
+      transform: translateY(-4px) !important;
+      box-shadow: 0 12px 28px rgba(0,0,0,.55), 0 0 10px rgba(46, 213, 115, 0.15) !important;
+      border-color: rgba(46, 213, 115, 0.45) !important;
     }
 
     .cw-progress-bar-wrap {
@@ -1450,10 +1495,12 @@
       bottom: 0;
       left: 0;
       right: 0;
-      height: 5px;
+      height: 4px;
       background: rgba(0, 0, 0, 0.7);
-      z-index: 4;
+      z-index: 5;
       overflow: hidden;
+      transform: translateZ(0);
+      -webkit-transform: translateZ(0);
     }
 
     .cw-progress-bar {

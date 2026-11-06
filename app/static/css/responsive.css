@@ -240,13 +240,10 @@
         grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)) !important;
         gap: 14px;
       }
-      .shelf-item {
-        flex-basis: 148px;
-        width: 148px;
-      }
+      .shelf-item,
       .cw-item {
-        flex-basis: 168px;
-        width: 168px;
+        flex-basis: 160px;
+        width: 160px;
       }
       .th-hero {
         min-height: 320px;
@@ -275,13 +272,10 @@
         grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)) !important;
         gap: 15px;
       }
-      .shelf-item {
-        flex-basis: 154px;
-        width: 154px;
-      }
+      .shelf-item,
       .cw-item {
-        flex-basis: 174px;
-        width: 174px;
+        flex-basis: 166px;
+        width: 166px;
       }
       .th-hero {
         min-height: 360px;
@@ -456,13 +450,11 @@
         gap: 10px;
         scroll-snap-type: x proximity;
       }
-      .shelf-item {
-        scroll-snap-align: start;
-      }
+      .shelf-item,
       .cw-item {
         scroll-snap-align: start;
-        flex-basis: 145px;
-        width: 145px;
+        flex: 0 0 136px;
+        width: 136px;
       }
     }
 
