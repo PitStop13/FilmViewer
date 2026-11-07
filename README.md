@@ -17,7 +17,7 @@
 
 ## 📌 Panoramica
 
-FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e privata tra amici e familiari. Combina l'esperienza d'uso di un catalogo in stile Netflix con un player streaming HLS ad alta risoluzione, la sincronizzazione **JAM Watch Party** per guardare contenuti assieme a distanza, un avanzato motore di download parallelo e un sistema di auto-aggiornamento intelligente che previene qualsiasi interruzione dovuta ai cambi di dominio della sorgente.
+FilmViewer è un'applicazione web moderna concepita per la fruizione domestica e privata tra amici e familiari. Combina l'esperienza d'uso di un catalogo in stile Netflix con un player streaming HLS ad alta risoluzione (con modalità Riempi Schermo per eliminare le barre nere sia su computer sia tramite pinch-to-zoom su mobile), la sincronizzazione **JAM Watch Party** per guardare contenuti assieme a distanza, un avanzato motore di download parallelo e un sistema di auto-aggiornamento intelligente che previene qualsiasi interruzione dovuta ai cambi di dominio della sorgente.
 
 <p align="center">
   <img src="docs/home.png" alt="Schermata Principale" width="88%"/>
