@@ -102,6 +102,9 @@
         <h5 class="modal-title" id="player-modal-title" style="color:rgba(255,255,255,.6)"></h5>
         <div class="d-flex align-items-center gap-2">
           <div id="player-jam-pill" class="jam-pill" style="display:none;" data-action="jam:openSettings" title="JAM Watch Party attivo - Clicca per gestire"></div>
+          <button type="button" class="btn btn-sm btn-dark" id="player-zoom-btn" data-action="player:toggleZoom" title="Riempi schermo senza barre nere (Z)">
+            <i class="ti ti-aspect-ratio"></i>
+          </button>
           <button type="button" class="btn btn-sm btn-dark" id="player-fs-btn" data-action="player:toggleFullscreen" title="Schermo intero (F)">
             <i class="ti ti-maximize"></i>
           </button>
@@ -121,6 +124,10 @@
             </div>
           </div>
           <div class="d-flex align-items-center gap-2 ms-auto flex-shrink-0">
+            <button type="button" class="player-fs-zoom-pill" data-action="player:toggleZoom" title="Riempi schermo senza barre nere (Z)">
+              <i class="ti ti-aspect-ratio me-1"></i>
+              <span class="player-zoom-btn-label">Riempi (Z)</span>
+            </button>
             <button type="button" class="player-fs-exit-pill" data-action="player:toggleFullscreen" title="Esci da schermo intero (F / Esc)">
               <i class="ti ti-minimize me-1"></i>
               <span>Esci (F)</span>
@@ -219,6 +226,10 @@
             </button>
             <ul class="dropdown-menu dropdown-menu-end dropdown-menu-dark" id="stream-player-quality-menu"></ul>
           </div>
+          <!-- Zoom/Fill button -->
+          <button type="button" class="btn btn-sm btn-dark" id="stream-player-zoom-btn" data-action="player:toggleZoom" title="Riempi schermo senza barre nere (Z)">
+            <i class="ti ti-aspect-ratio"></i>
+          </button>
           <!-- Fullscreen button -->
           <button type="button" class="btn btn-sm btn-dark" id="stream-player-fs-btn" data-action="player:toggleFullscreen" title="Schermo intero reale (F)">
             <i class="ti ti-maximize"></i>
@@ -240,6 +251,10 @@
             </div>
           </div>
           <div class="d-flex align-items-center gap-2 ms-auto flex-shrink-0">
+            <button type="button" class="player-fs-zoom-pill" data-action="player:toggleZoom" title="Riempi schermo senza barre nere (Z)">
+              <i class="ti ti-aspect-ratio me-1"></i>
+              <span class="player-zoom-btn-label">Riempi (Z)</span>
+            </button>
             <button type="button" class="player-fs-exit-pill" data-action="player:toggleFullscreen" title="Esci da schermo intero (F / Esc)">
               <i class="ti ti-minimize me-1"></i>
               <span>Esci (F)</span>

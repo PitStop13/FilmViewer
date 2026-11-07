@@ -552,6 +552,36 @@ function isVideoZoomed(video) {
   return video.classList.contains('player-zoom-fill') || (container && container.classList.contains('zoom-fill'));
 }
 
+function updateZoomButtons(isZoomed) {
+  document.querySelectorAll('#player-zoom-btn, #stream-player-zoom-btn').forEach(btn => {
+    btn.setAttribute('title', isZoomed ? 'Ripristina proporzioni originali (Z)' : 'Riempi schermo senza barre nere (Z)');
+    btn.classList.toggle('btn-primary', !!isZoomed);
+    btn.classList.toggle('btn-dark', !isZoomed);
+    const icon = btn.querySelector('i');
+    if (icon) {
+      icon.className = isZoomed ? 'ti ti-aspect-ratio-filled' : 'ti ti-aspect-ratio';
+    }
+  });
+  document.querySelectorAll('.player-fs-zoom-pill').forEach(pill => {
+    pill.setAttribute('title', isZoomed ? 'Ripristina proporzioni originali (Z)' : 'Riempi schermo senza barre nere (Z)');
+    const icon = pill.querySelector('i');
+    if (icon) {
+      icon.className = isZoomed ? 'ti ti-aspect-ratio-filled me-1 text-primary' : 'ti ti-aspect-ratio me-1';
+    }
+    const label = pill.querySelector('.player-zoom-btn-label');
+    if (label) {
+      label.textContent = isZoomed ? 'Originale (Z)' : 'Riempi (Z)';
+    }
+  });
+}
+
+function togglePlayerZoom(specificVideo) {
+  const video = specificVideo || getActiveVideoPlayer();
+  if (!video) return;
+  const isZoomed = isVideoZoomed(video);
+  setVideoZoomFill(video, !isZoomed);
+}
+
 function setVideoZoomFill(video, fill, specificContainer) {
   if (!video) return;
   const container = specificContainer || video.closest('.player-container');
@@ -572,6 +602,7 @@ function setVideoZoomFill(video, fill, specificContainer) {
       showNetflixZoomPill(container, 'original');
     }
   }
+  updateZoomButtons(fill);
 }
 
 function resetVideoZoom(video) {
@@ -584,6 +615,7 @@ function resetVideoZoom(video) {
   hideNetflixZoomPill(container);
   const pill = container?.querySelector('.player-zoom-pill');
   if (pill) pill.remove();
+  updateZoomButtons(false);
 }
 
 function initMobilePlayerPinchZoom() {
@@ -858,19 +890,20 @@ function handlePlayerKeyDown(e) {
   const isVolDown = key === 'ArrowDown';
   const isMute = key === 'm' || key === 'M';
   const isFs = key === 'f' || key === 'F';
+  const isZoom = key === 'z' || key === 'Z' || key === 'c' || key === 'C';
   const isDigit = !e.ctrlKey && !e.altKey && !e.metaKey && /^[0-9]$/.test(key);
   const isHome = key === 'Home';
   const isEnd = key === 'End';
 
-  if (!isPlayPause && !isSeekRight && !isSeekLeft && !isVolUp && !isVolDown && !isMute && !isFs && !isDigit && !isHome && !isEnd) {
+  if (!isPlayPause && !isSeekRight && !isSeekLeft && !isVolUp && !isVolDown && !isMute && !isFs && !isZoom && !isDigit && !isHome && !isEnd) {
     return;
   }
 
   const video = getActiveVideoPlayer();
   if (!video) return;
 
-  // Discard key repetitions for toggle actions (play/pause, fullscreen, mute)
-  if (e.repeat && (isPlayPause || isFs || isMute)) {
+  // Discard key repetitions for toggle actions (play/pause, fullscreen, mute, zoom)
+  if (e.repeat && (isPlayPause || isFs || isMute || isZoom)) {
     e.preventDefault();
     return;
   }
@@ -956,6 +989,13 @@ function handlePlayerKeyDown(e) {
   // 'f' or 'F': Fullscreen toggle directly on the video element
   if (isFs) {
     togglePlayerFullscreen(video);
+    clearPlayerFocus(video);
+    return;
+  }
+
+  // 'z' / 'Z' or 'c' / 'C': Toggle Zoom to Fill (Netflix Crop / Fill)
+  if (isZoom) {
+    togglePlayerZoom(video);
     clearPlayerFocus(video);
     return;
   }
@@ -1181,6 +1221,7 @@ registerActions({
     showToast(`Tema "${th ? th.name : d.theme}" applicato`, 'success');
   },
   'player:toggleFullscreen': () => togglePlayerFullscreen(),
+  'player:toggleZoom': () => togglePlayerZoom(),
 });
 
 
